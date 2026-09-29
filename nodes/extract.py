@@ -49,7 +49,11 @@ def stub_extract(documents: list[dict]) -> tuple[dict, dict]:
 
 def extract(state: dict, llm=None) -> dict:
     documents = state.get("documents", [])
+    if llm == "openrouter":
+        from nodes.extract_openrouter import openrouter_extract
+        extracted, meta = openrouter_extract(documents)
+        return {"extracted": extracted, "extracted_meta": meta}
     if llm is not None:
-        raise NotImplementedError("Live LLM path needs provider package + key; wire prompt->JSON here.")
+        raise NotImplementedError("Unknown llm option; use llm='openrouter' or None (stub).")
     extracted, meta = stub_extract(documents)
     return {"extracted": extracted, "extracted_meta": meta}
