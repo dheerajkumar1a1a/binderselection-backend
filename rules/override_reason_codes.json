@@ -1,0 +1,11 @@
+{
+  "code_list": "override_reason_code",
+  "version": 1,
+  "codes": [
+    {"code": "PRIOR_RELATIONSHIP", "description": "Existing relationship with facility"},
+    {"code": "CAPACITY_PREFERENCE", "description": "Capacity utilisation preference"},
+    {"code": "TERMS_NEGOTIATED", "description": "Terms negotiated outside system"},
+    {"code": "BROKER_REQUEST", "description": "Broker request with reason"},
+    {"code": "OTHER", "description": "Other with free-text commentary"}
+  ]
+}
