@@ -12,15 +12,19 @@ import os
 import urllib.request
 
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = os.environ.get("OPENROUTER_MODEL", "meta-llama/llama-3.3-70b-instruct:free")
+DEFAULT_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemma-4-31b-it:free")
 FIELDS = ["total_insured_value", "broker_name", "locations", "commodities"]
 
 PROMPT = """Extract marine-cargo submission fields from the documents below.
 Return ONLY valid JSON, no markdown, with this shape:
-{"fields": [{"name": "<one of: total_insured_value, broker_name, locations, commodities>",
-"value": <JSON value or null if not stated>, "confidence": <0-1>,
-"source_locator": "<quote or location, max 120 chars>"}]}
+{"fields": [
+ {"name": "total_insured_value", "value": <number or null>, "confidence": <0-1>, "source_locator": "<quote, max 120 chars>"},
+ {"name": "broker_name", "value": "<string or null>", "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "locations", "value": [{"address": "<string>", "sprinklered": <true/false/null>}] or null, "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "commodities", "value": [{"commodity_type": "<UPPER_SNAKE string>"}] or null, "confidence": <0-1>, "source_locator": "<quote>"}
+]}
 Rules: never invent values - use null when absent. Money as number when possible.
+locations MUST be a list of objects (empty list if none stated). commodities MUST be a list of objects.
 Documents:
 """
 
