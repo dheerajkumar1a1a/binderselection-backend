@@ -5,6 +5,7 @@ __pycache__/
 *.db
 *.sqlite
 .checkpoints.sqlite
+capacity/ledger.json
 audit/
 .langgraph/
 .pytest_cache/

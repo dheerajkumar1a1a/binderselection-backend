@@ -33,6 +33,7 @@ def write_audit(state: dict) -> dict:
         "scores": state.get("scores"),
         "recommendation": state.get("recommendation"),
         "decision": state.get("decision"),
+        "settlement": state.get("settlement"),
     }
     with open(audit_dir / "decisions.jsonl", "a", encoding="utf-8") as f:
         f.write(json.dumps(record) + "\n")

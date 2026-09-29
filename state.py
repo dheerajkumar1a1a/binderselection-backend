@@ -15,4 +15,5 @@ class SubmissionState(TypedDict, total=False):
     ranking: list[str]
     recommendation: str
     decision: dict[str, Any]
+    settlement: dict[str, Any]
     audit_id: str

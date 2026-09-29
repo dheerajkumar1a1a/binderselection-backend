@@ -1,4 +1,4 @@
-"""LangGraph vertical slice: extract -> completeness -> capacity -> appetite -> rank -> review -> audit."""
+"""LangGraph vertical slice: extract -> completeness -> capacity -> appetite -> rank -> review -> settle -> audit."""
 from langgraph.graph import StateGraph, END
 from state import SubmissionState
 from nodes import extract as ext
@@ -7,6 +7,7 @@ from nodes import capacity as cap
 from nodes import appetite as app
 from nodes import rank as rnk
 from nodes import review as rev
+from nodes import settle as stl
 from persistence import get_checkpointer, write_audit
 
 CAP_LINE, CAP_WRITTEN, CAP_RESERVED = 15_000_000.0, 5_000_000.0, 0.0
@@ -20,6 +21,7 @@ def build(checkpointer=None):
     g.add_node("appetite", app.evaluate)
     g.add_node("rank", rnk.score)
     g.add_node("review", rev.review)
+    g.add_node("settle", stl.settle)
     g.add_node("audit", write_audit)
     g.set_entry_point("extract")
     g.add_edge("extract", "completeness")
@@ -33,6 +35,7 @@ def build(checkpointer=None):
     )
     g.add_edge("appetite", "rank")
     g.add_edge("rank", "review")
-    g.add_edge("review", "audit")
+    g.add_edge("review", "settle")
+    g.add_edge("settle", "audit")
     g.add_edge("audit", END)
     return g.compile(checkpointer=checkpointer)
