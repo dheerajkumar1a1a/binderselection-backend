@@ -35,7 +35,35 @@ def write_audit(state: dict) -> dict:
         "recommendation": state.get("recommendation"),
         "decision": state.get("decision"),
         "settlement": state.get("settlement"),
+        "stage_timings": state.get("stage_timings"),
+        "model_versions": state.get("model_versions"),
+        "supersedes": state.get("supersedes"),
     }
     with open(audit_dir / "decisions.jsonl", "a", encoding="utf-8") as f:
         f.write(json.dumps(record) + "\n")
     return {"audit_id": record["evaluation_id"]}
+
+
+def evidence_pack(record: dict) -> str:
+    """Single human-readable evidence pack for one evaluation (BFR-AUD-008)."""
+    lines = [f"# Evidence pack — {record.get('evaluation_id')}",
+             f"Submission: {record.get('submission_reference')} · evaluated {record.get('evaluated_at')}"]
+    if record.get("supersedes"):
+        lines.append(f"Supersedes: {record['supersedes']} (original left intact, BFR-AUD-004)")
+    lines.append("## Extracted values (value | confidence | source)")
+    for f, m in (record.get("extracted_meta") or {}).items():
+        if isinstance(m, dict):
+            lines.append(f"- {f}: {m.get('value')} | conf {m.get('confidence')} | {m.get('source_document_id')}")
+            if m.get("corrected_by"):
+                lines.append(f"  corrected by {m['corrected_by']} at {m.get('corrected_at')}, was {m.get('pre_correction_value')}")
+    lines.append("## Binder outcomes")
+    for r in record.get("binder_results") or []:
+        lines.append(f"- {r.get('binder_id')}: {r.get('outcome')} {r.get('reason', '')} (ruleset v{r.get('ruleset_version')})")
+        for o in r.get("rule_outcomes", []):
+            lines.append(f"  - {o.get('rule_id')}: {o.get('outcome')} value={o.get('value')} {o.get('reason', '')}")
+    lines.append(f"## Recommendation: {record.get('recommendation')} scores={record.get('scores')}")
+    d = record.get("decision") or {}
+    lines.append(f"## Decision: {d.get('action')} -> {d.get('selected_binder')} by {d.get('underwriter_id')} at {d.get('decided_at')}")
+    lines.append(f"## Settlement: {record.get('settlement')}")
+    lines.append(f"## Models: {record.get('model_versions')} · timings: {record.get('stage_timings')}")
+    return "\n".join(lines)

@@ -7,19 +7,20 @@ from nodes import completeness as comp
 from nodes import multibind as mb
 from nodes import review as rev
 from nodes import settle as stl
+from nodes import timing as tmg
 from persistence import get_checkpointer, write_audit
 
 
 def build(checkpointer=None):
     g = StateGraph(SubmissionState)
-    g.add_node("extract", ext.extract)
-    g.add_node("derive", drv.derive)
-    g.add_node("completeness", comp.check)
-    g.add_node("evaluate", mb.evaluate_binders)
-    g.add_node("rank", mb.rank)
-    g.add_node("review", rev.review)
-    g.add_node("settle", stl.settle)
-    g.add_node("audit", write_audit)
+    g.add_node("extract", tmg.timed("extract", ext.extract))
+    g.add_node("derive", tmg.timed("derive", drv.derive))
+    g.add_node("completeness", tmg.timed("completeness", comp.check))
+    g.add_node("evaluate", tmg.timed("evaluate", mb.evaluate_binders))
+    g.add_node("rank", tmg.timed("rank", mb.rank))
+    g.add_node("review", tmg.timed("review", rev.review))
+    g.add_node("settle", tmg.timed("settle", stl.settle))
+    g.add_node("audit", tmg.timed("audit", write_audit))
     g.set_entry_point("extract")
     g.add_edge("extract", "derive")
     g.add_edge("derive", "completeness")

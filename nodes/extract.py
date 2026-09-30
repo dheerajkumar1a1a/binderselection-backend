@@ -64,10 +64,12 @@ def json_dumps(v: Any) -> str:
 def extract(state: dict, llm=None) -> dict:
     documents = state.get("documents", [])
     if llm == "openrouter":
-        from nodes.extract_openrouter import openrouter_extract
+        from nodes.extract_openrouter import openrouter_extract, DEFAULT_MODEL
         extracted, meta = openrouter_extract(documents)
-        return {"extracted": extracted, "extracted_meta": meta}
+        return {"extracted": extracted, "extracted_meta": meta,
+                "model_versions": {"extraction": DEFAULT_MODEL, "narrative": None}}
     if llm is not None:
         raise NotImplementedError("Unknown llm option; use llm='openrouter' or None (stub).")
     extracted, meta = stub_extract(documents)
-    return {"extracted": extracted, "extracted_meta": meta}
+    return {"extracted": extracted, "extracted_meta": meta,
+            "model_versions": {"extraction": "stub-1", "narrative": None}}

@@ -84,4 +84,18 @@ def report(path: str | Path | None = None) -> dict:
             "override_rate": override_rate(records),
             "data_quality": data_quality(records),
             "refer_by_field": refer_by_field(records),
-            "stage_timing": {"gap": "nodes do not emit stage durations yet (MI-006)"}}
+            "stage_timing": stage_timing(records)}
+
+
+def stage_timing(records: list[dict]) -> dict:
+    """Mean seconds per stage across records that carry timings (MI-006)."""
+    sums: dict[str, float] = {}
+    counts: dict[str, int] = {}
+    for r in records:
+        for stage, secs in (r.get("stage_timings") or {}).items():
+            sums[stage] = sums.get(stage, 0.0) + float(secs)
+            counts[stage] = counts.get(stage, 0) + 1
+    if not counts:
+        return {"gap": "no timed records yet"}
+    return {"mean_seconds": {s: round(sums[s] / counts[s], 4) for s in sums},
+            "n": len(records)}

@@ -18,4 +18,7 @@ class SubmissionState(TypedDict, total=False):
     recommendation: str
     decision: dict[str, Any]
     settlement: dict[str, Any]
+    stage_timings: dict[str, float]
+    model_versions: dict[str, Any]
+    supersedes: str | None
     audit_id: str
