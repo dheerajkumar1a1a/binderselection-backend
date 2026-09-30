@@ -396,3 +396,21 @@ named owner before its requirements build.
 5. Auth/RBAC, secret store, TLS everywhere, structured log hygiene,
    metrics/alerts (BFR-NFR-001..008, 021..024), load + failure-injection
    proof (BFR-NFR-011..020).
+
+---
+
+## 13. Sample dataset (device-agnostic)
+
+`samples/cases/` holds 15 JSON cases + `samples/manifest.json` (coverage map).
+Relative paths only, UTF-8, LF pinned by `.gitattributes` — clone on any OS
+and run. Each case carries its own capacity params and expected gate outcome:
+
+- accept / bite / boundary (01–03), capacity shortfall / zero (04–05)
+- location-scope bites incl. mixed sites (06–07), commodity bites (08–09)
+- Cannot-assess Refer (10), completeness halts (11–13)
+- money normalisation (14), 4-site SOV (15)
+
+```powershell
+python -m pytest tests/test_dataset.py -q   # 16 tests: 15 cases + manifest check
+python demo.py                               # full-loop demo on case 01 shape
+```
