@@ -1,7 +1,8 @@
-"""LangGraph vertical slice: extract -> completeness -> capacity -> appetite -> rank -> review -> settle -> audit."""
+"""LangGraph vertical slice: extract -> derive -> completeness -> capacity -> appetite -> rank -> review -> settle -> audit."""
 from langgraph.graph import StateGraph, END
 from state import SubmissionState
 from nodes import extract as ext
+from nodes import derive as drv
 from nodes import completeness as comp
 from nodes import capacity as cap
 from nodes import appetite as app
@@ -16,15 +17,17 @@ CAP_LINE, CAP_WRITTEN, CAP_RESERVED = 15_000_000.0, 5_000_000.0, 0.0
 def build(checkpointer=None):
     g = StateGraph(SubmissionState)
     g.add_node("extract", ext.extract)
+    g.add_node("derive", drv.derive)
     g.add_node("completeness", comp.check)
-    g.add_node("capacity", lambda s: cap.screen(s, CAP_LINE, CAP_WRITTEN, CAP_RESERVED))
+    g.add_node("capacity", lambda s: cap.screen_safe(s, CAP_LINE, CAP_WRITTEN, CAP_RESERVED))
     g.add_node("appetite", app.evaluate)
     g.add_node("rank", rnk.score)
     g.add_node("review", rev.review)
     g.add_node("settle", stl.settle)
     g.add_node("audit", write_audit)
     g.set_entry_point("extract")
-    g.add_edge("extract", "completeness")
+    g.add_edge("extract", "derive")
+    g.add_edge("derive", "completeness")
     g.add_conditional_edges(
         "completeness",
         lambda s: "capacity" if s["completeness"]["can_evaluate"] else END,

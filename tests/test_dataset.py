@@ -6,6 +6,7 @@ from nodes import completeness as comp
 from nodes import capacity as cap
 from nodes import appetite as app
 from nodes import rank as rnk
+from nodes import derive as drv
 from nodes.extract import stub_extract
 
 CASES = Path(__file__).resolve().parent.parent / "samples" / "cases"
@@ -18,7 +19,7 @@ def load_cases():
 def run_case(case: dict) -> dict:
     state: dict = {"submission_reference": case["case_id"]}
     ext, meta = stub_extract(case["documents"])
-    state["extracted"] = ext
+    state["extracted"] = drv.derive({"extracted": ext})["extracted"]
     state["completeness"] = comp.check(state)["completeness"]
     if not state["completeness"]["can_evaluate"]:
         return {"halt": "completeness", "state": state}
@@ -29,7 +30,11 @@ def run_case(case: dict) -> dict:
                  binder_outcome=cap_out["binder_outcome"])
     if state["binder_outcome"] != "eligible":
         return {"halt": "capacity", "state": state}
-    state.update(app.evaluate(state))
+    rs = case.get("ruleset")
+    if rs:
+        state.update(app.evaluate(state, binder_id=rs["binder_id"], as_at=rs.get("as_at")))
+    else:
+        state.update(app.evaluate(state))
     state.update(rnk.score(state))
     return {"halt": None, "state": state}
 

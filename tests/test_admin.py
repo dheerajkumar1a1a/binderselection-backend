@@ -11,8 +11,11 @@ def test_validate_rejects_unknown_field_and_op():
 
 
 def test_effective_version_loads():
-    data = load_effective("binder_A", "2026-09-29")
-    assert data["version"] == 1 and len(data["rules"]) == 3
+    old = load_effective("binder_A", "2026-09-29")
+    assert old["version"] == 1 and len(old["rules"]) == 3
+    new = load_effective("binder_A", "2026-09-30")
+    assert new["version"] == 2 and len(new["rules"]) == 11
+    assert validate_rule(new["rules"][0]) == []
 
 
 def test_four_eyes_blocks_self_approval():

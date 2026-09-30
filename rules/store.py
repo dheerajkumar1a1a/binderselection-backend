@@ -11,9 +11,16 @@ KNOWN_FIELDS = {
     "total_insured_value", "broker_name", "locations", "commodities",
     "locations.sprinklered", "commodities.commodity_type",
     "broker_count", "policy_term_months",
+    "coverage_sections.limit", "largest_single_claim_amount",
+    "total_claims_amount", "claim_count_3_years", "claim_count_5_years",
+    "losses", "insured_in_continental_us", "insured_country",
+    "insured_state_province", "valuation_basis", "coverage_type",
+    "requested_inception_date", "expiring_premium_disclosed",
+    "business_commencement_date", "years_trading",
 }
 VALID_OPS = {"lte", "lt", "gte", "gt", "eq", "neq", "in", "not_in",
-             "is_true", "is_false", "is_absent", "is_present"}
+             "is_true", "is_false", "is_absent", "is_present",
+             "before", "after"}
 
 
 def validate_rule(rule: dict) -> list[str]:

@@ -1,5 +1,6 @@
 """Deterministic appetite evaluation (BFR-APP-004/005). No LLM here."""
 import json
+from datetime import date
 from pathlib import Path
 
 
@@ -18,26 +19,62 @@ def _get(extracted: dict, ref: str):
     return None
 
 
+def _threshold(raw):
+    if raw == "TODAY":
+        return date.today().isoformat()
+    return raw
+
+
+def _single_ok(val, op: str, threshold) -> bool:
+    t = _threshold(threshold)
+    if op == "lte":
+        return val <= t
+    if op == "lt":
+        return val < t
+    if op == "gte":
+        return val >= t
+    if op == "gt":
+        return val > t
+    if op == "eq":
+        return val == t
+    if op == "neq":
+        return val != t
+    if op == "in":
+        return val in t
+    if op == "not_in":
+        return str(val).upper() not in t
+    if op == "is_true":
+        return val is True
+    if op == "is_false":
+        return val is False
+    if op == "is_absent":
+        return val is None
+    if op == "is_present":
+        return val is not None
+    if op == "before":
+        return str(val) < str(t)
+    if op == "after":
+        return str(val) > str(t)
+    raise ValueError(f"unknown-op:{op}")
+
+
 def evaluate_rule(extracted: dict, rule: dict) -> dict:
     val = _get(extracted, rule["field_reference"])
     op = rule["operator"]
     if val is None or val == "" or val == []:
         return {"rule_id": rule["rule_id"], "outcome": "Cannot assess", "reason": f"missing:{rule['field_reference']}"}
-    if op == "lte":
-        ok = val <= rule["threshold_value"]
-    elif op == "is_true":
+    try:
         vals = val if isinstance(val, list) else [val]
-        ok = all(v is True for v in vals)
-    elif op == "not_in":
-        vals = val if isinstance(val, list) else [val]
-        ok = all(str(v).upper() not in rule["threshold_value"] for v in vals)
-    else:
-        return {"rule_id": rule["rule_id"], "outcome": "Cannot assess", "reason": f"unknown-op:{op}"}
+        if any(v is None for v in vals):
+            return {"rule_id": rule["rule_id"], "outcome": "Cannot assess", "reason": f"missing:{rule['field_reference']}"}
+        ok = all(_single_ok(v, op, rule.get("threshold_value")) for v in vals)
+    except (ValueError, TypeError) as e:
+        return {"rule_id": rule["rule_id"], "outcome": "Cannot assess", "reason": str(e)}
     return {"rule_id": rule["rule_id"], "outcome": "Pass" if ok else "Decline", "value": val}
 
 
 def evaluate(state: dict, rules_path: str = "rules/binder_A_v1.json",
-               binder_id: str | None = None, as_at: str | None = None) -> dict:
+             binder_id: str | None = None, as_at: str | None = None) -> dict:
     if binder_id is not None:
         import sys
         sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "rules"))
