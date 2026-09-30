@@ -1,8 +1,9 @@
 """Underwriter review: human decides, system only recommends (BFR 2.4, BFR-UWR).
 
-Actions: accept | override | refer_back.
+Actions: accept | override | refer_back | correct.
 - override needs reason_code from the code list (BFR-UWR-005).
 - hard-decline selection is blocked (BFR-UWR-007).
+- correct resolves contested values and triggers re-evaluation (BFR-EXT-006/007).
 - identity + timestamp recorded (BFR-UWR-006).
 """
 from datetime import datetime, timezone
@@ -58,7 +59,13 @@ def validate(state: dict, human: dict, rules: list[dict] | None = None) -> dict:
                     if o.get("outcome") == "Cannot assess"]
         return {**base, "valid": True, "action": "refer_back",
                 "info_request": sorted(set(missing))}
-    return {**base, "valid": False, "error": "action must be accept|override|refer_back"}
+    if action == "correct":
+        corrections = human.get("corrections") or {}
+        if not corrections:
+            return {**base, "valid": False, "error": "corrections required"}
+        return {**base, "valid": True, "action": "correct",
+                "corrections": corrections}
+    return {**base, "valid": False, "error": "action must be accept|override|refer_back|correct"}
 
 
 def _rules_for(state: dict, human: dict, rules: list[dict] | None) -> list[dict]:
@@ -70,9 +77,13 @@ def _rules_for(state: dict, human: dict, rules: list[dict] | None) -> list[dict]
 
 
 def review(state: dict, rules: list[dict] | None = None) -> dict:
+    meta = state.get("extracted_meta") or {}
+    contested = {f: m.get("conflict") for f, m in meta.items()
+                 if isinstance(m, dict) and m.get("contested")}
     question = {"recommendation": state.get("recommendation"),
                 "ranking": state.get("ranking"),
                 "binder_outcome": state.get("binder_outcome"),
+                "contested": contested,
                 "binder_results": [
                     {"binder_id": r.get("binder_id"), "outcome": r.get("outcome"),
                      "reason": r.get("reason"),
@@ -86,4 +97,8 @@ def review(state: dict, rules: list[dict] | None = None) -> dict:
             break
         human = interrupt({"error": decision.get("error"), **question})
         decision = validate(state, human, _rules_for(state, human, rules))
+    if decision.get("action") == "correct":
+        from nodes import correct as corr
+        fixed = corr.apply(state, decision["corrections"], decision["underwriter_id"])
+        return {"decision": decision, **fixed}
     return {"decision": decision}

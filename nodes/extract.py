@@ -24,6 +24,7 @@ def _norm_money(raw: Any) -> tuple[Any, Any]:
 def stub_extract(documents: list[dict]) -> tuple[dict, dict]:
     extracted: dict[str, Any] = {}
     meta: dict[str, Any] = {}
+    seen: dict[str, list] = {}
     for doc in documents:
         hint = doc.get("structured_hint") or {}
         for field, raw in hint.items():
@@ -31,20 +32,33 @@ def stub_extract(documents: list[dict]) -> tuple[dict, dict]:
                 val, orig = _norm_money(raw)
             else:
                 val, orig = raw, raw
-            extracted[field] = val
-            meta[field] = {
-                "value": val,
-                "original_value": orig,
-                "present": True,
-                "confidence": 1.0,
-                "source_document_id": doc.get("doc_id"),
-                "source_locator": "structured_hint",
-            }
+            seen.setdefault(field, []).append(
+                {"value": val, "source_document_id": doc.get("doc_id")})
+            if field not in extracted:
+                extracted[field] = val
+                meta[field] = {
+                    "value": val,
+                    "original_value": orig,
+                    "present": True,
+                    "confidence": 1.0,
+                    "source_document_id": doc.get("doc_id"),
+                    "source_locator": "structured_hint",
+                }
+    for field, sightings in seen.items():
+        distinct = {json_dumps(s["value"]) for s in sightings}
+        if len(distinct) > 1:
+            meta[field]["contested"] = True
+            meta[field]["conflict"] = sightings
     for field in ("total_insured_value", "broker_name", "locations", "commodities"):
         if field not in extracted:
             extracted[field] = None
             meta[field] = {"present": False, "confidence": 0.0, "reason": "absent"}
     return extracted, meta
+
+
+def json_dumps(v: Any) -> str:
+    import json as _json
+    return _json.dumps(v, sort_keys=True, default=str)
 
 
 def extract(state: dict, llm=None) -> dict:

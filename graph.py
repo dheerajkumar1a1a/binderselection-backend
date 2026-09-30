@@ -29,7 +29,10 @@ def build(checkpointer=None):
     )
     g.add_edge("evaluate", "rank")
     g.add_edge("rank", "review")
-    g.add_edge("review", "settle")
+    g.add_conditional_edges(
+        "review",
+        lambda s: "derive" if (s.get("decision") or {}).get("action") == "correct" else "settle",
+    )
     g.add_edge("settle", "audit")
     g.add_edge("audit", END)
     return g.compile(checkpointer=checkpointer)
