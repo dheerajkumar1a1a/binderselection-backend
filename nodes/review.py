@@ -50,23 +50,40 @@ def validate(state: dict, human: dict, rules: list[dict] | None = None) -> dict:
                 "selected_binder": sel, "reason_code": human.get("reason_code"),
                 "commentary": human.get("commentary", "")}
     if action == "refer_back":
-        missing = ((state.get("completeness") or {}).get("missing", [])
-                   + [o.get("rule_id") for o in state.get("rule_outcomes", [])
-                      if o.get("outcome") == "Cannot assess"])
+        missing = list((state.get("completeness") or {}).get("missing", []))
+        for r in state.get("binder_results", []):
+            missing += [o.get("rule_id") for o in r.get("rule_outcomes", [])
+                        if o.get("outcome") == "Cannot assess"]
+        missing += [o.get("rule_id") for o in state.get("rule_outcomes", [])
+                    if o.get("outcome") == "Cannot assess"]
         return {**base, "valid": True, "action": "refer_back",
-                "info_request": missing}
+                "info_request": sorted(set(missing))}
     return {**base, "valid": False, "error": "action must be accept|override|refer_back"}
+
+
+def _rules_for(state: dict, human: dict, rules: list[dict] | None) -> list[dict]:
+    if rules is not None:
+        return rules
+    rulesets = state.get("rulesets") or {}
+    selected = (human or {}).get("selected_binder") or state.get("recommendation")
+    return rulesets.get(selected, [])
 
 
 def review(state: dict, rules: list[dict] | None = None) -> dict:
     question = {"recommendation": state.get("recommendation"),
+                "ranking": state.get("ranking"),
                 "binder_outcome": state.get("binder_outcome"),
+                "binder_results": [
+                    {"binder_id": r.get("binder_id"), "outcome": r.get("outcome"),
+                     "reason": r.get("reason"),
+                     "ruleset_version": r.get("ruleset_version")}
+                    for r in state.get("binder_results", [])],
                 "rule_outcomes": state.get("rule_outcomes")}
     human = interrupt(question)
-    decision = validate(state, human, rules)
+    decision = validate(state, human, _rules_for(state, human, rules))
     for _ in range(2):
         if decision.get("valid"):
             break
         human = interrupt({"error": decision.get("error"), **question})
-        decision = validate(state, human, rules)
+        decision = validate(state, human, _rules_for(state, human, rules))
     return {"decision": decision}

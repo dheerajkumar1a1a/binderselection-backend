@@ -37,4 +37,7 @@ def test_dry_run_detects_change():
 
 def test_lifecycle_filters_suspended():
     assert is_active("binder_A", "2026-09-29") is True
-    assert is_active("binder_B", "2026-09-29") is False
+    assert is_active("binder_B", "2026-09-29") is True
+    reg = [{"binder_id": "binder_X", "status": "suspended",
+            "effective_from": "2026-01-01", "effective_to": None}]
+    assert is_active("binder_X", "2026-09-29", registry=reg) is False

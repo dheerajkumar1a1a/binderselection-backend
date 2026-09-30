@@ -11,6 +11,8 @@ class SubmissionState(TypedDict, total=False):
     capacity_snapshot: dict[str, Any]
     rule_outcomes: list[dict[str, Any]]
     binder_outcome: str
+    binder_results: list[dict[str, Any]]
+    rulesets: dict[str, Any]
     scores: dict[str, float]
     ranking: list[str]
     recommendation: str

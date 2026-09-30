@@ -17,6 +17,11 @@ KNOWN_FIELDS = {
     "insured_state_province", "valuation_basis", "coverage_type",
     "requested_inception_date", "expiring_premium_disclosed",
     "business_commencement_date", "years_trading",
+    "locations.territory", "locations.wildfire_risk_score",
+    "locations.fema_flood_zone", "locations.construction_type",
+    "locations.alarm_present", "locations.year_built",
+    "prior_coverage_cancelled", "prior_coverage_non_renewed",
+    "profit_share_requested", "no_claims_bonus_requested",
 }
 VALID_OPS = {"lte", "lt", "gte", "gt", "eq", "neq", "in", "not_in",
              "is_true", "is_false", "is_absent", "is_present",
@@ -51,9 +56,10 @@ def load_effective(binder_id: str, as_at: str | None = None) -> dict:
     return best
 
 
-def is_active(binder_id: str, as_at: str | None = None) -> bool:
+def is_active(binder_id: str, as_at: str | None = None,
+              registry: list[dict] | None = None) -> bool:
     as_at = as_at or date.today().isoformat()
-    reg = json.loads((BASE / "binders.json").read_text())["binders"]
+    reg = registry if registry is not None else json.loads((BASE / "binders.json").read_text())["binders"]
     for b in reg:
         if b["binder_id"] == binder_id:
             in_range = b.get("effective_from", "") <= as_at and (b.get("effective_to") is None or b["effective_to"] >= as_at)

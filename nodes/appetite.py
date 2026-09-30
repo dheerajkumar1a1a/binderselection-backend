@@ -94,6 +94,7 @@ def evaluate(state: dict, rules_path: str = "rules/binder_A_v1.json",
 def _evaluate_rules(state: dict, rules: list) -> dict:
     extracted = state.get("extracted", {})
     outcomes = [evaluate_rule(extracted, r) for r in rules]
+    outcomes = _combine_groups(rules, outcomes, extracted)
     if any(o["outcome"] == "Decline" for o in outcomes):
         binder = "Decline"
     elif any(o["outcome"] == "Cannot assess" for o in outcomes):
@@ -101,3 +102,69 @@ def _evaluate_rules(state: dict, rules: list) -> dict:
     else:
         binder = "Accept"
     return {"rule_outcomes": outcomes, "binder_outcome": binder}
+
+
+def _combine_groups(rules: list, outcomes: list, extracted: dict) -> list:
+    """Fold logic_group members (BFR 7.4) into one business-rule outcome.
+
+    AND: bites only if every member bites; a single Pass clears the group;
+    otherwise Cannot-assess. OR: bites if any member bites. Ungrouped rules
+    pass through untouched. Location-scoped AND groups are paired per site:
+    the group bites only if one site trips every member — never a
+    cross-site mix (frame here + no alarm there).
+    """
+    by_id = {r.get("rule_id"): (r, o) for r, o in zip(rules, outcomes)}
+    groups: dict[str, list] = {}
+    order: list[str] = []
+    for r in rules:
+        g = r.get("logic_group")
+        if g:
+            groups.setdefault(g, []).append(r.get("rule_id"))
+            if g not in order:
+                order.append(g)
+    if not groups:
+        return outcomes
+    logic_of = {}
+    for r in rules:
+        if r.get("logic_group"):
+            logic_of.setdefault(r["logic_group"], r.get("logic", "AND"))
+    folded = [o for r, o in zip(rules, outcomes) if not r.get("logic_group")]
+    for g in order:
+        members = [(r, by_id[r.get("rule_id")][1]) for r in rules if r.get("logic_group") == g]
+        logic = logic_of.get(g, "AND")
+        if logic == "AND" and all(r.get("scope") == "location" for r, _ in members):
+            combined, bitten = _per_site_and(members, extracted)
+        elif logic == "OR":
+            outs = [o["outcome"] for _, o in members]
+            combined = "Decline" if "Decline" in outs else ("Cannot assess" if "Cannot assess" in outs else "Pass")
+            bitten = [o.get("rule_id") for _, o in members if o["outcome"] == "Decline"]
+        else:
+            outs = [o["outcome"] for _, o in members]
+            combined = "Pass" if "Pass" in outs else ("Cannot assess" if "Cannot assess" in outs else "Decline")
+            bitten = [o.get("rule_id") for _, o in members if o["outcome"] == "Decline"]
+        folded.append({"rule_id": g, "outcome": combined,
+                       "members": [r.get("rule_id") for r, _ in members],
+                       "bitten": bitten,
+                       "value": [o.get("value") for _, o in members]})
+    return folded
+
+
+def _per_site_and(members: list, extracted: dict) -> tuple[str, list]:
+    """Pair location-scoped AND members per site index."""
+    locs = extracted.get("locations") or []
+    n = len(locs)
+    site_bites: list[int] = []
+    saw_unassessable = False
+    for i in range(n):
+        sub = dict(extracted)
+        sub["locations"] = [locs[i]]
+        outs = [evaluate_rule(sub, r)["outcome"] for r, _ in members]
+        if all(o == "Decline" for o in outs):
+            site_bites.append(i)
+        elif "Pass" not in outs:
+            saw_unassessable = True
+    if site_bites:
+        return "Decline", [m[0].get("rule_id") for m in members]
+    if saw_unassessable:
+        return "Cannot assess", []
+    return "Pass", []

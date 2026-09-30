@@ -19,9 +19,17 @@ def load(path: str | Path | None = None) -> list[dict]:
 
 
 def volume_mix(records: list[dict]) -> dict:
+    def _outcome(r: dict):
+        if r.get("binder_outcome"):
+            return r["binder_outcome"]
+        if (r.get("recommendation") or "").startswith("no eligible"):
+            return "Decline"
+        if r.get("recommendation"):
+            return "Accept"
+        return None
     return {
         "total": len(records),
-        "by_outcome": dict(Counter(r.get("binder_outcome") for r in records)),
+        "by_outcome": dict(Counter(_outcome(r) for r in records)),
         "by_broker": dict(Counter((r.get("extracted") or {}).get("broker_name") for r in records)),
         "by_underwriter": dict(Counter((r.get("decision") or {}).get("underwriter_id") for r in records)),
     }

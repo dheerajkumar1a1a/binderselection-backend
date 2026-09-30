@@ -30,6 +30,7 @@ def write_audit(state: dict) -> dict:
         "capacity_snapshot": state.get("capacity_snapshot"),
         "rule_outcomes": state.get("rule_outcomes"),
         "binder_outcome": state.get("binder_outcome"),
+        "binder_results": state.get("binder_results"),
         "scores": state.get("scores"),
         "recommendation": state.get("recommendation"),
         "decision": state.get("decision"),

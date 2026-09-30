@@ -2,7 +2,7 @@
 
 Run:  python demo.py
 Uses the stub extractor (no API key) so the run is deterministic.
-Covers: extract -> completeness -> capacity -> appetite -> rank
+Covers: extract -> derive -> completeness -> evaluate (all binders) -> rank
   -> review (auto-accept as demo underwriter) -> settle -> audit -> MI.
 """
 from langgraph.types import Command
@@ -13,10 +13,16 @@ from reports.mi import report
 SAMPLE_DOCS = [
     {"doc_id": "mail-001", "filename": "broker-email.eml",
      "text": "Broker: Acme Marine Ltd. TIV $6,500,000, 12-month All-Risk.",
-     "structured_hint": {
-         "total_insured_value": "$6,500,000", "broker_name": "Acme Marine Ltd.",
-         "locations": [{"address": "12 Port Road", "sprinklered": True}],
-         "commodities": [{"commodity_type": "STEEL"}]}},
+      "structured_hint": {
+          "total_insured_value": "$6,500,000", "broker_name": "Acme Marine Ltd.",
+          "locations": [{"address": "12 Port Road", "sprinklered": True}],
+          "commodities": [{"commodity_type": "STEEL"}],
+          "coverage_sections": [{"limit": 2000000}],
+          "valuation_basis": "CIF+10%", "coverage_type": "ALL_RISK",
+          "requested_inception_date": "2030-06-01",
+          "expiring_premium_disclosed": False,
+          "insured_in_continental_us": True,
+          "largest_single_claim_amount": 0, "total_claims_amount": 0}},
     {"doc_id": "sov-001", "filename": "sov.xlsx",
      "text": "SOV: 1 location, sprinklered, alarm present.",
      "structured_hint": {}},
@@ -36,14 +42,16 @@ def main() -> None:
         g.invoke({"submission_reference": "SUB-DEMO-001", "documents": SAMPLE_DOCS}, cfg)
         snap = g.get_state(cfg)
         print("paused at:", snap.next)
-        question = snap.tasks[0].interrupts[0].value if snap.tasks[0].interrupts else {}
-        print("--- 2. EXTRACT: fields + confidence ---")
         st = snap.values
+        print("--- 2. EXTRACT: fields + confidence ---")
         for f, m in (st.get("extracted_meta") or {}).items():
             print(f"  {f}: value={st['extracted'].get(f)} conf={m.get('confidence')} src={m.get('source_document_id')}")
         print("--- 3. COMPLETENESS:", st.get("completeness"))
-        print("--- 4. CAPACITY:", st.get("capacity_snapshot"), "->", st.get("binder_outcome"))
-        print("--- 5. APPETITE:", [(o["rule_id"], o["outcome"]) for o in st.get("rule_outcomes", [])])
+        print("--- 4+5. PER-BINDER EVALUATION ---")
+        for r in st.get("binder_results", []):
+            print(f"  {r['binder_id']}: {r['outcome']}",
+                  r.get("reason", ""),
+                  [(o["rule_id"], o["outcome"]) for o in r.get("rule_outcomes", [])])
         print("--- 6. RANK:", st.get("scores"), st.get("ranking"), "=>", st.get("recommendation"))
         print("--- 7. REVIEW: underwriter accepts ---")
         done = g.invoke(Command(resume={"action": "accept",

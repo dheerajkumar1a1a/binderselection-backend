@@ -5,14 +5,16 @@
       "binder_name": "Binder A",
       "status": "active",
       "effective_from": "2026-01-01",
-      "effective_to": null
+      "effective_to": null,
+      "strategic_classification": "preferred"
     },
     {
       "binder_id": "binder_B",
       "binder_name": "Binder B",
-      "status": "suspended",
+      "status": "active",
       "effective_from": "2026-01-01",
-      "effective_to": null
+      "effective_to": null,
+      "strategic_classification": "standard"
     }
   ]
 }
