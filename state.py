@@ -18,6 +18,7 @@ class SubmissionState(TypedDict, total=False):
     recommendation: str
     decision: dict[str, Any]
     settlement: dict[str, Any]
+    narrative: str
     stage_timings: dict[str, float]
     model_versions: dict[str, Any]
     supersedes: str | None

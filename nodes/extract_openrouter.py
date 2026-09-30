@@ -41,8 +41,11 @@ def _call(doc_texts: list[str], api_key: str, model: str) -> dict:
                  "Content-Type": "application/json",
                  "HTTP-Referer": "https://github.com/dheerajkumar1a1a/binderselection-backend",
                  "X-Title": "binderselection-backend extraction"})
-    with urllib.request.urlopen(req, timeout=60) as resp:
-        payload = json.loads(resp.read().decode())
+    def _do():
+        with urllib.request.urlopen(req, timeout=60) as resp:
+            return json.loads(resp.read().decode())
+    from nodes.retry import with_retry
+    payload = with_retry(_do)
     content = payload["choices"][0]["message"]["content"].strip()
     if content.startswith("```"):
         content = content.split("\n", 1)[1].rsplit("```", 1)[0]

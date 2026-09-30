@@ -9,7 +9,7 @@ Spec of record: `BUSINESS_FUNCTIONAL_REQUIREMENTS 1.md` (v0.1 Draft for review,
 2026-09-17) in the sibling `BSA/` folder, plus `Policy_Referral.json`.
 This repo is the executable vertical slice of that spec, built on LangGraph.
 
-- Status: scaffold v0.1.0 — one binder, three rules, full gate chain running.
+- Status: v0.8.0 — two binders (A 9 rules, B 7 rules) as versioned data, multi-binder ranking, correction loop, MI, 79 tests green.
 - Visibility: **private**. Do not flip public without remediating §10.
 - Stack: Python 3.11, langgraph 1.2.x, langchain-core, pydantic, pytest,
   langgraph-checkpoint-sqlite / postgres.
@@ -22,27 +22,31 @@ This repo is the executable vertical slice of that spec, built on LangGraph.
 
 ```mermaid
 flowchart TD
-    A[extract: documents to risk data] --> B[completeness: mandatory check]
+    A[extract: documents to risk data] --> DV[derive: aggregates + flags]
+    DV --> B[completeness: mandatory + contested check]
     B -->|missing| RFI[refer back: information request]
-    B -->|sufficient| C[capacity: derived screening]
-    C -->|excluded| X[stop with shortfall reason]
-    C -->|eligible| D[appetite: deterministic rules]
-    D --> E[rank: absolute scoring]
-    E --> F[review: underwriter interrupt]
-    F --> G[audit: immutable record]
+    B -->|sufficient| C[evaluate: per-binder capacity + appetite]
+    C --> E[rank: absolute cross-binder scoring]
+    E --> N[narrative: determined outcomes in words]
+    N --> F[review: underwriter interrupt]
+    F -->|correct| DV
+    F -->|accept/override/refer| G[settle: reserve or release]
+    G --> H[audit: immutable record]
 ```
 
 Each node maps to a BFR group:
 
 | Node | File | BFR |
 |---|---|---|
-| extract | `nodes/extract.py` | BFR-EXT, §7.1/7.1.7 |
+| extract | `nodes/extract.py` (+ `extract_openrouter.py` live path) | BFR-EXT, §7.1/7.1.7 |
+| derive | `nodes/derive.py` | BFR 7.1.6 derived aggregates |
 | completeness | `nodes/completeness.py` | BFR-APP-003 (Refer, never Pass) |
-| capacity | `nodes/capacity.py` | BFR-CAP-002 (derived, never stored) |
-| appetite | `nodes/appetite.py` | BFR-APP-004/005 (deterministic) |
-| rank | `nodes/rank.py` | BFR-REC-005 (absolute, not relative) |
-| review | `nodes/review.py` | BFR-UWR (human decides) |
-| audit | `persistence.write_audit` | BFR-AUD-001/002 |
+| evaluate | `nodes/multibind.py` + `capacity.py` + `appetite.py` | BFR-CAP, BFR-APP-004/005/010/011 |
+| rank | `nodes/multibind.py` + `rules/scoring.json` | BFR-REC-003/005/006 |
+| narrative | `nodes/narrative.py` | BFR-REC-007/008/010/011 |
+| review | `nodes/review.py` (+ `correct.py`) | BFR-UWR, BFR-EXT-006/007 |
+| settle | `nodes/settle.py` + `capacity/ledger.py` | BFR-CAP-008/009 |
+| audit | `persistence.write_audit` + `evidence_pack` | BFR-AUD |
 
 ### 1.2 Design principle (BFR §3.3) — read this before touching code
 
@@ -141,7 +145,7 @@ python -m pip install -r requirements.txt
 python -m pytest tests -q
 ```
 
-Expected: `15 passed`. Installed versions at v0.1.0: `langgraph 1.2.11`,
+Expected: `79 passed`. Installed versions at v0.8.0: `langgraph 1.2.x`,
 `langchain-core 1.6.3`, `langgraph-checkpoint-sqlite/postgres 2.x`.
 
 ---
@@ -306,7 +310,7 @@ third-party model (BFR-DAT-005, ASM-7).
 ## 7. Testing
 
 ```powershell
-python -m pytest tests -q        # 15 passed at v0.1.0
+python -m pytest tests -q        # 79 passed at v0.8.0
 python -m pytest tests/test_admin.py -q
 ```
 

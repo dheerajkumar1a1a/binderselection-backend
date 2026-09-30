@@ -35,6 +35,7 @@ def write_audit(state: dict) -> dict:
         "recommendation": state.get("recommendation"),
         "decision": state.get("decision"),
         "settlement": state.get("settlement"),
+        "narrative": state.get("narrative"),
         "stage_timings": state.get("stage_timings"),
         "model_versions": state.get("model_versions"),
         "supersedes": state.get("supersedes"),

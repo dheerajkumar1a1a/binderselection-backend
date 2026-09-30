@@ -82,6 +82,7 @@ def review(state: dict, rules: list[dict] | None = None) -> dict:
                  if isinstance(m, dict) and m.get("contested")}
     question = {"recommendation": state.get("recommendation"),
                 "ranking": state.get("ranking"),
+                "narrative": state.get("narrative"),
                 "binder_outcome": state.get("binder_outcome"),
                 "contested": contested,
                 "binder_results": [

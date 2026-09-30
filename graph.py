@@ -5,6 +5,7 @@ from nodes import extract as ext
 from nodes import derive as drv
 from nodes import completeness as comp
 from nodes import multibind as mb
+from nodes import narrative as nar
 from nodes import review as rev
 from nodes import settle as stl
 from nodes import timing as tmg
@@ -18,6 +19,7 @@ def build(checkpointer=None):
     g.add_node("completeness", tmg.timed("completeness", comp.check))
     g.add_node("evaluate", tmg.timed("evaluate", mb.evaluate_binders))
     g.add_node("rank", tmg.timed("rank", mb.rank))
+    g.add_node("narrative", tmg.timed("narrative", nar.summarize))
     g.add_node("review", tmg.timed("review", rev.review))
     g.add_node("settle", tmg.timed("settle", stl.settle))
     g.add_node("audit", tmg.timed("audit", write_audit))
@@ -29,7 +31,8 @@ def build(checkpointer=None):
         lambda s: "evaluate" if s["completeness"]["can_evaluate"] else END,
     )
     g.add_edge("evaluate", "rank")
-    g.add_edge("rank", "review")
+    g.add_edge("rank", "narrative")
+    g.add_edge("narrative", "review")
     g.add_conditional_edges(
         "review",
         lambda s: "derive" if (s.get("decision") or {}).get("action") == "correct" else "settle",
