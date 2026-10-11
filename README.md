@@ -415,6 +415,16 @@ and run. Each case carries its own capacity params and expected gate outcome:
 - money normalisation (14), 4-site SOV (15)
 
 ```powershell
-python -m pytest tests/test_dataset.py -q   # 16 tests: 15 cases + manifest check
+python -m pytest tests/test_dataset.py -v   # 21 tests: 20 cases + manifest check
 python demo.py                               # full-loop demo on case 01 shape
 ```
+
+---
+
+## 14. Leadership demo UI (business-level)
+
+`python ui/app.py` → `http://127.0.0.1:8099`. Stdlib only, drives the real
+engine. At-a-glance registry, live evaluation of any of the 20 sample
+cases with per-rule evidence, underwriter decision capture
+(accept / override / refer back), auditor evidence pack, and a live MI
+dashboard. Details in `ui/README.md`.

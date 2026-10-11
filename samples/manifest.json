@@ -158,6 +158,15 @@
    "covers": [
     "A-008"
    ]
+  },
+  {
+   "id": "demo-accept-full",
+   "file": "20-demo-accept-full.json",
+   "expects": "Accept binder_A (live engine); B Refers on geo",
+   "covers": [
+    "end-to-end leadership demo",
+    "BFR-REC-008"
+   ]
   }
  ]
 }
