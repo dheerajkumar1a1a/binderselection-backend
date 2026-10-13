@@ -1,0 +1,172 @@
+{
+ "description": "Device-agnostic sample set: relative paths only, UTF-8, LF. Runner: tests/test_dataset.py drives extract->completeness->capacity->appetite->rank per case.",
+ "version": 1,
+ "cases": [
+  {
+   "covers": [
+    "BFR-APP-002 Pass",
+    "BFR-REC-008"
+   ],
+   "expects": "Accept binder_A",
+   "file": "01-accept-standard.json",
+   "id": "accept-standard"
+  },
+  {
+   "covers": [
+    "BFR-APP-002 Decline",
+    "BFR-REC-009"
+   ],
+   "expects": "Decline, no eligible binder",
+   "file": "02-tiv-bite.json",
+   "id": "tiv-bite"
+  },
+  {
+   "covers": [
+    "boundary lte",
+    "BFR-CAP-004 edge"
+   ],
+   "expects": "Accept at exactly 10m",
+   "file": "03-tiv-boundary.json",
+   "id": "tiv-boundary"
+  },
+  {
+   "covers": [
+    "BFR-CAP-004"
+   ],
+   "expects": "excluded, 10m shortfall",
+   "file": "04-capacity-shortfall.json",
+   "id": "capacity-shortfall"
+  },
+  {
+   "covers": [
+    "BFR-CAP-003"
+   ],
+   "expects": "excluded, zero capacity",
+   "file": "05-capacity-zero.json",
+   "id": "capacity-zero"
+  },
+  {
+   "covers": [
+    "BFR-APP-010 location scope"
+   ],
+   "expects": "Decline on COPE rule",
+   "file": "06-sprinkler-bite.json",
+   "id": "sprinkler-bite"
+  },
+  {
+   "covers": [
+    "BFR-APP-010 single location bites"
+   ],
+   "expects": "Decline, one bad site",
+   "file": "07-sprinkler-mixed.json",
+   "id": "sprinkler-mixed"
+  },
+  {
+   "covers": [
+    "commodity exclusion"
+   ],
+   "expects": "Decline",
+   "file": "08-commodity-cannabis.json",
+   "id": "commodity-cannabis"
+  },
+  {
+   "covers": [
+    "case-insensitive matching"
+   ],
+   "expects": "Decline",
+   "file": "09-commodity-cbd-lower.json",
+   "id": "commodity-cbd-lower"
+  },
+  {
+   "covers": [
+    "BFR-APP-003 Cannot-assess never Pass"
+   ],
+   "expects": "Refer",
+   "file": "10-missing-commodities-refer.json",
+   "id": "missing-commodities-refer"
+  },
+  {
+   "covers": [
+    "completeness RFI"
+   ],
+   "expects": "halt, broker missing",
+   "file": "11-halt-no-broker.json",
+   "id": "halt-no-broker"
+  },
+  {
+   "covers": [
+    "completeness RFI"
+   ],
+   "expects": "halt, locations missing",
+   "file": "12-halt-no-locations.json",
+   "id": "halt-no-locations"
+  },
+  {
+   "covers": [
+    "BFR-SUB-005 never silently discard"
+   ],
+   "expects": "halt, all mandatory missing",
+   "file": "13-halt-empty.json",
+   "id": "halt-empty"
+  },
+  {
+   "covers": [
+    "BFR-EXT-008 normalisation"
+   ],
+   "expects": "Accept, string TIV normalised",
+   "file": "14-currency-string.json",
+   "id": "currency-string"
+  },
+  {
+   "covers": [
+    "BFR-EXT-005 repeating locations"
+   ],
+   "expects": "Accept, 4 sites",
+   "file": "15-sov-four-locations.json",
+   "id": "sov-four-locations"
+  },
+  {
+   "id": "loss-single-bite",
+   "file": "16-loss-single-bite.json",
+   "expects": "Decline on derived single-claim",
+   "covers": [
+    "loss aggregates",
+    "A-003a"
+   ]
+  },
+  {
+   "id": "valuation-bite",
+   "file": "17-valuation-bite.json",
+   "expects": "Decline",
+   "covers": [
+    "A-006"
+   ]
+  },
+  {
+   "id": "inception-past-bite",
+   "file": "18-inception-past-bite.json",
+   "expects": "Decline",
+   "covers": [
+    "A-007b",
+    "TODAY"
+   ]
+  },
+  {
+   "id": "expiring-disclosed-bite",
+   "file": "19-expiring-disclosed-bite.json",
+   "expects": "Decline",
+   "covers": [
+    "A-008"
+   ]
+  },
+  {
+   "id": "demo-accept-full",
+   "file": "20-demo-accept-full.json",
+   "expects": "Accept binder_A (live engine); B Refers on geo",
+   "covers": [
+    "end-to-end leadership demo",
+    "BFR-REC-008"
+   ]
+  }
+ ]
+}

@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Binder Selection Agent — Public Demo</title>
+<style>
+:root{--ink:#1a2332;--mut:#5b6b7f;--line:#dfe6ee;--bg:#f5f8fb;--ok:#157347;--warn:#9a6a00;--bad:#b02a37;--card:#fff}
+*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:#0f2a44;color:#fff;padding:28px 24px}
+header h1{margin:0 0 6px;font-size:26px}header p{margin:4px 0;max-width:920px;color:#c9d6e4}
+.badges span{display:inline-block;background:#1d3d5f;border:1px solid #3c5f86;border-radius:20px;padding:3px 12px;margin:6px 6px 0 0;font-size:12px}
+main{max-width:1100px;margin:0 auto;padding:20px}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin:14px 0}
+h2{margin:0 0 10px;font-size:18px}.mut{color:var(--mut);font-size:13px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+.kpi{border:1px solid var(--line);border-radius:8px;padding:12px;background:#fafcfe}
+.kpi b{font-size:22px;display:block}.kpi span{font-size:12px;color:var(--mut)}
+ol.flow{margin:8px 0;padding-left:20px}ol.flow li{margin:4px 0}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:800px){.grid2{grid-template-columns:1fr}}
+label{font-size:12px;color:var(--mut);display:block;margin:8px 0 4px}
+select,input{width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;font-size:14px}
+button{background:#0f2a44;color:#fff;border:0;border-radius:6px;padding:10px 16px;font-size:14px;cursor:pointer;margin-top:10px}
+button.ghost{background:#fff;color:#0f2a44;border:1px solid #0f2a44}
+button:disabled{opacity:.5;cursor:default}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#eef3f8}
+.chip{display:inline-block;border-radius:12px;padding:1px 9px;font-size:11px;margin:1px 2px;border:1px solid}
+.pass{color:var(--ok);border-color:var(--ok);background:#e9f6ee}
+.dec{color:var(--bad);border-color:var(--bad);background:#fbeaec}
+.ref{color:var(--warn);border-color:var(--warn);background:#fff6dd}
+pre{background:#0f2a44;color:#d7e5f2;padding:12px;border-radius:8px;overflow:auto;font-size:12px;max-height:320px;white-space:pre-wrap}
+.stages{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
+.stage{border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:12px;background:#fafcfe}
+.stage b{display:block;font-size:12px}
+footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
+</style>
+</head>
+<body>
+<header>
+<h1>Binder Selection Agent — public demonstration</h1>
+<p>Decision-support for marine cargo / stock throughput placement. The system reads a submission, screens capacity, applies each binder's appetite rules, and recommends where to place. <b>A named underwriter always decides</b> — the system never binds.</p>
+<div class="badges"><span>Deterministic rules — no AI decisions</span><span>Missing data → Refer, never silent Pass</span><span>Runs entirely in your browser — no data leaves this page</span></div>
+</header>
+<main>
+<section><h2>At a glance</h2><div class="kpis" id="kpis"></div><p class="mut" id="scoring"></p></section>
+<section><h2>How it works</h2>
+<ol class="flow">
+<li><b>Read</b> — pull risk facts from broker documents, each with source and confidence.</li>
+<li><b>Completeness check</b> — anything mandatory missing goes back to the broker as a named information request.</li>
+<li><b>Capacity screen</b> — each binder's free capacity is derived (line minus written minus reserved); full binders are excluded with the shortfall stated.</li>
+<li><b>Appetite rules</b> — every rule evaluated identically every time: Pass, Decline, or Cannot-assess.</li>
+<li><b>Rank &amp; explain</b> — eligible binders ranked by a published score, with a plain-English rationale.</li>
+<li><b>Underwriter decides</b> — accept, override with a reason code, or refer back. Everything is recorded.</li>
+</ol></section>
+<section><h2>1 · Pick a submission</h2>
+<label>Sample submission (20 realistic cases)</label><select id="case"></select>
+<p class="mut" id="caseinfo"></p>
+<button id="run">Run evaluation ▶</button> <span class="mut">Deterministic — same input always gives the same output.</span>
+<div class="stages" id="stages"></div>
+<div class="grid2"><div><h2>Extracted facts</h2><div id="facts"></div></div>
+<div><h2>Recommendation</h2><div id="reco"></div></div></div>
+<h2>Per-binder results</h2><div id="binders"></div>
+<h2>Plain-English summary</h2><p id="narr"></p>
+</section>
+<section><h2>2 · Underwriter decision (the human decides)</h2>
+<div class="grid2"><div>
+<label>Underwriter name</label><input id="uw" value="demo-underwriter">
+<label>Action</label><select id="action"><option value="accept">Accept recommendation</option><option value="override">Override (pick different binder)</option><option value="refer_back">Refer back for information</option></select>
+</div><div>
+<label>Selected binder (override only)</label><select id="sel"><option value="">—</option><option>binder_A</option><option>binder_B</option></select>
+<label>Reason code (override only)</label><select id="rc"><option value="">—</option><option>PRIOR_RELATIONSHIP</option><option>CAPACITY_PREFERENCE</option><option>TERMS_NEGOTIATED</option><option>BROKER_REQUEST</option><option>OTHER</option></select>
+</div></div>
+<button id="decide">Record decision</button>
+<div id="settle"></div>
+<h2>Evidence pack (auditor view)</h2><pre id="evi">Run an evaluation and record a decision to generate the evidence pack.</pre>
+</section>
+<section><h2>3 · Management picture (this session)</h2>
+<button class="ghost" id="mi">Refresh dashboard</button><div class="kpis" id="mikpis" style="margin-top:10px"></div><pre id="mifull"></pre>
+</section>
+<section><h2>About this page</h2>
+<p class="mut">Static snapshot of the Binder Selection Agent prototype. The JavaScript engine (<span style="font-family:monospace">engine.js</span>) is a line-for-line port of the Python core and is verified identical on all 20 sample cases (<span style="font-family:monospace">node scripts/verify_engine_js.cjs</span> in the repo). Rules data is a snapshot — the live system versions rules with approval. <a href="https://github.com/dheerajkumar1a1a/binderselection-backend">Source repository</a>.</p></section>
+</main>
+<footer>Binder Selection Agent · public demo · synthetic data only</footer>
+<script src="engine.js"></script>
+<script>
+const E=window.BinderEngine;
+const $=id=>document.getElementById(id);
+let DATA=null,CASES=[],CASEDOCS={},RUN=null,AUDIT=[],LEDGER=null;
+async function j(p){const r=await fetch(p);if(!r.ok)throw new Error(p+': '+r.status);return r.json()}
+function chip(o){const c=o==='Pass'?'pass':(o==='Decline'?'dec':'ref');return `<span class="chip ${c}">${o}</span>`}
+function timeIt(fn){const t0=performance.now();const out=fn();return [out,Math.round((performance.now()-t0)*10000)/10000]}
+async function init(){
+  const [binders,scoring,capacity,man]=await Promise.all([j('data/rules/binders.json'),j('data/rules/scoring.json'),j('data/rules/capacity.json'),j('data/samples/manifest.json')]);
+  const [a2,b1]=await Promise.all([j('data/rules/binder_A_v2.json'),j('data/rules/binder_B_v1.json')]);
+  DATA={binders:binders.binders,capacity:capacity.binders,scoring,rulesets:[a2,b1]};
+  LEDGER=E.newLedger(DATA.capacity);
+  CASES=man.cases.slice().sort((a,b)=>(a.id==='demo-accept-full'?-1:b.id==='demo-accept-full'?1:a.id.localeCompare(b.id)));
+  const docs=await Promise.all(CASES.map(c=>j('data/samples/cases/'+c.file)));
+  docs.forEach((d,i)=>{CASEDOCS[CASES[i].id]=d});
+  $('kpis').innerHTML=DATA.binders.map(b=>{const rs=DATA.rulesets.filter(r=>r.binder_id===b.binder_id).sort((x,y)=>y.version-x.version)[0];return `<div class="kpi"><b>${b.binder_id}</b><span>${b.status} · ruleset v${rs.version} · ${rs.rules.length} rules</span></div>`}).join('')+`<div class="kpi"><b>${CASES.length}</b><span>sample cases</span></div>`;
+  $('scoring').textContent='Score weights: '+JSON.stringify(DATA.scoring.weights)+' · tie-break: '+(DATA.scoring.tie_break||[]).join(', ');
+  $('case').innerHTML=CASES.map(c=>`<option value="${c.id}">${c.id} — ${c.expects}</option>`).join('');
+  $('case').value='demo-accept-full';updCase();renderMI();
+}
+function updCase(){const c=CASES.find(x=>x.id===$('case').value);if(c)$('caseinfo').textContent='Tests: '+(c.covers||[]).join(' · ')}
+function run(){
+  const c=CASEDOCS[$('case').value];
+  const ref='WEB-'+c.case_id+'-'+Math.random().toString(16).slice(2,8);
+  const T={};let t;
+  [t,T.extract]=timeIt(()=>E.stubExtract(c.documents));const [ex0,meta]=t;
+  [t,T.derive]=timeIt(()=>E.derive(ex0));const ex=t;
+  [t,T.completeness]=timeIt(()=>E.checkCompleteness(ex,meta));const comp=t;
+  RUN={submission_reference:ref,documents:c.documents,extracted:ex,extracted_meta:meta,completeness:comp,halt:null,stage_timings:T,dataset_expected:c.expected,dataset_covers:c.covers};
+  if(!comp.can_evaluate){RUN.halt='completeness';}
+  else{
+    let ev;const t0=performance.now();
+    const er=E.evaluateBinders(ex,DATA);T.evaluate=Math.round((performance.now()-t0)*10000)/10000;
+    Object.assign(RUN,er);
+    [t,T.rank]=timeIt(()=>E.scoreBinders(RUN.binder_results,DATA));Object.assign(RUN,t);
+    [t,T.narrative]=timeIt(()=>({narrative:E.summarize(RUN)}));RUN.narrative=t.narrative;
+  }
+  renderRun();
+}
+function renderRun(){
+  const r=RUN,comp=r.completeness||{};
+  $('stages').innerHTML=['extract','derive','completeness','evaluate','rank','narrative'].map(s=>`<div class="stage"><b>${s}</b>${s==='completeness'?(comp.can_evaluate?'complete':'halted — missing'):(r.halt&&['evaluate','rank','narrative'].includes(s)?'skipped':(r.stage_timings[s]??'')+'s')}</div>`).join('');
+  const meta=r.extracted_meta||{};
+  $('facts').innerHTML=`<table><tr><th>Fact</th><th>Value</th><th>Conf</th><th>Source</th></tr>${Object.keys(r.extracted||{}).map(f=>{const m=meta[f]||{};return `<tr><td>${f}</td><td>${JSON.stringify(r.extracted[f])}</td><td>${m.confidence??'—'}</td><td>${m.source_document_id??'—'}</td></tr>`}).join('')}</table>`;
+  $('reco').innerHTML=`<div class="kpi"><b>${r.recommendation||r.halt||'—'}</b><span>scores: ${JSON.stringify(r.scores||{})}</span></div>${r.dataset_expected?`<p class="mut">Pinned suite expects: ${r.dataset_expected}</p>`:''}`;
+  $('binders').innerHTML=(r.binder_results||[]).map(b=>`<table><tr><th colspan="3">${b.binder_id} — ${b.outcome} ${b.reason||''} ${b.ruleset_version?'(ruleset v'+b.ruleset_version+')':''}</th></tr><tr><th>Rule</th><th>Outcome</th><th>Value / reason</th></tr>${(b.rule_outcomes||[]).map(o=>`<tr><td>${o.rule_id}</td><td>${chip(o.outcome)}</td><td>${JSON.stringify(o.value??o.reason??'')}</td></tr>`).join('')}</table>`).join('')||'<p class="mut">Halted before binder evaluation.</p>';
+  $('narr').textContent=r.narrative||'—';
+}
+function evidencePack(rec){
+  const L=['# Evidence pack — '+rec.evaluation_id,'Submission: '+rec.submission_reference+' · evaluated '+rec.evaluated_at,'## Extracted values (value | confidence | source)'];
+  Object.keys(rec.extracted_meta||{}).forEach(f=>{const m=rec.extracted_meta[f];L.push('- '+f+': '+JSON.stringify(m.value)+' | conf '+m.confidence+' | '+m.source_document_id)});
+  L.push('## Binder outcomes');
+  (rec.binder_results||[]).forEach(r=>{L.push('- '+r.binder_id+': '+r.outcome+' '+(r.reason||'')+' (ruleset v'+r.ruleset_version+')');(r.rule_outcomes||[]).forEach(o=>L.push('  - '+o.rule_id+': '+o.outcome+' value='+JSON.stringify(o.value)+' '+(o.reason||'')))});
+  L.push('## Recommendation: '+rec.recommendation+' scores='+JSON.stringify(rec.scores));
+  const d=rec.decision||{};L.push('## Decision: '+d.action+' -> '+d.selected_binder+' by '+d.underwriter_id);
+  L.push('## Settlement: '+JSON.stringify(rec.settlement));
+  return L.join('\n');
+}
+function decide(){
+  if(!RUN)return alert('Run an evaluation first');
+  const human={action:$('action').value,underwriter_id:$('uw').value||'web-underwriter',selected_binder:$('sel').value||undefined,reason_code:$('rc').value||undefined};
+  const rules=(RUN.rulesets||{})[human.selected_binder||RUN.recommendation]||[];
+  const decision=E.validateDecision(RUN,human,rules);
+  if(!decision.valid)return alert('Rejected: '+decision.error);
+  let settlement={action:'none'};
+  const tiv=RUN.extracted.total_insured_value||0;
+  if(decision.action==='accept'||decision.action==='override'){
+    try{settlement=Object.assign({action:'reserved',binder:decision.selected_binder},E.reserve(LEDGER,decision.selected_binder,RUN.submission_reference,tiv));}
+    catch(e){settlement={action:'failed',error:String(e.message||e)};}
+  }
+  const rec=Object.assign({},RUN,{decision,settlement,evaluation_id:'eval-'+Math.random().toString(16).slice(2,10),evaluated_at:new Date().toISOString()});
+  delete rec.rulesets;delete rec.documents;delete rec.dataset_expected;delete rec.dataset_covers;
+  AUDIT.push(rec);
+  $('settle').innerHTML=`<table><tr><th>Decision</th><th>Settlement</th><th>Audit</th></tr><tr><td>${decision.action} → ${decision.selected_binder||'—'} by ${decision.underwriter_id}</td><td>${JSON.stringify(settlement)}</td><td>${rec.evaluation_id}</td></tr></table>`;
+  $('evi').textContent=evidencePack(rec);renderMI();
+}
+function renderMI(){
+  const byOut={},byRule={},byBroker={},byUW={},missing={},byField={};let ov=0,info=0;const tS={},tC={};
+  AUDIT.forEach(r=>{
+    const o=r.recommendation&&!r.recommendation.startsWith('no eligible')?'Accept':'Decline';
+    byOut[o]=(byOut[o]||0)+1;byBroker[r.extracted.broker_name]=(byBroker[r.extracted.broker_name]||0)+1;byUW[(r.decision||{}).underwriter_id]=(byUW[(r.decision||{}).underwriter_id]||0)+1;
+    if((r.decision||{}).action==='override')ov++;
+    if((r.decision||{}).action==='refer_back')info++;
+    (r.binder_results||[]).forEach(b=>(b.rule_outcomes||[]).forEach(x=>{if(x.outcome==='Decline')byRule[x.rule_id]=(byRule[x.rule_id]||0)+1;if(x.outcome==='Cannot assess')byField[x.reason||x.rule_id]=(byField[x.reason||x.rule_id]||0)+1;}));
+    Object.keys(r.stage_timings||{}).forEach(s=>{tS[s]=(tS[s]||0)+r.stage_timings[s];tC[s]=(tC[s]||0)+1;});
+  });
+  const means={};Object.keys(tS).forEach(s=>{means[s]=Math.round(tS[s]/tC[s]*10000)/10000});
+  $('mikpis').innerHTML=`<div class="kpi"><b>${AUDIT.length}</b><span>evaluations this session</span></div><div class="kpi"><b>${JSON.stringify(byOut)}</b><span>outcome mix</span></div><div class="kpi"><b>${ov}/${AUDIT.length}</b><span>overrides / decided</span></div><div class="kpi"><b>${info}</b><span>info requests</span></div>`;
+  $('mifull').textContent=JSON.stringify({volume_mix:{total:AUDIT.length,by_outcome:byOut,by_broker:byBroker,by_underwriter:byUW},decline_reasons:{by_rule:byRule},override_rate:{decided:AUDIT.length,overrides:ov},data_quality:{missing_fields:missing,info_requests:info},refer_by_field:{by_field:byField},stage_timing:{mean_seconds:means,n:AUDIT.length}},null,1);
+}
+$('case').onchange=updCase;$('run').onclick=()=>{try{run()}catch(e){alert(e.message)}};
+$('decide').onclick=()=>{try{decide()}catch(e){alert(e.message)}};$('mi').onclick=()=>{try{renderMI()}catch(e){alert(e.message)}};
+init().catch(e=>document.body.insertAdjacentHTML('beforeend','<p style="color:red">Failed to load: '+e.message+'</p>'));
+</script>
+</body>
+</html>

@@ -1,0 +1,37 @@
+{
+  "binder_id": "binder_A",
+  "version": 1,
+  "effective_from": "2026-09-29",
+  "rules": [
+    {
+      "rule_id": "A-002-TIV",
+      "category": "Total Insured Value",
+      "scope": "submission",
+      "field_reference": "total_insured_value",
+      "operator": "lte",
+      "threshold_value": 10000000,
+      "threshold_unit": "currency",
+      "severity": "refer"
+    },
+    {
+      "rule_id": "A-005-SPRINKLER",
+      "category": "Construction / COPE",
+      "scope": "location",
+      "field_reference": "locations.sprinklered",
+      "operator": "is_true",
+      "threshold_value": true,
+      "threshold_unit": "boolean",
+      "severity": "refer"
+    },
+    {
+      "rule_id": "A-009-COMMODITY",
+      "category": "Commodity Rule",
+      "scope": "submission",
+      "field_reference": "commodities.commodity_type",
+      "operator": "not_in",
+      "threshold_value": ["CANNABIS", "MARIJUANA", "CBD", "THC"],
+      "threshold_unit": "code",
+      "severity": "refer"
+    }
+  ]
+}

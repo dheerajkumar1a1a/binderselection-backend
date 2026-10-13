@@ -1,0 +1,15 @@
+{
+  "version": 1,
+  "max_score": 10,
+  "weights": {
+    "available_capacity": 5,
+    "strategic_classification": 2,
+    "appetite_fit": 3
+  },
+  "strategic_points": {
+    "preferred": 2,
+    "standard": 0
+  },
+  "tie_break": ["available_capacity", "binder_id"],
+  "note": "Weights are configurable reference data (BFR-REC-003). Strategic source is OPEN-3; classification lives in binders.json until a source of record exists."
+}
