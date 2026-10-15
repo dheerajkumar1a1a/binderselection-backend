@@ -1,0 +1,28 @@
+name: extraction-eval
+
+# Live-model extraction gate (BFR-EXT-009, BFR-NFR-027).
+# Scores Nemotron extraction per-field against labelled fixtures.
+# Nightly plus on-demand. Fails below threshold or on any hallucination.
+on:
+  schedule:
+    - cron: "0 2 * * *"
+  workflow_dispatch:
+
+jobs:
+  eval:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Run extraction eval
+        env:
+          NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
+        run: python scripts/eval_extraction.py --fixtures scripts/eval_fixtures.json --out eval-report.json
+      - name: Upload report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: extraction-eval-report
+          path: eval-report.json
