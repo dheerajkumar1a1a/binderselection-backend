@@ -68,8 +68,13 @@ def extract(state: dict, llm=None) -> dict:
         extracted, meta = openrouter_extract(documents)
         return {"extracted": extracted, "extracted_meta": meta,
                 "model_versions": {"extraction": DEFAULT_MODEL, "narrative": None}}
+    if llm == "nvidia":
+        from nodes.extract_nvidia import nvidia_extract, DEFAULT_MODEL as NV_MODEL
+        extracted, meta = nvidia_extract(documents)
+        return {"extracted": extracted, "extracted_meta": meta,
+                "model_versions": {"extraction": NV_MODEL, "narrative": None}}
     if llm is not None:
-        raise NotImplementedError("Unknown llm option; use llm='openrouter' or None (stub).")
+        raise NotImplementedError("Unknown llm option; use llm='nvidia', 'openrouter' or None (stub).")
     extracted, meta = stub_extract(documents)
     return {"extracted": extracted, "extracted_meta": meta,
             "model_versions": {"extraction": "stub-1", "narrative": None}}

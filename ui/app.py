@@ -45,10 +45,20 @@ def _case_by_id(case_id: str) -> dict:
     raise KeyError(f"unknown case {case_id}")
 
 
-def run_pipeline(documents: list, submission_ref: str) -> dict:
-    """Full engine path minus the human pause: extract->derive->gate->evaluate->rank->narrative."""
+def run_pipeline(documents: list, submission_ref: str, llm: str | None = None) -> dict:
+    """Full engine path minus the human pause: extract->derive->gate->evaluate->rank->narrative.
+
+    llm='nvidia' uses live Nemotron extraction (needs NVIDIA_API_KEY in the
+    server environment); default stub is deterministic and keyless.
+    """
     state: dict = {"submission_reference": submission_ref, "documents": documents}
-    ext, meta = stub_extract(documents)
+    if llm == "nvidia":
+        from nodes.extract import extract as extract_node
+        out = extract_node({"documents": documents}, llm="nvidia")
+        ext, meta = out["extracted"], out["extracted_meta"]
+        state["model_versions"] = out.get("model_versions")
+    else:
+        ext, meta = stub_extract(documents)
     state["extracted"] = ext
     state["extracted_meta"] = meta
     state.update(drv.derive(state))
@@ -160,18 +170,21 @@ class Handler(BaseHTTPRequestHandler):
             return self._json({"error": "invalid JSON"}, 400)
         try:
             if parsed.path == "/api/run":
+                llm = payload.get("llm")
+                if llm not in (None, "nvidia"):
+                    return self._json({"error": "llm must be 'nvidia' or omitted (stub)"}, 400)
                 if payload.get("case_id"):
                     case = _case_by_id(payload["case_id"])
                     docs = case["documents"]
                     ref = f"UI-{case['case_id']}-{uuid.uuid4().hex[:6]}"
-                    state = run_pipeline(docs, ref)
+                    state = run_pipeline(docs, ref, llm=llm)
                     state["dataset_expected"] = case.get("expected")
                     state["dataset_covers"] = case.get("covers")
                     # rulesets are JSON-serialisable; keep them for /api/decide
                     self._json(state)
                 elif payload.get("documents"):
                     ref = payload.get("submission_reference") or f"UI-custom-{uuid.uuid4().hex[:6]}"
-                    self._json(run_pipeline(payload["documents"], ref))
+                    self._json(run_pipeline(payload["documents"], ref, llm=llm))
                 else:
                     self._json({"error": "pass case_id or documents"}, 400)
             elif parsed.path == "/api/decide":
