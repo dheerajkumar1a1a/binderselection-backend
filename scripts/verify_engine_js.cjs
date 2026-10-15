@@ -24,9 +24,24 @@ const pairs = [
   ["rules/binder_A_v1.json", "docs/data/rules/binder_A_v1.json"],
   ["rules/binder_A_v2.json", "docs/data/rules/binder_A_v2.json"],
   ["rules/binder_B_v1.json", "docs/data/rules/binder_B_v1.json"],
+  ["rules/binder_C_v1.json", "docs/data/rules/binder_C_v1.json"],
+  ["rules/binder_D_v1.json", "docs/data/rules/binder_D_v1.json"],
+  ["rules/binder_E_v1.json", "docs/data/rules/binder_E_v1.json"],
   ["rules/override_reason_codes.json", "docs/data/rules/override_reason_codes.json"],
   ["samples/manifest.json", "docs/data/samples/manifest.json"],
 ];
+// rules index must list exactly the versioned rulesets on disk
+const expectedIdx = {};
+fs.readdirSync(path.join(ROOT, "rules"))
+  .filter(f => /^binder_.*_v\d+\.json$/.test(f))
+  .sort()
+  .forEach(f => {
+    const d = JSON.parse(read("rules/" + f));
+    (expectedIdx[d.binder_id] = expectedIdx[d.binder_id] || []).push(f);
+  });
+if (JSON.stringify(JSON.parse(read("docs/data/rules/index.json"))) !== JSON.stringify(expectedIdx)) {
+  fail("stale rules index: docs/data/rules/index.json");
+}
 for (const [a, b] of pairs) {
   if (read(a) !== read(b)) fail(`stale copy: ${b} differs from ${a}`);
 }
@@ -40,9 +55,10 @@ for (const f of diskCases) {
 
 // ---- 2. replicate run_case (tests/test_dataset.py) ----
 const V1 = JSON.parse(read("rules/binder_A_v1.json")).rules;
-const A2 = JSON.parse(read("rules/binder_A_v2.json"));
-const B1 = JSON.parse(read("rules/binder_B_v1.json"));
-const RULESETS = [A2, B1];
+// all versioned rulesets, grouped by binder (auto-extends with new binders)
+const RULESETS = fs.readdirSync(path.join(ROOT, "rules"))
+  .filter(f => /^binder_.*_v\d+\.json$/.test(f))
+  .map(f => JSON.parse(read("rules/" + f)));
 
 function effective(binderId) {
   const cands = RULESETS.filter(d => d.binder_id === binderId);

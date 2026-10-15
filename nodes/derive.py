@@ -32,4 +32,6 @@ def derive(state: dict, as_at: str | None = None) -> dict:
         ext["insured_in_continental_us"] = (
             ext["insured_country"] == "US"
             and (ext.get("insured_state_province") or "") not in US_NON_CONTINENTAL)
+    if isinstance(ext.get("locations"), list) and ext.get("location_count") is None:
+        ext["location_count"] = len(ext["locations"])
     return {"extracted": ext}

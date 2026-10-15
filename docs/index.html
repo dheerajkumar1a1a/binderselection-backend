@@ -55,7 +55,7 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
 <li><b>Underwriter decides</b> — accept, override with a reason code, or refer back. Everything is recorded.</li>
 </ol></section>
 <section><h2>1 · Pick a submission</h2>
-<label>Sample submission (20 realistic cases)</label><select id="case"></select>
+<label>Sample submission (27 realistic cases)</label><select id="case"></select>
 <p class="mut" id="caseinfo"></p>
 <button id="run">Run evaluation ▶</button> <span class="mut">Deterministic — same input always gives the same output.</span>
 <div class="stages" id="stages"></div>
@@ -92,9 +92,10 @@ async function j(p){const r=await fetch(p);if(!r.ok)throw new Error(p+': '+r.sta
 function chip(o){const c=o==='Pass'?'pass':(o==='Decline'?'dec':'ref');return `<span class="chip ${c}">${o}</span>`}
 function timeIt(fn){const t0=performance.now();const out=fn();return [out,Math.round((performance.now()-t0)*10000)/10000]}
 async function init(){
-  const [binders,scoring,capacity,man]=await Promise.all([j('data/rules/binders.json'),j('data/rules/scoring.json'),j('data/rules/capacity.json'),j('data/samples/manifest.json')]);
-  const [a2,b1]=await Promise.all([j('data/rules/binder_A_v2.json'),j('data/rules/binder_B_v1.json')]);
-  DATA={binders:binders.binders,capacity:capacity.binders,scoring,rulesets:[a2,b1]};
+  const [binders,scoring,capacity,man,idx]=await Promise.all([j('data/rules/binders.json'),j('data/rules/scoring.json'),j('data/rules/capacity.json'),j('data/samples/manifest.json'),j('data/rules/index.json')]);
+  const files=[...new Set(Object.values(idx).flat())];
+  const loaded=await Promise.all(files.map(f=>j('data/rules/'+f)));
+  DATA={binders:binders.binders,capacity:capacity.binders,scoring,rulesets:loaded};
   LEDGER=E.newLedger(DATA.capacity);
   CASES=man.cases.slice().sort((a,b)=>(a.id==='demo-accept-full'?-1:b.id==='demo-accept-full'?1:a.id.localeCompare(b.id)));
   const docs=await Promise.all(CASES.map(c=>j('data/samples/cases/'+c.file)));
@@ -103,6 +104,7 @@ async function init(){
   $('scoring').textContent='Score weights: '+JSON.stringify(DATA.scoring.weights)+' · tie-break: '+(DATA.scoring.tie_break||[]).join(', ');
   $('case').innerHTML=CASES.map(c=>`<option value="${c.id}">${c.id} — ${c.expects}</option>`).join('');
   $('case').value='demo-accept-full';updCase();renderMI();
+  $('sel').innerHTML='<option value="">—</option>'+DATA.binders.filter(b=>b.status==='active').map(b=>`<option>${b.binder_id}</option>`).join('');
 }
 function updCase(){const c=CASES.find(x=>x.id===$('case').value);if(c)$('caseinfo').textContent='Tests: '+(c.covers||[]).join(' · ')}
 function run(){

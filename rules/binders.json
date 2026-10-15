@@ -15,6 +15,30 @@
       "effective_from": "2026-01-01",
       "effective_to": null,
       "strategic_classification": "standard"
+    },
+    {
+      "binder_id": "binder_C",
+      "binder_name": "Binder C",
+      "status": "active",
+      "effective_from": "2026-01-01",
+      "effective_to": null,
+      "strategic_classification": "standard"
+    },
+    {
+      "binder_id": "binder_D",
+      "binder_name": "Binder D",
+      "status": "active",
+      "effective_from": "2026-01-01",
+      "effective_to": null,
+      "strategic_classification": "standard"
+    },
+    {
+      "binder_id": "binder_E",
+      "binder_name": "Binder E",
+      "status": "active",
+      "effective_from": "2026-01-01",
+      "effective_to": null,
+      "strategic_classification": "standard"
     }
   ]
 }

@@ -167,6 +167,64 @@
     "end-to-end leadership demo",
     "BFR-REC-008"
    ]
+  },
+  {
+   "id": "c-accept-clean",
+   "file": "21-c-accept-clean.json",
+   "expects": "Accept binder_C",
+   "covers": [
+    "full Binder C happy path"
+   ]
+  },
+  {
+   "id": "c-california-bite",
+   "file": "22-c-california-bite.json",
+   "expects": "Decline",
+   "covers": [
+    "C-001"
+   ]
+  },
+  {
+   "id": "c-losses-bite",
+   "file": "23-c-losses-bite.json",
+   "expects": "Decline on derived 5y count",
+   "covers": [
+    "C-002",
+    "derive"
+   ]
+  },
+  {
+   "id": "d-location-cap-bite",
+   "file": "24-d-location-cap-bite.json",
+   "expects": "Decline",
+   "covers": [
+    "D-001",
+    "OPEN-2"
+   ]
+  },
+  {
+   "id": "d-brokers-bite",
+   "file": "25-d-brokers-bite.json",
+   "expects": "Decline",
+   "covers": [
+    "D-006"
+   ]
+  },
+  {
+   "id": "e-accept-full",
+   "file": "26-e-accept-full.json",
+   "expects": "Accept binder_E",
+   "covers": [
+    "full Binder E happy path"
+   ]
+  },
+  {
+   "id": "e-missing-lossrun-refer",
+   "file": "27-e-missing-lossrun-refer.json",
+   "expects": "Refer",
+   "covers": [
+    "OPEN-10 doctrine"
+   ]
   }
  ]
 }

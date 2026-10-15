@@ -22,6 +22,13 @@ KNOWN_FIELDS = {
     "locations.alarm_present", "locations.year_built",
     "prior_coverage_cancelled", "prior_coverage_non_renewed",
     "profit_share_requested", "no_claims_bonus_requested",
+    "locations.country", "locations.alarm_type", "locations.location_limit",
+    "locations.roofing_type", "locations.cctv_present",
+    "locations.cope_details_complete", "locations.flood_tier",
+    "location_count", "valuation_basis_stated_clearly",
+    "sov_complete", "deductible_options_count",
+    "prior_cargo_coverage_cancelled", "loss_run_provided",
+    "insured_postcode_zip",
 }
 VALID_OPS = {"lte", "lt", "gte", "gt", "eq", "neq", "in", "not_in",
              "is_true", "is_false", "is_absent", "is_present",

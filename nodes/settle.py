@@ -17,7 +17,7 @@ def settle(state: dict) -> dict:
             return {"settlement": {"action": "failed", "error": str(e)}}
     if decision.get("action") == "refer_back":
         out = {}
-        for b in ("binder_A", "binder_B"):
+        for b in L.load().get("binders", {}):
             out[b] = L.release(ref, b)
         return {"settlement": {"action": "released", "detail": out}}
     return {"settlement": {"action": "none"}}

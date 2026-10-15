@@ -56,7 +56,7 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
 <li><b>Underwriter decides</b> — accept, override with a reason code, or refer back. Overrides and corrections are recorded.</li>
 </ol></section>
 <section><h2>1 · Pick a submission</h2>
-<label>Sample submission (19 realistic cases)</label><select id="case"></select>
+<label>Sample submission (27 realistic cases)</label><select id="case"></select>
 <p class="mut" id="caseinfo"></p>
 <button id="run">Run evaluation ▶</button> <span class="mut">Deterministic — same input always gives the same output.</span>
 <div class="stages" id="stages"></div>
@@ -102,6 +102,7 @@ async function init(){
   CASES.sort((a,b)=>(a.id==='demo-accept-full'?-1:b.id==='demo-accept-full'?1:a.id.localeCompare(b.id)));
   $('case').innerHTML=CASES.map(c=>`<option value="${c.id}">${c.id} — ${c.expects}</option>`).join('');
   $('case').value='demo-accept-full';
+  $('sel').innerHTML='<option value="">—</option>'+ov.binders.filter(b=>b.status==='active').map(b=>`<option>${b.binder_id}</option>`).join('');
   updCase();mi();
 }
 function updCase(){const c=CASES.find(x=>x.id===$('case').value);if(c)$('caseinfo').textContent='Tests: '+(c.covers||[]).join(' · ')}

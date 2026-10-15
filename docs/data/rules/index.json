@@ -1,0 +1,18 @@
+{
+ "binder_A": [
+  "binder_A_v1.json",
+  "binder_A_v2.json"
+ ],
+ "binder_B": [
+  "binder_B_v1.json"
+ ],
+ "binder_C": [
+  "binder_C_v1.json"
+ ],
+ "binder_D": [
+  "binder_D_v1.json"
+ ],
+ "binder_E": [
+  "binder_E_v1.json"
+ ]
+}

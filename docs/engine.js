@@ -96,6 +96,9 @@
     if (ext.insured_in_continental_us == null && ext.insured_country) {
       ext.insured_in_continental_us = ext.insured_country === "US" && !NON_CONTINENTAL.has(ext.insured_state_province || "");
     }
+    if (Array.isArray(ext.locations) && ext.location_count == null) {
+      ext.location_count = ext.locations.length;
+    }
     return ext;
   }
 

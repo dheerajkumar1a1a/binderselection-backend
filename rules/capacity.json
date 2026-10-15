@@ -2,6 +2,9 @@
   "note": "Stand-in capacity source of record (BFR-INT-003, ASM-1). A real source replaces this file; the engine reads it through one function.",
   "binders": {
     "binder_A": {"authorised_line": 15000000.0, "written_to_date": 5000000.0, "reserved": 0.0},
-    "binder_B": {"authorised_line": 20000000.0, "written_to_date": 4000000.0, "reserved": 0.0}
+    "binder_B": {"authorised_line": 20000000.0, "written_to_date": 4000000.0, "reserved": 0.0},
+    "binder_C": {"authorised_line": 12000000.0, "written_to_date": 2000000.0, "reserved": 0.0},
+    "binder_D": {"authorised_line": 18000000.0, "written_to_date": 6000000.0, "reserved": 0.0},
+    "binder_E": {"authorised_line": 15000000.0, "written_to_date": 5000000.0, "reserved": 0.0}
   }
 }
