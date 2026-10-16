@@ -1,0 +1,11 @@
+From: broker@acme.example
+To: uw@example.com
+Subject: Re: DEMO-2026-001
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="B"
+
+--B
+Content-Type: text/plain; charset="utf-8"
+
+Chasing ref DEMO-2026-001. Broker Acme Marine Ltd, nothing new to add.
+--B--

@@ -1,0 +1,6 @@
+From: broker@acme.example
+To: uw@example.com
+Subject: TIV query
+Content-Type: text/plain; charset=utf-8
+
+Just confirming TIV 6500000 for Harborline.

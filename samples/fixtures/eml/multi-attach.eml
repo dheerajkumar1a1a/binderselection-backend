@@ -1,0 +1,25 @@
+From: broker@acme.example
+To: uw@example.com
+Subject: Submission with two attachments
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="B"
+
+--B
+Content-Type: text/plain; charset="utf-8"
+
+Two attachments: schedule and loss run.
+
+--B
+Content-Type: text/csv; name="sov.csv"
+Content-Disposition: attachment; filename="sov.csv"
+Content-Transfer-Encoding: base64
+
+U2l0ZSxMaW1pdCxTcHJpbmtsZXJlZAoxMiBQb3J0IFJvYWQsMjAwMDAwMCx5ZXMKNDQgUXVheSBTdHJlZXQsNDUwMDAwMCx5ZXMK
+
+--B
+Content-Type: text/csv; name="losses.csv"
+Content-Disposition: attachment; filename="losses.csv"
+Content-Transfer-Encoding: base64
+
+RGF0ZSxBbW91bnQKMjAyNC0wMy0xMSw2MDAwCg==
+--B--
