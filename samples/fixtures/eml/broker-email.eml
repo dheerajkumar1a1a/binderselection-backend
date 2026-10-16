@@ -7,12 +7,24 @@ Content-Type: multipart/mixed; boundary="B"
 --B
 Content-Type: text/plain; charset="utf-8"
 
-Broker Acme Marine Ltd TIV 6500000 steel. SOV attached.
+Dear Underwriter,
+
+Please quote our client Harborline Traders Ltd (ref SUB-2024-1187) for marine cargo and stock throughput.
+
+Headlines: TIV $6,500,000 across 8 scheduled warehouses; commodity is steel machinery parts in cases; all sites sprinklered; loss history is one settled $4,000 claim in 2021 and nothing since.
+
+Full schedule of values is attached as sov.csv (8 sites with limits, alarm types and build years). Cover sought is All Risk including warehouse storage and transit, valuation CIF+10%, 12 months from 1 June 2024. Expiring premium not disclosed; profit share not requested.
+
+Grateful for terms by Friday.
+
+Kind regards,
+J. Whitaker
+Acme Marine Ltd | j.whitaker@acme.example | +44 20 7946 0018
 
 --B
 Content-Type: text/csv; name="sov.csv"
 Content-Disposition: attachment; filename="sov.csv"
 Content-Transfer-Encoding: base64
 
-U2l0ZSxMaW1pdCxTcHJpbmtsZXJlZAoxMiBQb3J0IFJvYWQsMjAwMDAwMCx5ZXMKNDQgUXVheSBTdHJlZXQsNDUwMDAwMCx5ZXMK
+U2l0ZSxMaW1pdCxTcHJpbmtsZXJlZCxBbGFybSxZZWFyQnVpbHQKMTIgUG9ydCBSb2FkLDIwMDAwMDAseWVzLGhhcmR3aXJlZCwyMDAxCjQ0IFF1YXkgU3RyZWV0LDQ1MDAwMDAseWVzLGhhcmR3aXJlZCwyMDAxCjcgRG9ja3NpZGUsMTIwMDAwMCx5ZXMsbG9jYWwsMTk5OAo5IFBpZXIgRW5kLDgwMDAwMCx5ZXMsaGFyZHdpcmVkLDIwMDUKQWxwaGEgV2hhcmYsMTAwMDAwMCx5ZXMsaGFyZHdpcmVkLDIwMTAKQmV0YSBEb2NrLDE1MDAwMDAseWVzLGxvY2FsLDIwMDcKR2FtbWEgWWFyZCwyMDAwMDAwLHllcyxoYXJkd2lyZWQsMjAxNQpEZWx0YSBQb3J0LDI1MDAwMDAseWVzLGhhcmR3aXJlZCwyMDE4Cg==
 --B--

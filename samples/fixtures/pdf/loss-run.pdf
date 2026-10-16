@@ -9,12 +9,20 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
 endobj
 4 0 obj
-<< /Length 251 >>
+<< /Length 914 >>
 stream
 BT /F1 11 Tf 72 740 Td (LOSS RUN - Harborline Traders) Tj ET
-BT /F1 11 Tf 72 718 Td (2024-03-11 | $6,000 | settled) Tj ET
-BT /F1 11 Tf 72 696 Td (2023-06-02 | $2,000 | settled) Tj ET
-BT /F1 11 Tf 72 674 Td (Prior cargo coverage: never cancelled) Tj ET
+BT /F1 11 Tf 72 718 Td (Issued by: Meridian Claims Services, ref LR-2024-0091) Tj ET
+BT /F1 11 Tf 72 696 Td (Policy period under review: 2019-2024) Tj ET
+BT /F1 11 Tf 72 674 Td (2024-03-11 | $6,000 | water damage, Hull depot | settled) Tj ET
+BT /F1 11 Tf 72 652 Td (2023-06-02 | $2,000 | forklift impact, Quay Street | settled) Tj ET
+BT /F1 11 Tf 72 630 Td (2021-09-14 | $4,000 | storm ingress, Dockside | settled) Tj ET
+BT /F1 11 Tf 72 608 Td (2020-01-22 | $1,500 | handling damage, Port Road | settled) Tj ET
+BT /F1 11 Tf 72 586 Td (Total incurred: $13,500 across 4 claims) Tj ET
+BT /F1 11 Tf 72 564 Td (Largest single claim: $6,000) Tj ET
+BT /F1 11 Tf 72 542 Td (Prior cargo coverage: never cancelled) Tj ET
+BT /F1 11 Tf 72 520 Td (Prior coverage never non-renewed by any carrier) Tj ET
+BT /F1 11 Tf 72 498 Td (Contact: claims@meridian.example) Tj ET
 endstream
 endobj
 5 0 obj
@@ -27,9 +35,9 @@ xref
 0000000058 00000 n 
 0000000115 00000 n 
 0000000241 00000 n 
-0000000543 00000 n 
+0000001206 00000 n 
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-613
+1276
 %%EOF

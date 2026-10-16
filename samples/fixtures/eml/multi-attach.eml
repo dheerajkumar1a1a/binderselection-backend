@@ -7,19 +7,19 @@ Content-Type: multipart/mixed; boundary="B"
 --B
 Content-Type: text/plain; charset="utf-8"
 
-Two attachments: schedule and loss run.
+As discussed, please find two attachments: the schedule of values and the five-year loss run for Harborline Traders (4 settled claims, largest $6,000, prior cargo cover never cancelled).
 
 --B
 Content-Type: text/csv; name="sov.csv"
 Content-Disposition: attachment; filename="sov.csv"
 Content-Transfer-Encoding: base64
 
-U2l0ZSxMaW1pdCxTcHJpbmtsZXJlZAoxMiBQb3J0IFJvYWQsMjAwMDAwMCx5ZXMKNDQgUXVheSBTdHJlZXQsNDUwMDAwMCx5ZXMK
+U2l0ZSxMaW1pdCxTcHJpbmtsZXJlZCxBbGFybSxZZWFyQnVpbHQKMTIgUG9ydCBSb2FkLDIwMDAwMDAseWVzLGhhcmR3aXJlZCwyMDAxCjQ0IFF1YXkgU3RyZWV0LDQ1MDAwMDAseWVzLGhhcmR3aXJlZCwyMDAxCjcgRG9ja3NpZGUsMTIwMDAwMCx5ZXMsbG9jYWwsMTk5OAo5IFBpZXIgRW5kLDgwMDAwMCx5ZXMsaGFyZHdpcmVkLDIwMDUKQWxwaGEgV2hhcmYsMTAwMDAwMCx5ZXMsaGFyZHdpcmVkLDIwMTAKQmV0YSBEb2NrLDE1MDAwMDAseWVzLGxvY2FsLDIwMDcKR2FtbWEgWWFyZCwyMDAwMDAwLHllcyxoYXJkd2lyZWQsMjAxNQpEZWx0YSBQb3J0LDI1MDAwMDAseWVzLGhhcmR3aXJlZCwyMDE4Cg==
 
 --B
 Content-Type: text/csv; name="losses.csv"
 Content-Disposition: attachment; filename="losses.csv"
 Content-Transfer-Encoding: base64
 
-RGF0ZSxBbW91bnQKMjAyNC0wMy0xMSw2MDAwCg==
+RGF0ZSxBbW91bnQsU3RhdHVzCjIwMjQtMDMtMTEsNjAwMCxzZXR0bGVkCjIwMjMtMDYtMDIsMjAwMCxzZXR0bGVkCjIwMjEtMDktMTQsNDAwMCxzZXR0bGVkCjIwMjAtMDEtMjIsMTUwMCxzZXR0bGVkCg==
 --B--

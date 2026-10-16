@@ -1,3 +1,6 @@
-Date,Amount
-2024-03-11,6000
-2023-06-02,2000
+Date,Amount,Status
+2024-03-11,6000,settled
+2023-06-02,2000,settled
+2021-09-14,4000,settled
+2020-01-22,1500,settled
+2019-05-30,900,settled

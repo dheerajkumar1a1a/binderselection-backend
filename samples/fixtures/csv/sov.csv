@@ -1,3 +1,9 @@
-Site,Limit,Sprinklered
-12 Port Road,2000000,yes
-44 Quay Street,4500000,yes
+Site,Limit,Sprinklered,Alarm,YearBuilt
+12 Port Road,2000000,yes,hardwired,2001
+44 Quay Street,4500000,yes,hardwired,2001
+7 Dockside,1200000,yes,local,1998
+9 Pier End,800000,yes,hardwired,2005
+Alpha Wharf,1000000,yes,hardwired,2010
+Beta Dock,1500000,yes,local,2007
+Gamma Yard,2000000,yes,hardwired,2015
+Delta Port,2500000,yes,hardwired,2018
