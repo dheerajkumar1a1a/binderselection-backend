@@ -69,6 +69,58 @@ nested = base64.b64encode((OUT / "sov.csv").read_bytes()).decode()
     "Content-Transfer-Encoding: base64\n\n" + nested + "\n--B--\n",
     encoding="utf-8")
 (OUT / "legacy.msg").write_bytes(b"\xd0\xcf\x11\xe0fake-ole-bytes")
+(OUT / "legacy.xls").write_bytes(b"not-a-real-workbook")
+# ---- nested email: outer -> inner.eml -> data.csv (depth limit demo) ----
+inner_csv = b"Site,Limit\nDeep Depot,900000\n"
+inner = (
+    "From: broker@acme.example\nTo: uw@example.com\n"
+    "Subject: Fwd: inner submission\nMIME-Version: 1.0\n"
+    'Content-Type: multipart/mixed; boundary="INNER"\n\n--INNER\n'
+    'Content-Type: text/plain; charset="utf-8"\n\n'
+    "Forwarded inner submission.\n\n--INNER\n"
+    'Content-Type: text/csv; name="data.csv"\n'
+    'Content-Disposition: attachment; filename="data.csv"\n'
+    "Content-Transfer-Encoding: base64\n\n"
+    + base64.b64encode(inner_csv).decode() + "\n--INNER--\n"
+).encode()
+outer = (
+    "From: broker@acme.example\nTo: uw@example.com\n"
+    "Subject: Outer submission\nMIME-Version: 1.0\n"
+    'Content-Type: multipart/mixed; boundary="OUTER"\n\n--OUTER\n'
+    'Content-Type: text/plain; charset="utf-8"\n\n'
+    "Outer submission with forwarded mail attached.\n\n--OUTER\n"
+    'Content-Type: message/rfc822; name="inner.eml"\n'
+    'Content-Disposition: attachment; filename="inner.eml"\n'
+    "Content-Transfer-Encoding: base64\n\n"
+    + base64.b64encode(inner).decode() + "\n--OUTER--\n"
+).encode()
+(OUT / "nested2.eml").write_bytes(outer)
+# ---- scanned PDF: valid file, image XObject, no text layer ----
+img = zlib.compress(b"\x00\xff\x00\x00")
+img_obj = (b"<< /Type /XObject /Subtype /Image /Width 1 /Height 1 "
+           b"/ColorSpace /DeviceRGB /BitsPerComponent 8 /Length %d "
+           b"/Filter /FlateDecode >>\nstream\n" % len(img) + img + b"\nendstream")
+draw = b"q 612 0 0 792 0 0 cm /Im0 Do Q"
+sobjs = [
+    b"<< /Type /Catalog /Pages 2 0 R >>",
+    b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+    b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
+    b"/Resources << /XObject << /Im0 4 0 R >> >> /Contents 5 0 R >>",
+    img_obj,
+    b"<< /Length %d >>\nstream\n" % len(draw) + draw + b"\nendstream",
+]
+spdf = b"%PDF-1.4\n"
+soff = []
+for i, body in enumerate(sobjs, 1):
+    soff.append(len(spdf))
+    spdf += f"{i} 0 obj\n".encode() + body + b"\nendobj\n"
+sxref = len(spdf)
+spdf += f"xref\n0 {len(sobjs) + 1}\n0000000000 65535 f \n".encode()
+for o in soff:
+    spdf += f"{o:010d} 00000 n \n".encode()
+spdf += (f"trailer\n<< /Size {len(sobjs) + 1} /Root 1 0 R >>\n"
+         f"startxref\n{sxref}\n%%EOF").encode()
+(OUT / "scanned.pdf").write_bytes(spdf)
 # 1x1 red PNG (valid file, for ocr_pending path)
 def _chunk(typ, data):
     return struct.pack(">I", len(data)) + typ + data + struct.pack(">I", zlib.crc32(typ + data) & 0xFFFFFFFF)

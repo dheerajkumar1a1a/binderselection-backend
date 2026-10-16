@@ -55,14 +55,52 @@ def _parse_pdf(data: bytes) -> tuple[str, dict]:
     return text, meta, STATUS_PARSED, ""
 
 
+def _iter_leaves(msg):
+    """Yield non-container parts. message/rfc822 is a leaf (an attachment
+    candidate), never descended into: under policy.default it reports
+    is_multipart() and walk() would leak its inner text into the parent."""
+    if msg.get_content_type() == "message/rfc822":
+        yield msg
+        return
+    if msg.is_multipart():
+        for sub in msg.iter_parts():
+            yield from _iter_leaves(sub)
+    else:
+        yield msg
+
+
+def _rfc822_bytes(part) -> bytes:
+    # policy.default never base64-decodes message/rfc822 bodies itself,
+    # so decode here; fall back to object serialisation otherwise.
+    cte = (part.get("Content-Transfer-Encoding") or "").lower()
+    if "base64" in cte:
+        raw = part.get_payload(decode=False)
+        if isinstance(raw, list):
+            raw = "".join(str(x) for x in raw)
+        try:
+            return base64.b64decode("".join(str(raw).split()))
+        except Exception:
+            pass
+    sub = part.get_payload()
+    if isinstance(sub, list):
+        sub = sub[0] if sub else None
+    if hasattr(sub, "as_bytes"):
+        try:
+            return sub.as_bytes()
+        except Exception:
+            return b""
+    return part.get_payload(decode=True) or b""
+
+
 def _parse_eml(data: bytes) -> tuple[str, dict, list]:
     msg = BytesParser(policy=policy.default).parsebytes(data)
     chunks, attachments = [], []
-    for part in msg.walk():
-        if part.is_multipart():
-            continue
+    for part in _iter_leaves(msg):
         disp = (part.get_content_disposition() or "")
-        payload = part.get_payload(decode=True) or b""
+        if part.get_content_type() == "message/rfc822":
+            payload = _rfc822_bytes(part)
+        else:
+            payload = part.get_payload(decode=True) or b""
         if disp == "attachment" or (disp != "inline" and part.get_filename()):
             attachments.append({
                 "filename": part.get_filename() or "attachment.bin",
@@ -138,19 +176,29 @@ def parse_one(doc: dict, depth: int = 0) -> tuple[dict, list]:
             text, meta, status, reason = _parse_pdf(raw)
             children = []
         elif ext == "eml":
-            if depth >= MAX_NESTING:
+            if depth > MAX_NESTING:
                 out.update(parse_status=STATUS_FAILED, failure_reason="max nesting depth")
                 return out, []
             text, meta, attachments = _parse_eml(raw)
             children = []
             for i, att in enumerate(attachments):
-                child, _ = parse_one({
+                if depth >= MAX_NESTING:
+                    children.append({
+                        "doc_id": f"{doc.get('doc_id', 'doc')}-att{i}",
+                        "filename": att["filename"],
+                        "parent_doc_id": doc.get("doc_id"),
+                        "parse_status": STATUS_FAILED,
+                        "failure_reason": "max nesting depth",
+                    })
+                    continue
+                child, grandkids = parse_one({
                     "doc_id": f"{doc.get('doc_id', 'doc')}-att{i}",
                     "filename": att["filename"],
                     "content_bytes": att["content_bytes"],
                     "parent_doc_id": doc.get("doc_id"),
                 }, depth + 1)
                 children.append(child)
+                children.extend(grandkids)
             status, reason = STATUS_PARSED, ""
         elif ext == "xlsx":
             text, meta, status, reason = _parse_xlsx(raw)

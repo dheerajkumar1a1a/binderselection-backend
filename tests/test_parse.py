@@ -96,3 +96,26 @@ def test_b64_input_accepted():
     assert out["parse_status"] == "parsed"
     bad, _ = P.parse_one({"doc_id": "b", "filename": "sov.csv", "content_b64": "a"})
     assert bad["parse_status"] == "failed"
+
+
+def test_scanned_pdf_reports_ocr_pending():
+    out, _ = P.parse_one(_doc("scanned.pdf"))
+    assert out["parse_status"] == "ocr_pending"
+    assert out["pages"] == 1
+
+
+def test_nested_email_parses_one_level_then_stops():
+    res = P.parse_documents([_doc("nested2.eml", "outer")])
+    by_id = {d["doc_id"]: d for d in res["documents"]}
+    assert by_id["outer"]["parse_status"] == "parsed"
+    inner = by_id["outer-att0"]
+    assert inner["filename"] == "inner.eml" and inner["parse_status"] == "parsed"
+    assert "Forwarded inner" in inner["text"]
+    deep = by_id["outer-att0-att0"]
+    assert deep["filename"] == "data.csv"
+    assert deep["parse_status"] == "failed" and "nesting" in deep["failure_reason"]
+
+
+def test_legacy_xls_unsupported():
+    out, _ = P.parse_one(_doc("legacy.xls"))
+    assert out["parse_status"] == "unsupported_format"
