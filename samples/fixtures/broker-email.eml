@@ -1,0 +1,18 @@
+From: broker@acme.example
+To: uw@example.com
+Subject: Submission S-101
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="B"
+
+--B
+Content-Type: text/plain; charset="utf-8"
+
+Broker Acme Marine Ltd TIV 6500000 steel. SOV attached.
+
+--B
+Content-Type: text/csv; name="sov.csv"
+Content-Disposition: attachment; filename="sov.csv"
+Content-Transfer-Encoding: base64
+
+U2l0ZSxMaW1pdCxTcHJpbmtsZXJlZA0KMTIgUG9ydCBSb2FkLDIwMDAwMDAseWVzDQo=
+--B--

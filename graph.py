@@ -1,4 +1,4 @@
-"""LangGraph vertical slice: extract -> derive -> completeness -> evaluate -> rank -> review -> settle -> audit.
+"""LangGraph vertical slice: parse -> extract -> derive -> completeness -> evaluate -> rank -> review -> settle -> audit.
 
 This module defines the orchestration flow for the binder selection workflow.
 Each node represents a single processing step in the submission lifecycle:
@@ -25,6 +25,7 @@ from nodes import narrative as nar
 from nodes import review as rev
 from nodes import settle as stl
 from nodes import timing as tmg
+from nodes import parse as prs
 from persistence import get_checkpointer, write_audit
 
 
@@ -36,6 +37,7 @@ def build(checkpointer=None):
 
     # Register each pipeline stage as a node.
     # Each node is wrapped in a timing decorator to measure execution time.
+    g.add_node("parse", tmg.timed("parse", lambda s: prs.parse_documents(s.get("documents") or [])))
     g.add_node("extract", tmg.timed("extract", ext.extract))
     g.add_node("derive", tmg.timed("derive", drv.derive))
     g.add_node("completeness", tmg.timed("completeness", comp.check))
@@ -46,8 +48,15 @@ def build(checkpointer=None):
     g.add_node("settle", tmg.timed("settle", stl.settle))
     g.add_node("audit", tmg.timed("audit", write_audit))
 
-    # Start the workflow from the extraction step.
-    g.set_entry_point("extract")
+    # Start the workflow from the parsing step.
+    g.set_entry_point("parse")
+
+    # Parse first; a limit breach halts everything, anything else continues
+    # with per-document statuses riding along for the underwriter.
+    g.add_conditional_edges(
+        "parse",
+        lambda s: END if (s.get("parse") or {}).get("halted") else "extract",
+    )
 
     # Linear flow until the completeness gate.
     g.add_edge("extract", "derive")

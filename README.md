@@ -9,7 +9,7 @@ Spec of record: `BUSINESS_FUNCTIONAL_REQUIREMENTS 1.md` (v0.1 Draft for review,
 2026-09-17) in the sibling `BSA/` folder, plus `Policy_Referral.json`.
 This repo is the executable vertical slice of that spec, built on LangGraph.
 
-- Status: v1.1.0 — all five binders as versioned data (A 11, B 13, C 10, D 9, E 17 rule entries), multi-binder ranking, correction loop, MI, 96 tests green.
+- Status: v1.4.0 — all five binders as versioned data (A 11, B 13, C 10, D 9, E 17 rule entries), real document intake (pdf/eml/xlsx/csv/docx + nesting + limits + explicit failures), multi-binder ranking, correction loop, MI, 113 tests green.
 - Visibility: **public** (owner-approved 2026-10-13 for the demo). Live demo: https://dheerajkumar1a1a.github.io/binderselection-backend/ (static snapshot in `docs/`, JS engine verified identical to Python on all 27 cases).
 - Stack: Python 3.11, langgraph 1.2.x, langchain-core, pydantic, pytest,
   langgraph-checkpoint-sqlite / postgres.
@@ -310,7 +310,7 @@ third-party model (BFR-DAT-005, ASM-7).
 ## 7. Testing
 
 ```powershell
-python -m pytest tests -q        # 79 passed at v0.8.0
+python -m pytest tests -q        # 113 passed at v1.4.0
 python -m pytest tests/test_admin.py -q
 ```
 

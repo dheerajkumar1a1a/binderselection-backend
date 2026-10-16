@@ -25,6 +25,10 @@ def write_audit(state: dict) -> dict:
         "evaluation_id": f"eval-{uuid.uuid4().hex[:8]}",
         "evaluated_at": datetime.now(timezone.utc).isoformat(),
         "submission_reference": state.get("submission_reference"),
+        "documents": [{k: v for k, v in (d or {}).items()
+                       if k not in ("content_bytes", "content_b64")}
+                      for d in state.get("documents") or []],
+        "parse": state.get("parse"),
         "extracted": state.get("extracted"),
         "extracted_meta": state.get("extracted_meta"),
         "capacity_snapshot": state.get("capacity_snapshot"),
@@ -51,6 +55,10 @@ def evidence_pack(record: dict) -> str:
              f"Submission: {record.get('submission_reference')} · evaluated {record.get('evaluated_at')}"]
     if record.get("supersedes"):
         lines.append(f"Supersedes: {record['supersedes']} (original left intact, BFR-AUD-004)")
+    lines.append("## Documents (parse status per document)")
+    for d in record.get("documents") or []:
+        lines.append(f"- {d.get('doc_id')}: {d.get('filename')} -> "
+                     f"{d.get('parse_status', '?')}{(': ' + d['failure_reason']) if d.get('failure_reason') else ''}")
     lines.append("## Extracted values (value | confidence | source)")
     for f, m in (record.get("extracted_meta") or {}).items():
         if isinstance(m, dict):

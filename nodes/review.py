@@ -84,6 +84,7 @@ def review(state: dict, rules: list[dict] | None = None) -> dict:
                 "ranking": state.get("ranking"),
                 "narrative": state.get("narrative"),
                 "binder_outcome": state.get("binder_outcome"),
+                "parse_failures": ((state.get("parse") or {}).get("failures") or []),
                 "contested": contested,
                 "binder_results": [
                     {"binder_id": r.get("binder_id"), "outcome": r.get("outcome"),

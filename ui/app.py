@@ -46,12 +46,20 @@ def _case_by_id(case_id: str) -> dict:
 
 
 def run_pipeline(documents: list, submission_ref: str, llm: str | None = None) -> dict:
-    """Full engine path minus the human pause: extract->derive->gate->evaluate->rank->narrative.
+    """Full path minus the human pause: parse->extract->derive->gate->evaluate->rank->narrative.
 
     llm='nvidia' uses live Nemotron extraction (needs NVIDIA_API_KEY in the
     server environment); default stub is deterministic and keyless.
+    Documents may carry content_b64 for real files; bytes are dropped
+    after parsing and never reach the audit trail.
     """
-    state: dict = {"submission_reference": submission_ref, "documents": documents}
+    from nodes import parse as prs
+    state: dict = {"submission_reference": submission_ref}
+    state.update(prs.parse_documents(documents))
+    if (state.get("parse") or {}).get("halted"):
+        state["halt"] = "parse"
+        return state
+    documents = state["documents"]
     if llm == "nvidia":
         from nodes.extract import extract as extract_node
         out = extract_node({"documents": documents}, llm="nvidia")

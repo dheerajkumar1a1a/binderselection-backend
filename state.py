@@ -5,6 +5,7 @@ from typing import TypedDict, Any
 class SubmissionState(TypedDict, total=False):
     submission_reference: str
     documents: list[dict[str, Any]]
+    parse: dict[str, Any]
     extracted: dict[str, Any]
     extracted_meta: dict[str, Any]
     completeness: dict[str, Any]
