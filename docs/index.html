@@ -58,6 +58,7 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
 <label>Sample submission (27 realistic cases)</label><select id="case"></select>
 <p class="mut" id="caseinfo"></p>
 <label>Or upload real files (pdf, eml, xlsx, csv, docx — parsed in your browser, max 10 files / 10 MB each)</label><input type="file" id="files" multiple accept=".pdf,.eml,.xlsx,.csv,.docx,.msg,.png,.jpg,.jpeg,.tiff">
+<p class="mut">No files handy? <a href="demo-upload.pdf" download>Download our sample submission PDF</a>, upload it back with live extraction on, and watch the full pipeline run.</p>
 <label>Extractor <select id="llm" style="width:auto"><option value="">stub (deterministic, keyless — reads sample hints only)</option><option value="openrouter">live LLM via your OpenRouter key (reads uploaded files too)</option></select></label>
 <label>Your OpenRouter key (typed at runtime, kept in page memory only, never stored or sent anywhere but api.openrouter.ai)</label><input id="orkey" type="password" autocomplete="off" placeholder="sk-or-v1-…">
 <label>Model (editable)</label><input id="ormodel" value="openai/gpt-4o-mini">
@@ -160,8 +161,8 @@ async function parseFile(name,buf,depth,docId){
     return {doc:Object.assign({doc_id:docId,filename:name,format:ext,size_bytes:buf.byteLength,text:tt,text_truncated:tr,parse_status:r.status,failure_reason:r.reason},r.meta),kids:[]};
   }catch(e){return {doc:{doc_id:docId,filename:name,format:ext,size_bytes:buf.byteLength,parse_status:'failed',failure_reason:String((e&&e.message)||e)},kids:[]}}
 }
-const OR_FIELDS=["total_insured_value","broker_name","locations","commodities"];
-const OR_PROMPT='Extract marine-cargo submission fields from the documents below. Return ONLY valid JSON, no markdown, with this shape: {"fields": [{"name": "total_insured_value", "value": <number or null>, "confidence": <0-1>, "source_locator": "<quote, max 120 chars>"}, {"name": "broker_name", "value": "<string or null>", "confidence": <0-1>, "source_locator": "<quote>"}, {"name": "locations", "value": [{"address": "<string>", "sprinklered": <true/false/null>}] or null, "confidence": <0-1>, "source_locator": "<quote>"}, {"name": "commodities", "value": [{"commodity_type": "<UPPER_SNAKE string>"}] or null, "confidence": <0-1>, "source_locator": "<quote>"}]} Rules: never invent values - use null when absent. Money as number when possible. locations MUST be a list of objects. commodities MUST be a list of objects. Documents:\n';
+const OR_FIELDS=["total_insured_value","broker_name","locations","commodities","coverage_sections","valuation_basis","coverage_type","requested_inception_date","expiring_premium_disclosed","insured_state_province","insured_country","largest_single_claim_amount","total_claims_amount"];
+const OR_PROMPT='Extract marine-cargo submission fields from the documents below. Return ONLY valid JSON, no markdown, with this shape: {"fields": [{"name": "<one of: total_insured_value, broker_name, locations, commodities, coverage_sections, valuation_basis, coverage_type, requested_inception_date, expiring_premium_disclosed, insured_state_province, insured_country, largest_single_claim_amount, total_claims_amount>", "value": <JSON value or null if not stated>, "confidence": <0-1>, "source_locator": "<quote, max 120 chars>"}]} Return exactly one entry per name, in the listed order, using null where the documents do not state it. Shapes: total_insured_value number; broker_name string; locations [{"address": string, "sprinklered": true/false/null}]; commodities [{"commodity_type": "UPPER_SNAKE string"}]; coverage_sections [{"limit": number}]; valuation_basis, coverage_type, requested_inception_date (YYYY-MM-DD), insured_state_province (2-letter code), insured_country (2-letter code) strings; expiring_premium_disclosed boolean; largest_single_claim_amount, total_claims_amount numbers (0 when the text states no claims). Rules: never invent values - use null when absent. Money as number when possible. Documents:\n';
 async function extractOpenRouter(docs,key,model){
   const texts=docs.map(d=>'['+(d.doc_id||'?')+':'+(d.filename||'doc')+'] '+(d.text||''));
   const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',
@@ -175,7 +176,9 @@ async function extractOpenRouter(docs,key,model){
   for(const it of raw.fields||[]){
     if(!OR_FIELDS.includes(it.name))continue;
     let v=it.value;
-    if(it.name==='total_insured_value'&&typeof v==='string'){const n=parseFloat(v.replace(/\$/g,'').replace(/,/g,'').trim());v=isNaN(n)?null:n}
+    if((it.name==='total_insured_value')&&typeof v==='string'){const n=parseFloat(v.replace(/\$/g,'').replace(/,/g,'').trim());v=isNaN(n)?null:n}
+    if(it.name==='coverage_sections'&&Array.isArray(v)){v=v.map(s=>({limit:typeof s.limit==='string'?parseFloat(s.limit.replace(/\$/g,'').replace(/,/g,'').trim())||null:s.limit}))}
+    if(it.name==='expiring_premium_disclosed'&&typeof v==='string')v=/true|yes|disclosed/i.test(v)&&!/not disclosed|undisclosed|no /i.test(v);
     ex[it.name]=v;
     meta[it.name]={value:v,original_value:it.value,present:v!==null&&v!==undefined,confidence:Number(it.confidence||0.5),source_document_id:it.source_document_id,source_locator:String(it.source_locator||'').slice(0,120),model:model};
   }
