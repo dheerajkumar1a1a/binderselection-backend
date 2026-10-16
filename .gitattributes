@@ -3,3 +3,9 @@
 *.json text eol=lf
 *.txt text eol=lf
 *.md text eol=lf
+*.pdf binary
+*.xlsx binary
+*.docx binary
+*.msg binary
+*.png binary
+*.eml text eol=lf
