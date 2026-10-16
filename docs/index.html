@@ -57,8 +57,14 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
 <section><h2>1 · Pick a submission</h2>
 <label>Sample submission (27 realistic cases)</label><select id="case"></select>
 <p class="mut" id="caseinfo"></p>
-<button id="run">Run evaluation ▶</button> <span class="mut">Deterministic — same input always gives the same output.</span>
+<label>Or upload real files (pdf, eml, xlsx, csv, docx — parsed in your browser, max 10 files / 10 MB each)</label><input type="file" id="files" multiple accept=".pdf,.eml,.xlsx,.csv,.docx,.msg,.png,.jpg,.jpeg,.tiff">
+<label>Extractor <select id="llm" style="width:auto"><option value="">stub (deterministic, keyless — reads sample hints only)</option><option value="openrouter">live LLM via your OpenRouter key (reads uploaded files too)</option></select></label>
+<label>Your OpenRouter key (typed at runtime, kept in page memory only, never stored or sent anywhere but api.openrouter.ai)</label><input id="orkey" type="password" autocomplete="off" placeholder="sk-or-v1-…">
+<label>Model (editable)</label><input id="ormodel" value="openai/gpt-4o-mini">
+<p></p>
+<button id="run">Run evaluation ▶</button> <span class="mut">Stub runs are byte-identical every time; live LLM reads only, never decides.</span>
 <div class="stages" id="stages"></div>
+<h2>Documents (parse status)</h2><div id="docs"><p class="mut">No run yet.</p></div>
 <div class="grid2"><div><h2>Extracted facts</h2><div id="facts"></div></div>
 <div><h2>Recommendation</h2><div id="reco"></div></div></div>
 <h2>Per-binder results</h2><div id="binders"></div>
@@ -80,9 +86,12 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
 <button class="ghost" id="mi">Refresh dashboard</button><div class="kpis" id="mikpis" style="margin-top:10px"></div><pre id="mifull"></pre>
 </section>
 <section><h2>About this page</h2>
-<p class="mut">Static snapshot of the Binder Selection Agent prototype. The JavaScript engine (<span style="font-family:monospace">engine.js</span>) is a line-for-line port of the Python core and is verified identical on all 20 sample cases (<span style="font-family:monospace">node scripts/verify_engine_js.cjs</span> in the repo). Rules data is a snapshot — the live system versions rules with approval. <a href="https://github.com/dheerajkumar1a1a/binderselection-backend">Source repository</a>.</p></section>
+<p class="mut">Static snapshot of the Binder Selection Agent prototype. The JavaScript engine (<span style="font-family:monospace">engine.js</span>) is a line-for-line port of the Python core and is verified identical on all 27 sample cases (<span style="font-family:monospace">node scripts/verify_engine_js.cjs</span> in the repo). Uploaded files are parsed in your browser (PDF.js, SheetJS, mammoth — pinned CDN builds); nothing you upload leaves your machine except, if you choose live extraction, the document text sent to api.openrouter.ai under <em>your own</em> key, which lives in page memory only and is never stored. Rules data is a snapshot — the live system versions rules with approval. <a href="https://github.com/dheerajkumar1a1a/binderselection-backend">Source repository</a>.</p></section>
 </main>
 <footer>Binder Selection Agent · public demo · synthetic data only</footer>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mammoth/1.9.1/mammoth.browser.min.js"></script>
 <script src="engine.js"></script>
 <script>
 const E=window.BinderEngine;
@@ -107,27 +116,120 @@ async function init(){
   $('sel').innerHTML='<option value="">—</option>'+DATA.binders.filter(b=>b.status==='active').map(b=>`<option>${b.binder_id}</option>`).join('');
 }
 function updCase(){const c=CASES.find(x=>x.id===$('case').value);if(c)$('caseinfo').textContent='Tests: '+(c.covers||[]).join(' · ')}
-function run(){
-  const c=CASEDOCS[$('case').value];
-  const ref='WEB-'+c.case_id+'-'+Math.random().toString(16).slice(2,8);
+const MAX_BYTES=10000000, MAX_TEXT=100000;
+function trunc(t){return t.length>MAX_TEXT?[t.slice(0,MAX_TEXT),true]:[t,false]}
+function extOf(n){n=(n||'').toLowerCase();return n.includes('.')?n.split('.').pop():''}
+async function parsePdf(buf){const pdf=await pdfjsLib.getDocument({data:buf}).promise;const ps=[];for(let i=1;i<=pdf.numPages;i++){const p=await pdf.getPage(i);const tc=await p.getTextContent();ps.push(tc.items.map(it=>it.str).join(' '))}const t=ps.join('\n');if(!t.trim())return {text:'',meta:{pages:pdf.numPages},status:'ocr_pending',reason:'no text layer (scanned?)'};return {text:t,meta:{pages:pdf.numPages},status:'parsed',reason:''}}
+function parseXlsx(buf){const wb=XLSX.read(buf,{type:'array'});const lines=[],sheets=wb.SheetNames;for(const s of sheets){const rows=XLSX.utils.sheet_to_json(wb.Sheets[s],{header:1,raw:true});for(const r of rows){const v=r.filter(c=>c!==null&&c!==undefined&&c!=='').map(String);if(v.length)lines.push(s+'! '+v.join(' | '))}}return {text:lines.join('\n'),meta:{sheets},status:'parsed',reason:''}}
+function csvRows(t){const rows=[];let cur=[''],q=false;for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c==='"'){if(t[i+1]==='"'){cur[cur.length-1]+='"';i++}else q=false}else cur[cur.length-1]+=c}else{if(c==='"')q=true;else if(c===',')cur.push('');else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;rows.push(cur);cur=['']}else cur[cur.length-1]+=c}}if(cur.length>1||cur[0]!=='')rows.push(cur);return rows}
+function parseCsv(buf){const t=new TextDecoder('utf-8').decode(buf);const rows=csvRows(t);return {text:rows.map(r=>r.join(' | ')).join('\n'),meta:{rows:rows.length},status:'parsed',reason:''}}
+async function parseDocx(buf){const r=await mammoth.extractRawText({arrayBuffer:buf});const ps=r.value.split('\n').filter(x=>x.trim());return {text:ps.join('\n'),meta:{paragraphs:ps.length},status:'parsed',reason:''}}
+function parseEmlText(buf){const raw=new TextDecoder('utf-8').decode(buf);const idx=raw.search(/\r?\n\r?\n/);const head=idx>=0?raw.slice(0,idx):raw,body=idx>=0?raw.slice(idx).replace(/^\r?\n/,''):'';
+  const bm=(head.match(/boundary="?([^";\r\n]+)"?/i)||[])[1];
+  if(!bm)return {body,atts:[]};
+  const parts=body.split('--'+bm).slice(1,-1),texts=[],atts=[];
+  for(const p of parts){const s=p.search(/\r?\n\r?\n/);if(s<0)continue;const ph=p.slice(0,s),pb=p.slice(s).replace(/^\r?\n/,'').replace(/\r?\n$/,'');
+    const fn=(ph.match(/filename="?([^";\r\n]+)"?/i)||[])[1];
+    if(fn){const b64=pb.replace(/\s+/g,'');try{atts.push({filename:fn,bytes:Uint8Array.from(atob(b64),c=>c.charCodeAt(0)).buffer})}catch(e){atts.push({filename:fn,error:String(e)})}}
+    else if(/text\/plain/i.test(ph))texts.push(pb);}
+  return {body:texts.join('\n'),atts}}
+async function parseFile(name,buf,depth,docId){
+  const ext=extOf(name);
+  if(buf.byteLength>MAX_BYTES)return {doc:{doc_id:docId,filename:name,format:ext,size_bytes:buf.byteLength,parse_status:'failed',failure_reason:'size '+buf.byteLength+' exceeds '+MAX_BYTES+' limit'},kids:[]};
+  try{
+    let r;
+    if(ext==='pdf')r=await parsePdf(buf);
+    else if(ext==='xlsx')r=parseXlsx(buf);
+    else if(ext==='csv')r=parseCsv(buf);
+    else if(ext==='docx')r=await parseDocx(buf);
+    else if(ext==='eml'){
+      if(depth>=1)return {doc:{doc_id:docId,filename:name,format:ext,size_bytes:buf.byteLength,parse_status:'failed',failure_reason:'max nesting depth'},kids:[]};
+      const e=parseEmlText(buf);r={text:e.body,meta:{},status:'parsed',reason:''};
+      const kids=[];
+      for(let i=0;i<e.atts.length;i++){
+        if(e.atts[i].error){kids.push({doc:{doc_id:docId+'-att'+i,filename:e.atts[i].filename,parse_status:'failed',failure_reason:'attachment decode: '+e.atts[i].error,parent_doc_id:docId},kids:[]});continue}
+        const k=await parseFile(e.atts[i].filename,e.atts[i].bytes,depth+1,docId+'-att'+i);
+        k.doc.parent_doc_id=docId;kids.push(k);
+      }
+      const [tt,tr]=trunc(r.text);
+      return {doc:Object.assign({doc_id:docId,filename:name,format:ext,size_bytes:buf.byteLength,text:tt,text_truncated:tr,parse_status:r.status,failure_reason:r.reason},r.meta),kids};
+    }
+    else if(['png','jpg','jpeg','tiff','bmp','gif'].includes(ext))return {doc:{doc_id:docId,filename:name,format:ext,size_bytes:buf.byteLength,parse_status:'ocr_pending',failure_reason:'image input, OCR engine pending'},kids:[]};
+    else return {doc:{doc_id:docId,filename:name,format:ext,size_bytes:buf.byteLength,parse_status:'unsupported_format',failure_reason:"format '."+(ext||'?')+"' has no parser"},kids:[]};
+    const [tt,tr]=trunc(r.text);
+    return {doc:Object.assign({doc_id:docId,filename:name,format:ext,size_bytes:buf.byteLength,text:tt,text_truncated:tr,parse_status:r.status,failure_reason:r.reason},r.meta),kids:[]};
+  }catch(e){return {doc:{doc_id:docId,filename:name,format:ext,size_bytes:buf.byteLength,parse_status:'failed',failure_reason:String((e&&e.message)||e)},kids:[]}}
+}
+const OR_FIELDS=["total_insured_value","broker_name","locations","commodities"];
+const OR_PROMPT='Extract marine-cargo submission fields from the documents below. Return ONLY valid JSON, no markdown, with this shape: {"fields": [{"name": "total_insured_value", "value": <number or null>, "confidence": <0-1>, "source_locator": "<quote, max 120 chars>"}, {"name": "broker_name", "value": "<string or null>", "confidence": <0-1>, "source_locator": "<quote>"}, {"name": "locations", "value": [{"address": "<string>", "sprinklered": <true/false/null>}] or null, "confidence": <0-1>, "source_locator": "<quote>"}, {"name": "commodities", "value": [{"commodity_type": "<UPPER_SNAKE string>"}] or null, "confidence": <0-1>, "source_locator": "<quote>"}]} Rules: never invent values - use null when absent. Money as number when possible. locations MUST be a list of objects. commodities MUST be a list of objects. Documents:\n';
+async function extractOpenRouter(docs,key,model){
+  const texts=docs.map(d=>'['+(d.doc_id||'?')+':'+(d.filename||'doc')+'] '+(d.text||''));
+  const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',
+    headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json','HTTP-Referer':'https://dheerajkumar1a1a.github.io/binderselection-backend/','X-Title':'binderselection-demo'},
+    body:JSON.stringify({model:model,messages:[{role:'user',content:OR_PROMPT+texts.join('\n---\n')}],temperature:0})});
+  if(!r.ok)throw new Error('OpenRouter '+r.status+': '+(await r.text()).slice(0,200));
+  const p=await r.json();
+  let c=(p.choices[0].message.content||'').trim();
+  if(c.startsWith('```'))c=c.split('\n').slice(1).join('\n').replace(/```\s*$/,'');
+  const raw=JSON.parse(c),ex={},meta={};
+  for(const it of raw.fields||[]){
+    if(!OR_FIELDS.includes(it.name))continue;
+    let v=it.value;
+    if(it.name==='total_insured_value'&&typeof v==='string'){const n=parseFloat(v.replace(/\$/g,'').replace(/,/g,'').trim());v=isNaN(n)?null:n}
+    ex[it.name]=v;
+    meta[it.name]={value:v,original_value:it.value,present:v!==null&&v!==undefined,confidence:Number(it.confidence||0.5),source_document_id:it.source_document_id,source_locator:String(it.source_locator||'').slice(0,120),model:model};
+  }
+  for(const f of OR_FIELDS)if(!(f in ex)){ex[f]=null;meta[f]={present:false,confidence:0,reason:'absent'}}
+  return [ex,meta];
+}
+async function run(){
+  $('run').disabled=true;
+  try{
+  const files=$('files').files,llm=$('llm').value;
+  let docs,expected=null,covers=null,ref;
+  if(files.length){
+    if(files.length>10)throw new Error(files.length+' files exceeds 10-document limit');
+    ref='WEB-upload-'+Date.now();
+    docs=[];
+    for(const f of files){
+      const buf=await f.arrayBuffer();
+      const r=await parseFile(f.name,buf,0,f.name.replace(/[^\w.-]+/g,'_'));
+      docs.push(r.doc);for(const k of r.kids)docs.push(k.doc);
+    }
+  }else{
+    const c=CASEDOCS[$('case').value];
+    ref='WEB-'+c.case_id+'-'+Math.random().toString(16).slice(2,8);
+    docs=c.documents;expected=c.expected;covers=c.covers;
+  }
   const T={};let t;
-  [t,T.extract]=timeIt(()=>E.stubExtract(c.documents));const [ex0,meta]=t;
+  let ex0,meta;
+  if(llm==='openrouter'){
+    const key=$('orkey').value.trim(),model=$('ormodel').value.trim()||'openai/gpt-4o-mini';
+    if(!key)throw new Error('paste your OpenRouter key first (kept in page memory only)');
+    const t0=performance.now();
+    [ex0,meta]=await extractOpenRouter(docs.filter(d=>d.text),key,model);
+    T.extract=Math.round((performance.now()-t0)*10000)/10000;
+  }else{
+    [t,T.extract]=timeIt(()=>E.stubExtract(docs));[ex0,meta]=t;
+  }
   [t,T.derive]=timeIt(()=>E.derive(ex0));const ex=t;
   [t,T.completeness]=timeIt(()=>E.checkCompleteness(ex,meta));const comp=t;
-  RUN={submission_reference:ref,documents:c.documents,extracted:ex,extracted_meta:meta,completeness:comp,halt:null,stage_timings:T,dataset_expected:c.expected,dataset_covers:c.covers};
+  RUN={submission_reference:ref,documents:docs.map(d=>{const o=Object.assign({},d);return o}),extracted:ex,extracted_meta:meta,completeness:comp,halt:null,stage_timings:T,dataset_expected:expected,dataset_covers:covers,model_versions:{extraction:llm==='openrouter'?$('ormodel').value.trim():'stub-1'}};
   if(!comp.can_evaluate){RUN.halt='completeness';}
   else{
-    let ev;const t0=performance.now();
+    const t0=performance.now();
     const er=E.evaluateBinders(ex,DATA);T.evaluate=Math.round((performance.now()-t0)*10000)/10000;
     Object.assign(RUN,er);
     [t,T.rank]=timeIt(()=>E.scoreBinders(RUN.binder_results,DATA));Object.assign(RUN,t);
     [t,T.narrative]=timeIt(()=>({narrative:E.summarize(RUN)}));RUN.narrative=t.narrative;
   }
   renderRun();
+  }finally{$('run').disabled=false;}
 }
 function renderRun(){
   const r=RUN,comp=r.completeness||{};
-  $('stages').innerHTML=['extract','derive','completeness','evaluate','rank','narrative'].map(s=>`<div class="stage"><b>${s}</b>${s==='completeness'?(comp.can_evaluate?'complete':'halted — missing'):(r.halt&&['evaluate','rank','narrative'].includes(s)?'skipped':(r.stage_timings[s]??'')+'s')}</div>`).join('');
+  $('stages').innerHTML=['parse','extract','derive','completeness','evaluate','rank','narrative'].map(s=>`<div class="stage"><b>${s}</b>${s==='parse'?'done':s==='completeness'?(comp.can_evaluate?'complete':'halted — missing'):(r.halt&&['evaluate','rank','narrative'].includes(s)?'skipped':(r.stage_timings[s]??'')+'s')}</div>`).join('');
+  $('docs').innerHTML=`<table><tr><th>Document</th><th>Format</th><th>Status</th><th>Detail</th></tr>${(r.documents||[]).map(d=>`<tr><td>${d.doc_id} (${d.filename||'?'})</td><td>${d.format||'—'}</td><td>${chip(d.parse_status==='parsed'||d.parse_status==='pre-parsed'?'Pass':d.parse_status==='ocr_pending'?'Refer':'Decline')} ${d.parse_status||'—'}</td><td>${d.failure_reason||(d.text_truncated?'truncated at limit':'')}</td></tr>`).join('')}</table>`;
   const meta=r.extracted_meta||{};
   $('facts').innerHTML=`<table><tr><th>Fact</th><th>Value</th><th>Conf</th><th>Source</th></tr>${Object.keys(r.extracted||{}).map(f=>{const m=meta[f]||{};return `<tr><td>${f}</td><td>${JSON.stringify(r.extracted[f])}</td><td>${m.confidence??'—'}</td><td>${m.source_document_id??'—'}</td></tr>`}).join('')}</table>`;
   $('reco').innerHTML=`<div class="kpi"><b>${r.recommendation||r.halt||'—'}</b><span>scores: ${JSON.stringify(r.scores||{})}</span></div>${r.dataset_expected?`<p class="mut">Pinned suite expects: ${r.dataset_expected}</p>`:''}`;
