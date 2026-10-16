@@ -12,7 +12,11 @@ import urllib.request
 
 API_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 DEFAULT_MODEL = os.environ.get("NVIDIA_MODEL", "nvidia/nemotron-3-super-120b-a12b")
-FIELDS = ["total_insured_value", "broker_name", "locations", "commodities"]
+FIELDS = ["total_insured_value", "broker_name", "locations", "commodities",
+          "coverage_sections", "valuation_basis", "coverage_type",
+          "requested_inception_date", "expiring_premium_disclosed",
+          "insured_state_province", "insured_country",
+          "largest_single_claim_amount", "total_claims_amount"]
 
 PROMPT = """Extract marine-cargo submission fields from the documents below.
 Return ONLY valid JSON, no markdown, with this shape:
@@ -20,10 +24,22 @@ Return ONLY valid JSON, no markdown, with this shape:
  {"name": "total_insured_value", "value": <number or null>, "confidence": <0-1>, "source_locator": "<quote, max 120 chars>"},
  {"name": "broker_name", "value": "<string or null>", "confidence": <0-1>, "source_locator": "<quote>"},
  {"name": "locations", "value": [{"address": "<string>", "sprinklered": <true/false/null>}] or null, "confidence": <0-1>, "source_locator": "<quote>"},
- {"name": "commodities", "value": [{"commodity_type": "<UPPER_SNAKE string>"}] or null, "confidence": <0-1>, "source_locator": "<quote>"}
+ {"name": "commodities", "value": [{"commodity_type": "<UPPER_SNAKE string>"}] or null, "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "coverage_sections", "value": [{"limit": <number>}] or null, "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "valuation_basis", "value": "<string or null>", "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "coverage_type", "value": "<string or null>", "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "requested_inception_date", "value": "<YYYY-MM-DD or null>", "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "expiring_premium_disclosed", "value": <true/false/null>, "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "insured_state_province", "value": "<2-letter code or null>", "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "insured_country", "value": "<2-letter code or null>", "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "largest_single_claim_amount", "value": <number or null>, "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "total_claims_amount", "value": <number or null>, "confidence": <0-1>, "source_locator": "<quote>"}
 ]}
-Rules: never invent values - use null when absent. Money as number when possible.
-locations MUST be a list of objects (empty list if none stated). commodities MUST be a list of objects.
+Rules: return exactly one entry per name, in the listed order, using null
+where the documents do not state it. Never invent values. Money as numbers.
+Locations MUST be a list of objects (empty list if none stated).
+Commodities MUST be a list of objects. "No claims" means 0 amounts.
+"Not disclosed" means false for expiring_premium_disclosed.
 Documents:
 """
 
@@ -67,11 +83,29 @@ def nvidia_extract(documents: list[dict], api_key: str | None = None,
         if name not in FIELDS:
             continue
         val = item.get("value")
-        if name == "total_insured_value" and isinstance(val, str):
+        if name in ("total_insured_value", "largest_single_claim_amount",
+                    "total_claims_amount") and isinstance(val, str):
             try:
                 val = float(val.replace("$", "").replace(",", "").strip())
             except ValueError:
                 val = None
+        if name == "coverage_sections" and isinstance(val, list):
+            fixed = []
+            for s in val:
+                if isinstance(s, dict) and "limit" in s:
+                    lim = s["limit"]
+                    if isinstance(lim, str):
+                        try:
+                            lim = float(lim.replace("$", "").replace(",", "").strip())
+                        except ValueError:
+                            lim = None
+                    fixed.append({"limit": lim})
+            val = fixed
+        if name == "expiring_premium_disclosed" and isinstance(val, str):
+            low = val.lower()
+            val = ("true" in low or "yes" in low or "disclosed" in low) \
+                and "not disclosed" not in low and "undisclosed" not in low \
+                and not low.startswith("no ")
         extracted[name] = val
         meta[name] = {"value": val, "original_value": item.get("value"),
                       "present": val is not None,

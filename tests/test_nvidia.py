@@ -45,3 +45,24 @@ def test_node_routes_to_nvidia(monkeypatch):
 
 def test_default_model_is_nemotron_120b():
     assert nv.DEFAULT_MODEL == "nvidia/nemotron-3-super-120b-a12b"
+
+
+def test_full_schema_validated(monkeypatch):
+    fake = {"fields": [
+        {"name": "total_insured_value", "value": 6500000, "confidence": 0.9,
+         "source_locator": "tiv"},
+        {"name": "coverage_sections", "value": [{"limit": "$2,000,000"}],
+         "confidence": 0.8, "source_locator": "sec"},
+        {"name": "expiring_premium_disclosed", "value": False,
+         "confidence": 0.9, "source_locator": "not disclosed"},
+        {"name": "largest_single_claim_amount", "value": "$6,000",
+         "confidence": 0.9, "source_locator": "claim"},
+    ]}
+    monkeypatch.setattr(nv, "_call", lambda texts, key, model: fake)
+    ext, meta = nv.nvidia_extract([{"doc_id": "d1", "text": "t"}], api_key="test")
+    assert ext["coverage_sections"] == [{"limit": 2000000.0}]
+    assert ext["expiring_premium_disclosed"] is False
+    assert ext["largest_single_claim_amount"] == 6000.0
+    assert ext["valuation_basis"] is None
+    assert meta["valuation_basis"]["present"] is False
+    assert len(ext) == 13
