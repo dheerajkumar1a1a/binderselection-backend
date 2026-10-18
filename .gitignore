@@ -11,3 +11,7 @@ ui/last-run.json
 audit/
 .langgraph/
 .pytest_cache/
+
+prod_run_report.json
+_dbg_*.py
+_single_*.py
