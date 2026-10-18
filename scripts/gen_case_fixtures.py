@@ -150,6 +150,9 @@ def main():
             "deductible_options_count": 1,
             "loss_run_provided": True,
             "insured_postcode_zip": "78701",
+            "prior_coverage_cancelled": False,
+            "prior_coverage_non_renewed": False,
+            "prior_cargo_coverage_cancelled": False,
             "valuation_basis_stated_clearly": True,
             "profit_share_requested": False,
         }
@@ -186,6 +189,8 @@ def main():
             extra_lines.append(f"Business commenced: {hint0['business_commencement_date']}")
         if hint0.get("prior_coverage_cancelled") is not None:
             extra_lines.append(f"Prior coverage cancelled: {hint0['prior_coverage_cancelled']}")
+        if hint0.get("prior_cargo_coverage_cancelled") is not None:
+            extra_lines.append(f"Prior cargo coverage cancelled: {hint0['prior_cargo_coverage_cancelled']}")
         if hint0.get("prior_coverage_non_renewed") is not None:
             extra_lines.append(f"Prior coverage non-renewed: {hint0['prior_coverage_non_renewed']}")
         if hint0.get("profit_share_requested") is not None:

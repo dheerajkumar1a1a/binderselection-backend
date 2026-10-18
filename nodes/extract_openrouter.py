@@ -6,8 +6,8 @@ override with any OpenRouter model id, e.g. google/gemini-2.0-flash-001.
 Contract mirrors stub_extract: (extracted, meta) with provenance,
 confidence, absent-stays-absent. Model output is validated, never trusted:
 unknown fields dropped, missing fields marked absent, money normalised.
-Extracts the full 13-field schema (matches the NVIDIA provider) so that
-real submissions can be evaluated end-to-end, not just 4 fields.
+Extracts the full field schema (matches the NVIDIA provider) so that
+real submissions can be evaluated end-to-end.
 """
 import json
 import os
@@ -19,14 +19,22 @@ FIELDS = ["total_insured_value", "broker_name", "locations", "commodities",
           "coverage_sections", "valuation_basis", "coverage_type",
           "requested_inception_date", "expiring_premium_disclosed",
           "insured_state_province", "insured_country",
-          "largest_single_claim_amount", "total_claims_amount"]
+          "largest_single_claim_amount", "total_claims_amount",
+          "prior_coverage_cancelled", "prior_coverage_non_renewed",
+          "profit_share_requested", "no_claims_bonus_requested",
+          "years_trading", "business_commencement_date",
+          "claim_count_3_years", "claim_count_5_years",
+          "insured_in_continental_us", "policy_term_months",
+          "valuation_basis_stated_clearly", "broker_count",
+          "sov_complete", "deductible_options_count",
+          "insured_postcode_zip", "loss_run_provided", "prior_cargo_coverage_cancelled"]
 
 PROMPT = """Extract marine-cargo submission fields from the documents below.
 Return ONLY valid JSON, no markdown, with this shape:
 {"fields": [
  {"name": "total_insured_value", "value": <number or null>, "confidence": <0-1>, "source_locator": "<quote, max 120 chars>"},
  {"name": "broker_name", "value": "<string or null>", "confidence": <0-1>, "source_locator": "<quote>"},
- {"name": "locations", "value": [{"address": "<string>", "sprinklered": <true/false/null>}] or null, "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "locations", "value": [{"address": "<string>", "sprinklered": <true/false/null>, "territory": "<2-letter or null>", "wildfire_risk_score": <number or null>, "fema_flood_zone": "<string or null>", "construction_type": "<string or null>", "alarm_present": <true/false/null>, "year_built": <number or null>, "alarm_type": "<string or null>", "country": "<2-letter or null>", "location_limit": <number or null>, "flood_tier": "<string or null>", "roofing_type": "<string or null>", "cctv_present": <true/false/null>, "cope_details_complete": <true/false/null>}], "confidence": <0-1>, "source_locator": "<quote>"},
  {"name": "commodities", "value": [{"commodity_type": "<UPPER_SNAKE string>"}] or null, "confidence": <0-1>, "source_locator": "<quote>"},
  {"name": "coverage_sections", "value": [{"limit": <number>}] or null, "confidence": <0-1>, "source_locator": "<quote>"},
  {"name": "valuation_basis", "value": "<string or null>", "confidence": <0-1>, "source_locator": "<quote>"},
@@ -36,7 +44,24 @@ Return ONLY valid JSON, no markdown, with this shape:
  {"name": "insured_state_province", "value": "<2-letter code or null>", "confidence": <0-1>, "source_locator": "<quote>"},
  {"name": "insured_country", "value": "<2-letter code or null>", "confidence": <0-1>, "source_locator": "<quote>"},
  {"name": "largest_single_claim_amount", "value": <number or null>, "confidence": <0-1>, "source_locator": "<quote>"},
- {"name": "total_claims_amount", "value": <number or null>, "confidence": <0-1>, "source_locator": "<quote>"}
+ {"name": "total_claims_amount", "value": <number or null>, "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "prior_coverage_cancelled", "value": <true/false/null>, "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "prior_coverage_non_renewed", "value": <true/false/null>, "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "profit_share_requested", "value": <true/false/null>, "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "no_claims_bonus_requested", "value": <true/false/null>, "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "years_trading", "value": <number or null>, "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "business_commencement_date", "value": "<YYYY-MM-DD or null>", "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "claim_count_3_years", "value": <number or null>, "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "claim_count_5_years", "value": <number or null>, "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "insured_in_continental_us", "value": <true/false/null>, "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "policy_term_months", "value": <number or null>, "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "valuation_basis_stated_clearly", "value": <true/false/null>, "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "broker_count", "value": <number or null>, "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "sov_complete", "value": <true/false/null>, "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "deductible_options_count", "value": <number or null>, "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "insured_postcode_zip", "value": "<string or null>", "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "loss_run_provided", "value": <true/false/null>, "confidence": <0-1>, "source_locator": "<quote>"},
+ {"name": "prior_cargo_coverage_cancelled", "value": <true/false/null>, "confidence": <0-1>, "source_locator": "<quote>"}
 ]}
 Rules: return exactly one entry per name, in the listed order, using null
 where the documents do not state it. Never invent values. Money as numbers.
