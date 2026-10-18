@@ -10,6 +10,18 @@ Content-Type: text/plain; charset="utf-8"
 Dear Underwriter,
 
 Please quote Acme (ref d-brokers-bite) for marine cargo. TIV 2000000. Commodity: STEEL. Locations: S.
+Coverage section limit: 2000000
+Valuation basis: CIF+10%
+Coverage type: ALL_RISK
+Requested inception date: 2030-01-01
+Expiring premium disclosed: False
+Business commenced: 2019-01-01
+Policy term: 12 months
+Broker count: 2
+SOV complete: True
+Deductible options: 1
+Location limit: 1000000
+Sprinklered: True
 
 Expected outcome: no eligible binder.
 

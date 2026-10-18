@@ -9,7 +9,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
 endobj
 4 0 obj
-<< /Length 470 >>
+<< /Length 1514 >>
 stream
 BT /F1 11 Tf 72 740 Td (MARINE CARGO SUBMISSION - E-ACCEPT-FULL) Tj ET
 BT /F1 11 Tf 72 718 Td (Broker: Acme) Tj ET
@@ -17,8 +17,27 @@ BT /F1 11 Tf 72 696 Td (Total insured value: 2000000) Tj ET
 BT /F1 11 Tf 72 674 Td (Commodity: STEEL) Tj ET
 BT /F1 11 Tf 72 652 Td (Locations:) Tj ET
 BT /F1 11 Tf 72 630 Td (  - 12 Port Road \(sprinklered=True\)) Tj ET
-BT /F1 11 Tf 72 608 Td (Expected: binder_A) Tj ET
-BT /F1 11 Tf 72 586 Td (Covers: full Binder E happy path with enrichment fields) Tj ET
+BT /F1 11 Tf 72 608 Td (Coverage section limit: 1000000) Tj ET
+BT /F1 11 Tf 72 586 Td (Valuation basis: CIF+10%) Tj ET
+BT /F1 11 Tf 72 564 Td (Coverage type: ALL_RISK) Tj ET
+BT /F1 11 Tf 72 542 Td (Requested inception date: 2030-01-01) Tj ET
+BT /F1 11 Tf 72 520 Td (Expiring premium disclosed: False) Tj ET
+BT /F1 11 Tf 72 498 Td (Business commenced: 2019-01-01) Tj ET
+BT /F1 11 Tf 72 476 Td (Policy term: 12 months) Tj ET
+BT /F1 11 Tf 72 454 Td (Loss run provided: True) Tj ET
+BT /F1 11 Tf 72 432 Td (Construction type: MASONRY) Tj ET
+BT /F1 11 Tf 72 410 Td (Alarm present: True) Tj ET
+BT /F1 11 Tf 72 388 Td (Year built: 2005) Tj ET
+BT /F1 11 Tf 72 366 Td (Flood tier: TIER_1) Tj ET
+BT /F1 11 Tf 72 344 Td (Roofing type: SHINGLE) Tj ET
+BT /F1 11 Tf 72 322 Td (CCTV present: True) Tj ET
+BT /F1 11 Tf 72 300 Td (COPE details complete: True) Tj ET
+BT /F1 11 Tf 72 278 Td (Sprinklered: True) Tj ET
+BT /F1 11 Tf 72 256 Td (Insured state: NY) Tj ET
+BT /F1 11 Tf 72 234 Td (Postcode/ZIP: 10001) Tj ET
+BT /F1 11 Tf 72 212 Td (Claims \(3y\): 0) Tj ET
+BT /F1 11 Tf 72 190 Td (Expected: binder_A) Tj ET
+BT /F1 11 Tf 72 168 Td (Covers: full Binder E happy path with enrichment fields) Tj ET
 endstream
 endobj
 5 0 obj
@@ -31,9 +50,9 @@ xref
 0000000058 00000 n 
 0000000115 00000 n 
 0000000241 00000 n 
-0000000762 00000 n 
+0000001807 00000 n 
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-832
+1877
 %%EOF

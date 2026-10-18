@@ -10,6 +10,24 @@ Content-Type: text/plain; charset="utf-8"
 Dear Underwriter,
 
 Please quote Acme (ref b-accept-clean) for marine cargo. TIV 2000000. Commodity: STEEL. Locations: 12 Port Road.
+Coverage section limit: 2000000
+Valuation basis: CIF+10%
+Coverage type: ALL_RISK
+Requested inception date: 2030-01-01
+Expiring premium disclosed: False
+Business commenced: 2019-01-01
+Prior coverage cancelled: False
+Prior coverage non-renewed: False
+Profit share requested: False
+No-claims bonus requested: False
+Policy term: 12 months
+Territory: TX
+Wildfire risk score: 10
+FEMA flood zone: X
+Construction type: MASONRY
+Alarm present: True
+Year built: 2000
+Sprinklered: True
 
 Expected outcome: binder_A.
 

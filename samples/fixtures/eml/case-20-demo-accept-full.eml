@@ -10,6 +10,17 @@ Content-Type: text/plain; charset="utf-8"
 Dear Underwriter,
 
 Please quote Acme Marine Ltd. (ref demo-accept-full) for marine cargo. TIV 6500000. Commodity: STEEL. Locations: 12 Port Road.
+Coverage section limit: 2000000
+Valuation basis: CIF+10%
+Coverage type: ALL_RISK
+Requested inception date: 2030-06-01
+Expiring premium disclosed: False
+Insured in continental US: True
+Business commenced: 2019-01-01
+Policy term: 12 months
+Sprinklered: True
+Largest single claim: 0
+Total claims amount: 0
 
 Expected outcome: binder_A.
 

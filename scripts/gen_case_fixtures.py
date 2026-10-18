@@ -128,13 +128,102 @@ def main():
         loc_lines = [f"{l.get('address','?')} (sprinklered={l.get('sprinklered')})" for l in locs] or ["(none stated)"]
 
         # PDF
+        hint0 = case["documents"][0].get("structured_hint", {}) if case.get("documents") else {}
+        # Sensible defaults so the PDF is a complete submission document and the
+        # live extractor can populate every field the rules need.
+        defaults = {
+            "valuation_basis": "CIF+10%",
+            "coverage_type": "ALL_RISK",
+            "requested_inception_date": "2030-01-01",
+            "expiring_premium_disclosed": False,
+            "policy_term_months": 12,
+            "business_commencement_date": "2019-01-01",
+        }
+        for k, v in defaults.items():
+            hint0.setdefault(k, v)
+        if not hint0.get("coverage_sections"):
+            hint0["coverage_sections"] = [{"limit": 2000000}]
+        extra_lines = []
+        if hint0.get("coverage_sections"):
+            extra_lines.append(f"Coverage section limit: {hint0['coverage_sections'][0].get('limit')}")
+        if hint0.get("valuation_basis"):
+            extra_lines.append(f"Valuation basis: {hint0['valuation_basis']}")
+        if hint0.get("coverage_type"):
+            extra_lines.append(f"Coverage type: {hint0['coverage_type']}")
+        if hint0.get("requested_inception_date"):
+            extra_lines.append(f"Requested inception date: {hint0['requested_inception_date']}")
+        if "expiring_premium_disclosed" in hint0:
+            extra_lines.append(f"Expiring premium disclosed: {hint0['expiring_premium_disclosed']}")
+        if hint0.get("insured_in_continental_us") is not None:
+            extra_lines.append(f"Insured in continental US: {hint0['insured_in_continental_us']}")
+        if hint0.get("business_commencement_date"):
+            extra_lines.append(f"Business commenced: {hint0['business_commencement_date']}")
+        if hint0.get("prior_coverage_cancelled") is not None:
+            extra_lines.append(f"Prior coverage cancelled: {hint0['prior_coverage_cancelled']}")
+        if hint0.get("prior_coverage_non_renewed") is not None:
+            extra_lines.append(f"Prior coverage non-renewed: {hint0['prior_coverage_non_renewed']}")
+        if hint0.get("profit_share_requested") is not None:
+            extra_lines.append(f"Profit share requested: {hint0['profit_share_requested']}")
+        if hint0.get("no_claims_bonus_requested") is not None:
+            extra_lines.append(f"No-claims bonus requested: {hint0['no_claims_bonus_requested']}")
+        if hint0.get("policy_term_months"):
+            extra_lines.append(f"Policy term: {hint0['policy_term_months']} months")
+        if hint0.get("broker_count") is not None:
+            extra_lines.append(f"Broker count: {hint0['broker_count']}")
+        if hint0.get("sov_complete") is not None:
+            extra_lines.append(f"SOV complete: {hint0['sov_complete']}")
+        if hint0.get("deductible_options_count") is not None:
+            extra_lines.append(f"Deductible options: {hint0['deductible_options_count']}")
+        if hint0.get("loss_run_provided") is not None:
+            extra_lines.append(f"Loss run provided: {hint0['loss_run_provided']}")
+        for l in locs:
+            if l.get("territory"):
+                extra_lines.append(f"Territory: {l['territory']}")
+            if l.get("wildfire_risk_score") is not None:
+                extra_lines.append(f"Wildfire risk score: {l['wildfire_risk_score']}")
+            if l.get("fema_flood_zone"):
+                extra_lines.append(f"FEMA flood zone: {l['fema_flood_zone']}")
+            if l.get("construction_type"):
+                extra_lines.append(f"Construction type: {l['construction_type']}")
+            if l.get("alarm_present") is not None:
+                extra_lines.append(f"Alarm present: {l['alarm_present']}")
+            if l.get("year_built"):
+                extra_lines.append(f"Year built: {l['year_built']}")
+            if l.get("alarm_type"):
+                extra_lines.append(f"Alarm type: {l['alarm_type']}")
+            if l.get("flood_tier"):
+                extra_lines.append(f"Flood tier: {l['flood_tier']}")
+            if l.get("roofing_type"):
+                extra_lines.append(f"Roofing type: {l['roofing_type']}")
+            if l.get("cctv_present") is not None:
+                extra_lines.append(f"CCTV present: {l['cctv_present']}")
+            if l.get("cope_details_complete") is not None:
+                extra_lines.append(f"COPE details complete: {l['cope_details_complete']}")
+            if l.get("location_limit") is not None:
+                extra_lines.append(f"Location limit: {l['location_limit']}")
+            if l.get("sprinklered") is not None:
+                extra_lines.append(f"Sprinklered: {l['sprinklered']}")
+        if hint0.get("insured_state_province"):
+            extra_lines.append(f"Insured state: {hint0['insured_state_province']}")
+        if hint0.get("insured_country"):
+            extra_lines.append(f"Insured country: {hint0['insured_country']}")
+        if hint0.get("insured_postcode_zip"):
+            extra_lines.append(f"Postcode/ZIP: {hint0['insured_postcode_zip']}")
+        if hint0.get("claim_count_3_years") is not None:
+            extra_lines.append(f"Claims (3y): {hint0['claim_count_3_years']}")
+        if hint0.get("claim_count_5_years") is not None:
+            extra_lines.append(f"Claims (5y): {hint0['claim_count_5_years']}")
+        if hint0.get("largest_single_claim_amount") is not None:
+            extra_lines.append(f"Largest single claim: {hint0['largest_single_claim_amount']}")
+        if hint0.get("total_claims_amount") is not None:
+            extra_lines.append(f"Total claims amount: {hint0['total_claims_amount']}")
         pages = [[
             f"MARINE CARGO SUBMISSION - {case.get('case_id', cid).upper()}",
             f"Broker: {broker}",
             f"Total insured value: {tiv}",
             f"Commodity: {comm_str}",
             "Locations:",
-        ] + [f"  - {l}" for l in loc_lines] + [
+        ] + [f"  - {l}" for l in loc_lines] + extra_lines + [
             f"Expected: {case.get('expected', {}).get('recommendation', '?')}",
             f"Covers: {', '.join(case.get('covers', []))}",
         ]]
@@ -163,7 +252,8 @@ def main():
         # EML
         body = (f"Dear Underwriter,\n\nPlease quote {broker} (ref {case.get('case_id', cid)}) "
                 f"for marine cargo. TIV {tiv}. Commodity: {comm_str}. "
-                f"Locations: {', '.join(l.get('address','?') for l in locs) or 'see SOV'}.\n\n"
+                f"Locations: {', '.join(l.get('address','?') for l in locs) or 'see SOV'}.\n"
+                f"{chr(10).join(extra_lines)}\n\n"
                 f"Expected outcome: {case.get('expected', {}).get('recommendation', '?')}.\n\n"
                 f"Regards,\nBroker\n")
         sov_csv = _csv_block("Site,Sprinklered", rows[1:])

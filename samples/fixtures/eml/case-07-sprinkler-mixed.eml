@@ -10,6 +10,15 @@ Content-Type: text/plain; charset="utf-8"
 Dear Underwriter,
 
 Please quote Acme (ref sprinkler-mixed) for marine cargo. TIV 4000000. Commodity: STEEL. Locations: A, B.
+Coverage section limit: 2000000
+Valuation basis: CIF+10%
+Coverage type: ALL_RISK
+Requested inception date: 2030-01-01
+Expiring premium disclosed: False
+Business commenced: 2019-01-01
+Policy term: 12 months
+Sprinklered: True
+Sprinklered: False
 
 Expected outcome: no eligible binder.
 
