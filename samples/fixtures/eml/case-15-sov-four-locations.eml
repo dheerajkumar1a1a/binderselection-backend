@@ -1,0 +1,26 @@
+From: broker@acme.example
+To: uw@example.com
+Subject: Submission sov-four-locations
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="B"
+
+--B
+Content-Type: text/plain; charset="utf-8"
+
+Dear Underwriter,
+
+Please quote Acme (ref sov-four-locations) for marine cargo. TIV 9000000. Commodity: STEEL. Locations: A, B, C, D.
+
+Expected outcome: binder_A.
+
+Regards,
+Broker
+
+
+--B
+Content-Type: text/csv; name="sov.csv"
+Content-Disposition: attachment; filename="sov.csv"
+Content-Transfer-Encoding: base64
+
+U2l0ZSxTcHJpbmtsZXJlZApBLHllcwpCLHllcwpDLHllcwpELHllcwo=
+--B--

@@ -1,0 +1,26 @@
+From: broker@acme.example
+To: uw@example.com
+Subject: Submission expiring-disclosed-bite
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="B"
+
+--B
+Content-Type: text/plain; charset="utf-8"
+
+Dear Underwriter,
+
+Please quote Acme (ref expiring-disclosed-bite) for marine cargo. TIV 2000000. Commodity: STEEL. Locations: 12 Port Road.
+
+Expected outcome: no eligible binder.
+
+Regards,
+Broker
+
+
+--B
+Content-Type: text/csv; name="sov.csv"
+Content-Disposition: attachment; filename="sov.csv"
+Content-Transfer-Encoding: base64
+
+U2l0ZSxTcHJpbmtsZXJlZAoxMiBQb3J0IFJvYWQseWVzCg==
+--B--

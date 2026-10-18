@@ -1,0 +1,26 @@
+From: broker@acme.example
+To: uw@example.com
+Subject: Submission halt-empty
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="B"
+
+--B
+Content-Type: text/plain; charset="utf-8"
+
+Dear Underwriter,
+
+Please quote not stated (ref halt-empty) for marine cargo. TIV not stated. Commodity: not stated. Locations: see SOV.
+
+Expected outcome: ?.
+
+Regards,
+Broker
+
+
+--B
+Content-Type: text/csv; name="sov.csv"
+Content-Disposition: attachment; filename="sov.csv"
+Content-Transfer-Encoding: base64
+
+U2l0ZSxTcHJpbmtsZXJlZAoobm9uZSksCg==
+--B--

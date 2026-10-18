@@ -1,0 +1,26 @@
+From: broker@acme.example
+To: uw@example.com
+Subject: Submission d-location-cap-bite
+MIME-Version: 1.0
+Content-Type: multipart/mixed; boundary="B"
+
+--B
+Content-Type: text/plain; charset="utf-8"
+
+Dear Underwriter,
+
+Please quote Acme (ref d-location-cap-bite) for marine cargo. TIV 4000000. Commodity: STEEL. Locations: Mega Depot.
+
+Expected outcome: no eligible binder.
+
+Regards,
+Broker
+
+
+--B
+Content-Type: text/csv; name="sov.csv"
+Content-Disposition: attachment; filename="sov.csv"
+Content-Transfer-Encoding: base64
+
+U2l0ZSxTcHJpbmtsZXJlZApNZWdhIERlcG90LHllcwo=
+--B--
