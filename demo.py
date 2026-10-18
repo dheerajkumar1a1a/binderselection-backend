@@ -5,11 +5,16 @@ Uses the stub extractor (no API key) so the run is deterministic.
 Covers: extract -> derive -> completeness -> evaluate (all binders) -> rank
   -> review (auto-accept as demo underwriter) -> settle -> audit -> MI.
 """
+# Command: resume interrupted graph.
 from langgraph.types import Command
+# build: construct graph.
 from graph import build
+# get_checkpointer, BASE: persistence helpers.
 from persistence import get_checkpointer, BASE
+# report: MI report.
 from reports.mi import report
 
+# SAMPLE_DOCS: demo submission documents.
 SAMPLE_DOCS = [
     {"doc_id": "mail-001", "filename": "broker-email.eml",
      "text": "Broker: Acme Marine Ltd. TIV $6,500,000, 12-month All-Risk.",
@@ -29,8 +34,10 @@ SAMPLE_DOCS = [
 ]
 
 
+# main: run the demo.
 def main() -> None:
     import shutil
+    # Wipe prior demo state.
     shutil.rmtree(BASE / "audit", ignore_errors=True)
     for f in ("ledger.json", ".checkpoints.sqlite"):
         (BASE / f).unlink(missing_ok=True)

@@ -6,18 +6,25 @@ Stdlib only - no new dependencies. Same validated envelope as the
 OpenRouter provider: unknown fields dropped, absent stays absent,
 money normalised. The model reads; it never decides.
 """
+# json: parse request/response.
 import json
+# os: read env vars.
 import os
+# urllib.request: HTTP client.
 import urllib.request
 
+# NVIDIA chat completions endpoint.
 API_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
+# Default model, overridable via env.
 DEFAULT_MODEL = os.environ.get("NVIDIA_MODEL", "nvidia/nemotron-3-super-120b-a12b")
+# Fields accepted from the model (13-field schema).
 FIELDS = ["total_insured_value", "broker_name", "locations", "commodities",
           "coverage_sections", "valuation_basis", "coverage_type",
           "requested_inception_date", "expiring_premium_disclosed",
           "insured_state_province", "insured_country",
           "largest_single_claim_amount", "total_claims_amount"]
 
+# PROMPT: instruction sent to the model (full 13-field schema).
 PROMPT = """Extract marine-cargo submission fields from the documents below.
 Return ONLY valid JSON, no markdown, with this shape:
 {"fields": [
@@ -44,51 +51,67 @@ Documents:
 """
 
 
+# _call: make the HTTP request and parse the model response.
 def _call(doc_texts: list[str], api_key: str, model: str) -> dict:
+    # Build request body.
     body = json.dumps({
         "model": model,
         "messages": [{"role": "user", "content": PROMPT + "\n---\n".join(doc_texts)}],
         "temperature": 0,
     }).encode()
+    # Build HTTP request with auth header.
     req = urllib.request.Request(
         API_URL, data=body,
         headers={"Authorization": "Bearer " + api_key,
                  "Content-Type": "application/json"})
+    # Retry import.
     from nodes.retry import with_retry
 
+    # Inner callable for retry.
     def _do():
         with urllib.request.urlopen(req, timeout=120) as resp:
             return json.loads(resp.read().decode())
 
+    # Retry on transient errors.
     payload = with_retry(_do)
+    # Extract content.
     content = payload["choices"][0]["message"]["content"].strip()
+    # Strip code fences.
     if content.startswith("```"):
         content = content.split("\n", 1)[1].rsplit("```", 1)[0]
+    # Parse JSON.
     return json.loads(content)
 
 
+# nvidia_extract: public entry point.
 def nvidia_extract(documents: list[dict], api_key: str | None = None,
                    model: str | None = None) -> tuple[dict, dict]:
+    # Resolve API key.
     key = api_key or os.environ.get("NVIDIA_API_KEY")
     if not key:
         raise RuntimeError("NVIDIA_API_KEY not set")
+    # Resolve model.
     model = model or DEFAULT_MODEL
+    # Build text list.
     texts = [f"[{d.get('doc_id', '?')}:{d.get('filename', 'doc')}] {d.get('text', '')}"
              for d in documents]
     raw = _call(texts, key, model)
     extracted: dict = {}
     meta: dict = {}
+    # Process each returned field.
     for item in raw.get("fields", []):
         name = item.get("name")
         if name not in FIELDS:
             continue
         val = item.get("value")
+        # Normalise money strings for money fields.
         if name in ("total_insured_value", "largest_single_claim_amount",
                     "total_claims_amount") and isinstance(val, str):
             try:
                 val = float(val.replace("$", "").replace(",", "").strip())
             except ValueError:
                 val = None
+        # Normalise coverage_sections limits.
         if name == "coverage_sections" and isinstance(val, list):
             fixed = []
             for s in val:
@@ -101,6 +124,7 @@ def nvidia_extract(documents: list[dict], api_key: str | None = None,
                             lim = None
                     fixed.append({"limit": lim})
             val = fixed
+        # Normalise expiring_premium_disclosed from string.
         if name == "expiring_premium_disclosed" and isinstance(val, str):
             low = val.lower()
             val = ("true" in low or "yes" in low or "disclosed" in low) \
@@ -113,10 +137,12 @@ def nvidia_extract(documents: list[dict], api_key: str | None = None,
                       "source_document_id": item.get("source_document_id"),
                       "source_locator": (item.get("source_locator") or "")[:120],
                       "model": model}
+    # Mark absent fields.
     for f in FIELDS:
         if f not in extracted:
             extracted[f] = None
             meta[f] = {"present": False, "confidence": 0.0, "reason": "absent"}
+    # Default source_document_id if missing.
     for m in meta.values():
         if not m.get("source_document_id") and documents:
             m.setdefault("source_document_id", (documents[0].get("doc_id")))

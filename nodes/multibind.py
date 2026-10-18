@@ -6,16 +6,21 @@ influences another's. Scoring is absolute per binder (BFR-REC-005) from
 `rules/scoring.json`; ties break by the configured order (BFR-REC-006,
 OPEN-5 default).
 """
+# json: parse rules/capacity/binders JSON files.
 import json
+# Path: filesystem paths.
 from pathlib import Path
 
+# BASE: repo root path.
 BASE = Path(__file__).resolve().parent.parent
 
 
+# _load_json: read a JSON file from rules/.
 def _load_json(name: str) -> dict:
     return json.loads((BASE / "rules" / name).read_text())
 
 
+# active_binders: list binders active as of as_at.
 def active_binders(as_at: str | None = None) -> list[dict]:
     import sys
     sys.path.insert(0, str(BASE / "rules"))
@@ -24,6 +29,7 @@ def active_binders(as_at: str | None = None) -> list[dict]:
             if is_active(b["binder_id"], as_at)]
 
 
+# capacity_for: fetch capacity config for a binder (raises if missing).
 def capacity_for(binder_id: str) -> dict:
     caps = _load_json("capacity.json")["binders"]
     if binder_id not in caps:
@@ -31,15 +37,16 @@ def capacity_for(binder_id: str) -> dict:
     return caps[binder_id]
 
 
+# evaluate_binders: evaluate all active binders independently.
 def evaluate_binders(state: dict, binder_ids: list[str] | None = None,
                      as_at: str | None = None) -> dict:
-    """Graph node when called with state only: evaluates all active binders."""
     import sys
     sys.path.insert(0, str(BASE / "rules"))
     from store import load_effective
     from nodes import capacity as cap
     from nodes import appetite as app
     extracted = state.get("extracted", {})
+    # Default to all active binders.
     if binder_ids is None:
         binder_ids = [b["binder_id"] for b in active_binders(as_at)]
     results = []
@@ -56,11 +63,13 @@ def evaluate_binders(state: dict, binder_ids: list[str] | None = None,
             results.append({"binder_id": bid, "outcome": "failed",
                             "reason": f"{type(e).__name__}:{e}"})
             continue
+        # Not eligible → excluded/failed result.
         if cout["binder_outcome"] != "eligible":
             results.append({"binder_id": bid, "outcome": "excluded",
                             "reason": cout["binder_outcome"],
                             "capacity_snapshot": cout["capacity_snapshot"]})
             continue
+        # Load effective ruleset and evaluate appetite.
         data = load_effective(bid, as_at)
         rulesets[bid] = data["rules"]
         aout = app._evaluate_rules({"extracted": extracted}, data["rules"])
@@ -71,6 +80,7 @@ def evaluate_binders(state: dict, binder_ids: list[str] | None = None,
     return {"binder_results": results, "rulesets": rulesets}
 
 
+# score_binders: absolute scoring + tie-break.
 def score_binders(results: list[dict], registry: list[dict] | None = None) -> dict:
     scoring = _load_json("scoring.json")
     w = scoring["weights"]
@@ -82,6 +92,7 @@ def score_binders(results: list[dict], registry: list[dict] | None = None) -> di
         snap = r.get("capacity_snapshot") or {}
         line = snap.get("authorised_line") or 1.0
         avail = snap.get("available_capacity") or 0.0
+        # Parts: capacity (proportional), strategic, appetite (full).
         parts = {
             "available_capacity": round(w["available_capacity"] * avail / line, 3),
             "strategic_classification": scoring["strategic_points"].get(
@@ -92,6 +103,7 @@ def score_binders(results: list[dict], registry: list[dict] | None = None) -> di
                        "total": round(sum(parts.values()), 3),
                        "available_capacity": avail})
     tie = scoring.get("tie_break", [])
+    # Sort key: total desc, then tie-break fields.
     def _key(s: dict):
         keys: list = [-s["total"]]
         for k in tie:
@@ -108,6 +120,6 @@ def score_binders(results: list[dict], registry: list[dict] | None = None) -> di
             "recommendation": scored[0]["binder_id"]}
 
 
+# rank: graph node wrapper.
 def rank(state: dict) -> dict:
-    """Graph node: absolute cross-binder ranking from evaluation results."""
     return score_binders(state.get("binder_results", []))

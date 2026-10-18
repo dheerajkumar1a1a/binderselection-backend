@@ -4,25 +4,37 @@ Layout: samples/fixtures/<pdf|eml|xlsx|csv|docx>/case-NN-<case_id>.<ext>
 One document set per the 27 sample cases, so every case has a representative
 in every supported format. Negatives remain in samples/fixtures/negative/.
 """
+# base64: encode attachments.
 import base64
+# json: read cases/manifest.
 import json
+# struct: PNG chunk packing (unused here but kept).
 import struct
+# zlib: PNG compression (unused here but kept).
 import zlib
+# Path: filesystem paths.
 from pathlib import Path
 
+# ROOT: repo root.
 ROOT = Path(__file__).resolve().parent.parent
+# OUT: output fixtures dir.
 OUT = ROOT / "samples" / "fixtures"
+# CASES_DIR: sample cases dir.
 CASES_DIR = ROOT / "samples" / "cases"
+# MANIFEST: loaded manifest.
 MANIFEST = json.loads((ROOT / "samples" / "manifest.json").read_text(encoding="utf-8"))
 
+# Create output subdirs.
 for sub in ("pdf", "eml", "xlsx", "csv", "docx"):
     (OUT / sub).mkdir(parents=True, exist_ok=True)
 
 
+# esc: escape special chars for PDF text.
 def esc(s):
     return str(s).replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
 
 
+# build_pdf: minimal multi-page PDF with real text.
 def build_pdf(pages):
     real = []
     for lines in pages:
@@ -36,7 +48,6 @@ def build_pdf(pages):
     blobs = [b"<< /Type /Catalog /Pages 2 0 R >>",
              ("<< /Type /Pages /Kids [%s] /Count %d >>"
               % (" ".join(f"{3 + 2 * i} 0 R" for i in range(len(real))), len(real))).encode()]
-    ci = 0
     for i, (lines, content) in enumerate(real):
         page = (f"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] "
                 f"/Resources << /Font << /F1 {3 + 2 * len(real)} 0 R >> >> "
@@ -58,6 +69,7 @@ def build_pdf(pages):
     return out
 
 
+# eml: build a multipart email with attachments.
 def eml(body_text, attachments=(), subject="Submission"):
     parts = ["From: broker@acme.example\nTo: uw@example.com\n"
              f"Subject: {subject}\nMIME-Version: 1.0\n"
@@ -71,6 +83,7 @@ def eml(body_text, attachments=(), subject="Submission"):
     return ("\n".join(parts) + "--B--\n").encode()
 
 
+# _csv_block: build CSV bytes from header + rows.
 def _csv_block(header, rows):
     lines = [header]
     for r in rows:
@@ -78,6 +91,7 @@ def _csv_block(header, rows):
     return ("\n".join(lines) + "\n").encode()
 
 
+# case_summary: extract tiv/broker/locations/commodities from a case.
 def case_summary(case):
     docs = case.get("documents", [])
     hints = []
@@ -102,6 +116,7 @@ def case_summary(case):
     return tiv, broker, locs, comms
 
 
+# main: generate per-case fixtures for all 5 types.
 def main():
     for c in MANIFEST["cases"]:
         cid = c["id"]

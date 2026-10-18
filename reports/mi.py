@@ -4,13 +4,18 @@ Reads audit/decisions.jsonl. Pure functions over records for testability.
 Stage timing (MI-006) needs stage-duration instrumentation - reported as
 gap until nodes emit timings.
 """
+# json: parse audit records.
 import json
+# Counter: count occurrences.
 from collections import Counter
+# Path: filesystem paths.
 from pathlib import Path
 
+# BASE: repo root.
 BASE = Path(__file__).resolve().parent.parent
 
 
+# load: read audit records from jsonl.
 def load(path: str | Path | None = None) -> list[dict]:
     p = Path(path) if path else BASE / "audit" / "decisions.jsonl"
     if not p.exists():
@@ -18,7 +23,9 @@ def load(path: str | Path | None = None) -> list[dict]:
     return [json.loads(line) for line in p.read_text().splitlines() if line.strip()]
 
 
+# volume_mix: volume by outcome/broker/underwriter.
 def volume_mix(records: list[dict]) -> dict:
+    # Derive outcome from record.
     def _outcome(r: dict):
         if r.get("binder_outcome"):
             return r["binder_outcome"]
@@ -35,6 +42,7 @@ def volume_mix(records: list[dict]) -> dict:
     }
 
 
+# decline_reasons: count declines by rule.
 def decline_reasons(records: list[dict]) -> dict:
     c: Counter = Counter()
     for r in records:
@@ -44,6 +52,7 @@ def decline_reasons(records: list[dict]) -> dict:
     return {"by_rule": dict(c.most_common())}
 
 
+# override_rate: override statistics.
 def override_rate(records: list[dict]) -> dict:
     decided = [r for r in records if (r.get("decision") or {}).get("valid")]
     overrides = [r for r in decided if r["decision"].get("action") == "override"]
@@ -53,6 +62,7 @@ def override_rate(records: list[dict]) -> dict:
             "by_reason": dict(reasons)}
 
 
+# data_quality: data quality metrics.
 def data_quality(records: list[dict]) -> dict:
     missing = Counter()
     low_conf = 0
@@ -68,6 +78,7 @@ def data_quality(records: list[dict]) -> dict:
             "info_requests": info_requests}
 
 
+# refer_by_field: count Cannot-assess by field.
 def refer_by_field(records: list[dict]) -> dict:
     c: Counter = Counter()
     for r in records:
@@ -77,6 +88,7 @@ def refer_by_field(records: list[dict]) -> dict:
     return {"by_field": dict(c.most_common())}
 
 
+# report: aggregate MI report.
 def report(path: str | Path | None = None) -> dict:
     records = load(path)
     return {"volume_mix": volume_mix(records),
@@ -87,8 +99,8 @@ def report(path: str | Path | None = None) -> dict:
             "stage_timing": stage_timing(records)}
 
 
+# stage_timing: mean seconds per stage.
 def stage_timing(records: list[dict]) -> dict:
-    """Mean seconds per stage across records that carry timings (MI-006)."""
     sums: dict[str, float] = {}
     counts: dict[str, int] = {}
     for r in records:

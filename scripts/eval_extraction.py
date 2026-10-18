@@ -10,21 +10,29 @@ Usage:
 
 The key travels in env only and is never printed or stored.
 """
+# argparse: CLI args.
 import argparse
+# json: parse fixtures/report.
 import json
+# os: env vars.
 import os
+# sys: path + stderr.
 import sys
 
+# Add repo root to path.
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+# Import nvidia extractor.
 from nodes.extract_nvidia import nvidia_extract, DEFAULT_MODEL
 
 
+# norm_commodity: normalise commodity list for comparison.
 def norm_commodity(items):
     if items is None:
         return None
     return sorted(str(i.get("commodity_type", "")).upper().replace(" ", "_") for i in items)
 
 
+# norm_locations: normalise location list for comparison.
 def norm_locations(items):
     if items is None:
         return None
@@ -32,6 +40,7 @@ def norm_locations(items):
                   for l in items)
 
 
+# score_field: score one field; detect hallucination.
 def score_field(name, got, want):
     if name in ("locations", "commodities") and got == []:
         got = None  # engine treats [] as missing; score it as absent
@@ -62,6 +71,7 @@ def score_field(name, got, want):
     return ("unknown-field", 0.0)
 
 
+# main: run the eval gate.
 def main() -> int:
     ap = argparse.ArgumentParser()
     ap.add_argument("--fixtures", required=True)

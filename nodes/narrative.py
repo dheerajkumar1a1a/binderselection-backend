@@ -4,13 +4,20 @@ but must not add conclusions. Never describes risk as bound/placed (REC-010).
 """
 
 
+# summarize: build a plain-English narrative from determined outcomes.
 def summarize(state: dict) -> dict:
+    # Submission reference (default "?").
     ref = state.get("submission_reference", "?")
+    # Extracted risk data.
     ext = state.get("extracted") or {}
+    # Total insured value.
     tiv = ext.get("total_insured_value")
+    # Broker name.
     broker = ext.get("broker_name")
+    # Opening line with TIV and binder count.
     lines = [f"Submission {ref} from {broker} (TIV {tiv}) was evaluated "
              f"against {len(state.get('binder_results', []))} binder(s)."]
+    # Per-binder lines.
     for r in state.get("binder_results", []):
         if r.get("outcome") == "Accept":
             lines.append(f"- {r['binder_id']}: eligible for recommendation.")
@@ -19,18 +26,22 @@ def summarize(state: dict) -> dict:
         elif r.get("outcome") == "failed":
             lines.append(f"- {r['binder_id']}: evaluation failed ({r.get('reason')}).")
         else:
+            # Rules that declined.
             bites = [o.get("rule_id") for o in r.get("rule_outcomes", [])
                      if o.get("outcome") == "Decline"]
+            # Rules that could not be assessed.
             gaps = [o.get("rule_id") for o in r.get("rule_outcomes", [])
                     if o.get("outcome") == "Cannot assess"]
             if bites:
                 lines.append(f"- {r['binder_id']}: not recommended; rules bitten: {', '.join(bites)}.")
             elif gaps:
                 lines.append(f"- {r['binder_id']}: needs information ({', '.join(gaps)}); referred, not declined.")
+    # Recommendation line.
     rec = state.get("recommendation")
     if rec and not rec.startswith("no eligible"):
         lines.append(f"Recommended binder: {rec} with score {state.get('scores', {}).get(rec)}. "
                      f"This is advisory; a named underwriter decides.")
     else:
         lines.append("No binder is recommended; see per-binder reasons above.")
+    # Return joined narrative.
     return {"narrative": " ".join(lines)}

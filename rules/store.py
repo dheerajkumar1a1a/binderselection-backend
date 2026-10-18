@@ -2,11 +2,16 @@
 
 Layout: rules/binder_<id>_v<version>.json (approved), proposals/ (drafts).
 """
+# json: parse rulesets.
 import json
+# date: effective-date filtering.
 from datetime import date
+# Path: filesystem paths.
 from pathlib import Path
 
+# BASE: rules directory.
 BASE = Path(__file__).resolve().parent
+# KNOWN_FIELDS: valid field references for rules.
 KNOWN_FIELDS = {
     "total_insured_value", "broker_name", "locations", "commodities",
     "locations.sprinklered", "commodities.commodity_type",
@@ -30,11 +35,13 @@ KNOWN_FIELDS = {
     "prior_cargo_coverage_cancelled", "loss_run_provided",
     "insured_postcode_zip",
 }
+# VALID_OPS: allowed operators.
 VALID_OPS = {"lte", "lt", "gte", "gt", "eq", "neq", "in", "not_in",
              "is_true", "is_false", "is_absent", "is_present",
              "before", "after"}
 
 
+# validate_rule: validate a single rule dict.
 def validate_rule(rule: dict) -> list[str]:
     errors = []
     if rule.get("field_reference") not in KNOWN_FIELDS:
@@ -46,10 +53,12 @@ def validate_rule(rule: dict) -> list[str]:
     return errors
 
 
+# _binder_files: list versioned ruleset files for a binder.
 def _binder_files(binder_id: str) -> list[Path]:
     return sorted(BASE.glob(f"{binder_id}_v*.json"))
 
 
+# load_effective: load the effective ruleset for a binder as of a date.
 def load_effective(binder_id: str, as_at: str | None = None) -> dict:
     as_at = as_at or date.today().isoformat()
     best = None
@@ -63,6 +72,7 @@ def load_effective(binder_id: str, as_at: str | None = None) -> dict:
     return best
 
 
+# is_active: check binder lifecycle status.
 def is_active(binder_id: str, as_at: str | None = None,
               registry: list[dict] | None = None) -> bool:
     as_at = as_at or date.today().isoformat()
@@ -74,10 +84,12 @@ def is_active(binder_id: str, as_at: str | None = None,
     return False
 
 
+# propose: create a draft proposal (author only).
 def propose(ruleset: dict, author: str) -> dict:
     return {"status": "draft", "author": author, "approver": None, "ruleset": ruleset}
 
 
+# approve: four-eyes approval (approver != author).
 def approve(proposal: dict, approver: str) -> dict:
     if approver == proposal.get("author"):
         raise ValueError("four-eyes: approver must differ from author")
@@ -86,6 +98,7 @@ def approve(proposal: dict, approver: str) -> dict:
     return proposal
 
 
+# dry_run: evaluate proposed vs current ruleset on sample cases.
 def dry_run(cases: list[dict], current: dict, proposed: dict) -> dict:
     import sys
     sys.path.insert(0, str(BASE.parent))

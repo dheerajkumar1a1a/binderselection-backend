@@ -1,15 +1,22 @@
 """Durable persistence: checkpointer + append-only audit (BFR-NFR-019, BFR-AUD)."""
+# json: serialise audit records.
 import json
+# os: env vars for DB conn.
 import os
+# uuid: generate evaluation ids.
 import uuid
+# datetime: timestamps.
 from datetime import datetime, timezone
+# Path: filesystem paths.
 from pathlib import Path
 
+# BASE: repo root.
 BASE = Path(__file__).resolve().parent
 
 
+# get_checkpointer: return checkpointer (postgres or sqlite).
 def get_checkpointer():
-    """Context manager: use as `with get_checkpointer() as cp: build(cp)`."""
+    # Read DB connection from env.
     conn = os.environ.get("BINDER_PG_CONN")
     if conn:
         from langgraph.checkpoint.postgres import PostgresSaver
@@ -18,6 +25,7 @@ def get_checkpointer():
     return SqliteSaver.from_conn_string(str(BASE / ".checkpoints.sqlite"))
 
 
+# write_audit: append an immutable audit record.
 def write_audit(state: dict) -> dict:
     audit_dir = BASE / "audit"
     audit_dir.mkdir(exist_ok=True)
@@ -49,8 +57,8 @@ def write_audit(state: dict) -> dict:
     return {"audit_id": record["evaluation_id"]}
 
 
+# evidence_pack: single human-readable evidence pack.
 def evidence_pack(record: dict) -> str:
-    """Single human-readable evidence pack for one evaluation (BFR-AUD-008)."""
     lines = [f"# Evidence pack — {record.get('evaluation_id')}",
              f"Submission: {record.get('submission_reference')} · evaluated {record.get('evaluated_at')}"]
     if record.get("supersedes"):

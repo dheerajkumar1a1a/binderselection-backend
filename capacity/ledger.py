@@ -8,38 +8,51 @@ Available = line - written - sum(active reservations).
 Idempotency: key = submission_ref + binder. Repeat calls return the original
 reservation; binds record processed keys so retries never double-write.
 """
+# json: serialise ledger.
 import json
+# os: env var for ledger path.
 import os
+# uuid: reservation ids.
 import uuid
+# datetime: expiry timestamps.
 from datetime import datetime, timedelta, timezone
+# Path: filesystem paths.
 from pathlib import Path
 
+# BASE: capacity dir.
 BASE = Path(__file__).resolve().parent
+# LEDGER_PATH: env-overridable ledger file.
 LEDGER_PATH = Path(os.environ.get("BINDER_LEDGER", str(BASE / "ledger.json")))
+# Reservation TTL in hours.
 RESERVATION_TTL_HOURS = int(os.environ.get("BINDER_RES_TTL_HOURS", "24"))
 
 
+# _now: current UTC time.
 def _now() -> datetime:
     return datetime.now(timezone.utc)
 
 
+# _empty_binder: default binder ledger entry.
 def _empty_binder(line: float = 15_000_000.0) -> dict:
     return {"authorised_line": line, "written_to_date": 0.0,
             "reservations": {}, "processed_binds": []}
 
 
+# load: read ledger from disk (or empty default).
 def load() -> dict:
     if not LEDGER_PATH.exists():
         return {"binders": {"binder_A": _empty_binder()}}
     return json.loads(LEDGER_PATH.read_text())
 
 
+# _save: atomic write via temp rename.
 def _save(ledger: dict) -> None:
     tmp = LEDGER_PATH.with_suffix(".tmp")
     tmp.write_text(json.dumps(ledger, indent=2))
     tmp.replace(LEDGER_PATH)
 
 
+# _active_reserved: sum of non-expired reservations.
 def _active_reserved(binder: dict) -> float:
     now = _now()
     total = 0.0
@@ -49,6 +62,7 @@ def _active_reserved(binder: dict) -> float:
     return total
 
 
+# available: free capacity for a binder.
 def available(binder_id: str, ledger: dict | None = None) -> float:
     ledger = ledger if ledger is not None else load()
     b = ledger["binders"].get(binder_id)
@@ -57,16 +71,19 @@ def available(binder_id: str, ledger: dict | None = None) -> float:
     return b["authorised_line"] - b["written_to_date"] - _active_reserved(b)
 
 
+# reserve: reserve amount, idempotent on (submission_ref, binder).
 def reserve(binder_id: str, submission_ref: str, amount: float) -> dict:
-    """Reserve amount. Idempotent on (submission_ref, binder)."""
     ledger = load()
     b = ledger["binders"].setdefault(binder_id, _empty_binder())
+    # Idempotency: return existing reservation if present.
     for res_id, r in b.get("reservations", {}).items():
         if r.get("submission_ref") == submission_ref:
             return {"reservation_id": res_id, "deduped": True,
                     "available": available(binder_id, ledger)}
+    # Insufficient capacity → error.
     if available(binder_id, ledger) < amount:
         raise ValueError(f"insufficient capacity: available={available(binder_id, ledger)} need={amount}")
+    # Create new reservation.
     res_id = f"res-{uuid.uuid4().hex[:8]}"
     b["reservations"][res_id] = {
         "submission_ref": submission_ref, "amount": amount,
@@ -77,6 +94,7 @@ def reserve(binder_id: str, submission_ref: str, amount: float) -> dict:
             "available": available(binder_id, ledger)}
 
 
+# release: remove reservations for a submission.
 def release(submission_ref: str, binder_id: str) -> dict:
     ledger = load()
     b = ledger["binders"].get(binder_id, {})
@@ -88,13 +106,15 @@ def release(submission_ref: str, binder_id: str) -> dict:
     return {"released": len(removed)}
 
 
+# bind: convert reservation to written (idempotent).
 def bind(binder_id: str, submission_ref: str, amount: float) -> dict:
-    """Convert reservation to written. Idempotent on processed_binds."""
     ledger = load()
     b = ledger["binders"].setdefault(binder_id, _empty_binder())
     key = f"{binder_id}:{submission_ref}"
+    # Already processed → deduped.
     if key in b.get("processed_binds", []):
         return {"deduped": True, "written_to_date": b["written_to_date"]}
+    # Release reservation then write.
     release(submission_ref, binder_id)
     ledger = load()
     b = ledger["binders"].setdefault(binder_id, _empty_binder())
@@ -104,6 +124,7 @@ def bind(binder_id: str, submission_ref: str, amount: float) -> dict:
     return {"deduped": False, "written_to_date": b["written_to_date"]}
 
 
+# cancel: reverse a bind.
 def cancel(binder_id: str, submission_ref: str, amount: float) -> dict:
     ledger = load()
     b = ledger["binders"].setdefault(binder_id, _empty_binder())

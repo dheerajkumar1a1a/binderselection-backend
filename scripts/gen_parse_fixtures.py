@@ -5,22 +5,29 @@ Layout: samples/fixtures/<pdf|eml|xlsx|csv|docx|negative>/, >=5 files
 per supported type. Negatives prove explicit statuses; oversized inputs
 stay synthetic in tests/test_parse.py (never commit 10 MB blobs).
 """
+# base64: encode attachments.
 import base64
+# struct: PNG chunk packing.
 import struct
+# zlib: compression.
 import zlib
+# Path: filesystem.
 from pathlib import Path
 
+# OUT: output dir.
 OUT = Path(__file__).resolve().parent.parent / "samples" / "fixtures"
+# Create subdirs.
 for sub in ("pdf", "eml", "xlsx", "csv", "docx", "negative"):
     (OUT / sub).mkdir(parents=True, exist_ok=True)
 
 
+# esc: escape special chars for PDF text.
 def esc(s):
     return s.replace("\\", "\\\\").replace("(", "\\(").replace(")", "\\)")
 
 
+# build_pdf: minimal multi-page PDF with real text.
 def build_pdf(pages: list[list[str]]) -> bytes:
-    """Minimal multi-page PDF with real text (no writer dep)."""
     objs, page_ids, content_ids = [], [], []
     for lines in pages:
         ops = []
@@ -30,7 +37,7 @@ def build_pdf(pages: list[list[str]]) -> bytes:
             y -= 22
         content = "\n".join(ops).encode()
         content_ids.append(len(objs) + 4 + len(page_ids) * 0)
-        objs.append(None)  # placeholder, filled below
+        objs.append(None)
         page_ids.append((lines, content))
     real, refs, cmap = [], {}, {}
     for i, (lines, content) in enumerate(page_ids):
@@ -49,21 +56,9 @@ def build_pdf(pages: list[list[str]]) -> bytes:
              f"/Contents {refs[i]} 0 R >>").encode())
         objs.append(real[i])
     objs.append(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
-    # renumber sequentially
-    numbered, mapping, out = [], {}, b"%PDF-1.4\n"
-    order = [0, 1] + [n for pair in zip(range(2, 2 + 2 * len(page_ids)), []) for n in pair]
-    seq = [0, 1]
-    for i in range(len(page_ids)):
-        seq += [2 + 2 * i, 2 + 2 * i + 1]
-    seq.append(2 + 2 * len(page_ids))
-    blobs = [objs[0], objs[1]]
-    for i in range(len(page_ids)):
-        blobs.append(objs[2 + i * 2] if False else None)
-    # rebuild cleanly: catalog, pages, then per-page (page, content), then font
     blobs = [objs[0], objs[1]]
     for i in range(len(page_ids)):
         pageno = 3 + 2 * i
-        # fix Contents ref inside page dict
         page = objs[2 + 2 * i].replace(f"/Contents {refs[i]} 0 R".encode(),
                                        f"/Contents {pageno + 1} 0 R".encode())
         page = page.replace(f"/F1 {4 + 2 * len(page_ids)} 0 R".encode(),
@@ -71,6 +66,7 @@ def build_pdf(pages: list[list[str]]) -> bytes:
         blobs += [page, real[i]]
     blobs.append(b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>")
     offsets = []
+    out = b"%PDF-1.4\n"
     for i, body in enumerate(blobs, 1):
         offsets.append(len(out))
         out += f"{i} 0 obj\n".encode() + body + b"\nendobj\n"
@@ -83,6 +79,7 @@ def build_pdf(pages: list[list[str]]) -> bytes:
     return out
 
 
+# PDF_SET: named PDF fixtures.
 PDF_SET = {
     "demo-upload.pdf": [[
         "MARINE CARGO SUBMISSION - REF DEMO-2026-001",
@@ -158,23 +155,11 @@ PDF_SET = {
         "Currencies normalised to USD at submission date rates",
     ]],
 }
+# Write PDFs.
 for name, pages in PDF_SET.items():
     (OUT / "pdf" / name).write_bytes(build_pdf(pages))
 
-
-def eml(body_text, attachments=(), subject="Submission"):
-    parts = ["From: broker@acme.example\nTo: uw@example.com\n"
-             f"Subject: {subject}\nMIME-Version: 1.0\n"
-             'Content-Type: multipart/mixed; boundary="B"\n\n--B\n'
-             'Content-Type: text/plain; charset="utf-8"\n\n' + body_text + "\n"]
-    for fname, data, ctype in attachments:
-        parts.append("--B\nContent-Type: %s; name=\"%s\"\n"
-                     "Content-Disposition: attachment; filename=\"%s\"\n"
-                     "Content-Transfer-Encoding: base64\n\n%s\n"
-                     % (ctype, fname, fname, base64.b64encode(data).decode()))
-    return ("\n".join(parts) + "--B--\n").encode()
-
-
+# SOV CSV shared across eml/xlsx.
 SOV_CSV = ("Site,Limit,Sprinklered,Alarm,YearBuilt\n"
            "12 Port Road,2000000,yes,hardwired,2001\n"
            "44 Quay Street,4500000,yes,hardwired,2001\n"
@@ -184,6 +169,7 @@ SOV_CSV = ("Site,Limit,Sprinklered,Alarm,YearBuilt\n"
            "Beta Dock,1500000,yes,local,2007\n"
            "Gamma Yard,2000000,yes,hardwired,2015\n"
            "Delta Port,2500000,yes,hardwired,2018\n").encode()
+# broker email.
 (OUT / "eml" / "broker-email.eml").write_bytes(eml(
     "Dear Underwriter,\n\nPlease quote our client Harborline Traders Ltd "
     "(ref SUB-2024-1187) for marine cargo and stock throughput.\n\n"
@@ -197,6 +183,7 @@ SOV_CSV = ("Site,Limit,Sprinklered,Alarm,YearBuilt\n"
     "Grateful for terms by Friday.\n\nKind regards,\nJ. Whitaker\n"
     "Acme Marine Ltd | j.whitaker@acme.example | +44 20 7946 0018",
     [("sov.csv", SOV_CSV, "text/csv")], subject="Submission S-101"))
+# nested email with inner rfc822.
 inner_csv = b"Site,Limit\nDeep Depot,900000\n"
 inner = eml("Forwarded inner submission.", [("data.csv", inner_csv, "text/csv")],
             subject="Fwd: inner submission")
@@ -204,10 +191,12 @@ inner = eml("Forwarded inner submission.", [("data.csv", inner_csv, "text/csv")]
     "Outer submission with forwarded mail attached.",
     [("inner.eml", inner, "message/rfc822")],
     subject="Outer submission"))
+# plain text email.
 (OUT / "eml" / "plain.eml").write_bytes(
     b"From: broker@acme.example\nTo: uw@example.com\nSubject: TIV query\n"
     b"Content-Type: text/plain; charset=utf-8\n\nHi,\n\nJust confirming TIV 6500000 for Harborline "
     b"ahead of tomorrow's bordereau. Full pack to follow.\n\nThanks,\nJ.\n")
+# multi-attach email.
 (OUT / "eml" / "multi-attach.eml").write_bytes(eml(
     "As discussed, please find two attachments: the schedule of values "
     "and the five-year loss run for Harborline Traders (4 settled claims, "
@@ -216,12 +205,14 @@ inner = eml("Forwarded inner submission.", [("data.csv", inner_csv, "text/csv")]
      ("losses.csv", b"Date,Amount,Status\n2024-03-11,6000,settled\n2023-06-02,2000,settled\n"
                     b"2021-09-14,4000,settled\n2020-01-22,1500,settled\n", "text/csv")],
     subject="Submission with two attachments"))
+# reminder email.
 (OUT / "eml" / "reminder.eml").write_bytes(eml(
     "Chasing ref DEMO-2026-001, submitted last Tuesday via this address. "
     "Broker Acme Marine Ltd, nothing new to add except the surveyor has "
     "now confirmed the sprinkler service date. Please confirm safe receipt.",
     subject="Re: DEMO-2026-001"))
 
+# xlsx generation.
 from openpyxl import Workbook
 
 
@@ -266,13 +257,7 @@ xlsx(OUT / "xlsx" / "schedule-4site.xlsx", [("SOV", [
 xlsx(OUT / "xlsx" / "losses-table.xlsx", [("LOSSES", LOSSES_5)])
 xlsx(OUT / "xlsx" / "headers-only.xlsx", [("EMPTY", [["Site", "Limit"]])])
 
-def _csv_block(header, rows):
-    lines = [header]
-    for r in rows:
-        lines.append(",".join(str(c) for c in r))
-    return ("\n".join(lines) + "\n").encode()
-
-
+# CSV files.
 (OUT / "csv" / "sov.csv").write_bytes(
     _csv_block("Site,Limit,Sprinklered,Alarm,YearBuilt", SITES_8[1:]))
 (OUT / "csv" / "losses.csv").write_bytes(
@@ -281,9 +266,10 @@ def _csv_block(header, rows):
     b'Site,Notes,Contact\n"12 Port Road, dock 7","sprinklered, alarmed","J. Whitaker, Acme"\n'
     b'"44 Quay Street, berth 2","sprinklered, hardwired alarm","A. Shah, Acme"\n')
 (OUT / "csv" / "latin1.csv").write_bytes(
-    ("Site,Notes\nDépôt অতিরিক্ত,plain\nCafé Quay,réservé\n").encode("latin-1", "replace"))
+    ("Site,Notes\nDAcpA't ��.���ݨ����ݨ���?��,plain\nCafAc Quay,rAcservAc\n").encode("latin-1", "replace"))
 (OUT / "csv" / "headers-only.csv").write_bytes(b"Site,Limit\n")
 
+# DOCX files.
 from docx import Document
 
 
@@ -327,6 +313,7 @@ docx(OUT / "docx" / "schedule.docx",
       "Delta Port - sprinklered, hardwired alarm, built 2018"])
 docx(OUT / "docx" / "title-only.docx", ["Harborline submission"])
 
+# Negatives.
 (OUT / "negative" / "legacy.msg").write_bytes(b"\xd0\xcf\x11\xe0fake-ole-bytes")
 (OUT / "negative" / "legacy.xls").write_bytes(b"not-a-real-workbook")
 ihdr = struct.pack(">IIBBBBB", 1, 1, 8, 2, 0, 0, 0)
@@ -365,7 +352,7 @@ spdf += (f"trailer\n<< /Size {len(sobjs) + 1} /Root 1 0 R >>\n"
          f"startxref\n{sxref}\n%%EOF").encode()
 (OUT / "negative" / "scanned.pdf").write_bytes(spdf)
 
-# keep the published demo PDF identical to the dataset copy
+# Keep demo PDF identical to dataset copy.
 import shutil
 shutil.copy(OUT / "pdf" / "demo-upload.pdf",
             Path(__file__).resolve().parent.parent / "docs" / "demo-upload.pdf")

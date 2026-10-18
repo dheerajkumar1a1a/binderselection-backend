@@ -10,17 +10,23 @@ Byte payloads are dropped after parsing; raw retention is the document
 store's job (DEP-3), not graph state. Documents arriving with text and no
 bytes (tests, hints, LLM-prefilled) pass through as `pre-parsed`.
 """
+# base64: decode content_b64.
 import base64
+# csv: parse CSV bytes.
 import csv
+# io: in-memory byte streams.
 import io
+# email parser for .eml.
 from email import policy
 from email.parser import BytesParser
 
+# Limits.
 MAX_DOCS = 10
 MAX_BYTES = 10_000_000
 MAX_TEXT_CHARS = 100_000
 MAX_NESTING = 1
 
+# Status constants.
 STATUS_PARSED = "parsed"
 STATUS_PREPARSED = "pre-parsed"
 STATUS_UNSUPPORTED = "unsupported_format"
@@ -28,17 +34,20 @@ STATUS_OCR_PENDING = "ocr_pending"
 STATUS_FAILED = "failed"
 
 
+# _ext: extract file extension (lowercase).
 def _ext(filename: str) -> str:
     name = (filename or "").lower()
     return name.rsplit(".", 1)[-1] if "." in name else ""
 
 
+# _truncate: truncate text to MAX_TEXT_CHARS, return (text, was_truncated).
 def _truncate(text: str) -> tuple[str, bool]:
     if len(text) > MAX_TEXT_CHARS:
         return text[:MAX_TEXT_CHARS], True
     return text, False
 
 
+# _parse_pdf: extract text from PDF; scanned PDFs → ocr_pending.
 def _parse_pdf(data: bytes) -> tuple[str, dict]:
     from pypdf import PdfReader
     reader = PdfReader(io.BytesIO(data))
@@ -55,10 +64,8 @@ def _parse_pdf(data: bytes) -> tuple[str, dict]:
     return text, meta, STATUS_PARSED, ""
 
 
+# _iter_leaves: yield non-container parts; rfc822 is a leaf (not descended).
 def _iter_leaves(msg):
-    """Yield non-container parts. message/rfc822 is a leaf (an attachment
-    candidate), never descended into: under policy.default it reports
-    is_multipart() and walk() would leak its inner text into the parent."""
     if msg.get_content_type() == "message/rfc822":
         yield msg
         return
@@ -69,9 +76,8 @@ def _iter_leaves(msg):
         yield msg
 
 
+# _rfc822_bytes: decode message/rfc822 attachment bytes.
 def _rfc822_bytes(part) -> bytes:
-    # policy.default never base64-decodes message/rfc822 bodies itself,
-    # so decode here; fall back to object serialisation otherwise.
     cte = (part.get("Content-Transfer-Encoding") or "").lower()
     if "base64" in cte:
         raw = part.get_payload(decode=False)
@@ -92,6 +98,7 @@ def _rfc822_bytes(part) -> bytes:
     return part.get_payload(decode=True) or b""
 
 
+# _parse_eml: parse email + attachments (one nesting level).
 def _parse_eml(data: bytes) -> tuple[str, dict, list]:
     msg = BytesParser(policy=policy.default).parsebytes(data)
     chunks, attachments = [], []
@@ -114,6 +121,7 @@ def _parse_eml(data: bytes) -> tuple[str, dict, list]:
     return "\n".join(chunks), {"subject": str(msg.get("subject", ""))}, attachments
 
 
+# _parse_xlsx: extract rows from xlsx.
 def _parse_xlsx(data: bytes) -> tuple[str, dict]:
     from openpyxl import load_workbook
     wb = load_workbook(io.BytesIO(data), read_only=True, data_only=True)
@@ -127,6 +135,7 @@ def _parse_xlsx(data: bytes) -> tuple[str, dict]:
     return "\n".join(lines), {"sheets": sheets}, STATUS_PARSED, ""
 
 
+# _parse_csv: decode CSV bytes and return rows.
 def _parse_csv(data: bytes) -> tuple[str, dict]:
     for enc in ("utf-8-sig", "utf-8", "latin-1"):
         try:
@@ -140,6 +149,7 @@ def _parse_csv(data: bytes) -> tuple[str, dict]:
     return "\n".join(" | ".join(r) for r in rows), {"rows": len(rows)}, STATUS_PARSED, ""
 
 
+# _parse_docx: extract paragraphs and tables from docx.
 def _parse_docx(data: bytes) -> tuple[str, dict]:
     from docx import Document
     doc = Document(io.BytesIO(data))
@@ -153,8 +163,8 @@ def _parse_docx(data: bytes) -> tuple[str, dict]:
     return "\n".join(paras), {"paragraphs": len(paras), "tables": tables}, STATUS_PARSED, ""
 
 
+# parse_one: parse a single document; returns (enriched doc, child docs).
 def parse_one(doc: dict, depth: int = 0) -> tuple[dict, list]:
-    """Parse a single document. Returns (enriched doc, child docs)."""
     out = {k: v for k, v in doc.items() if k not in ("content_bytes", "content_b64")}
     raw = doc.get("content_bytes")
     if raw is None and doc.get("content_b64"):
@@ -227,8 +237,8 @@ def parse_one(doc: dict, depth: int = 0) -> tuple[dict, list]:
     return out, children
 
 
+# parse_documents: graph-node-shaped; enrich every document, never drop one.
 def parse_documents(documents: list[dict]) -> dict:
-    """Graph-node-shaped: enrich every document, never drop one."""
     docs = documents or []
     if len(docs) > MAX_DOCS:
         return {"documents": docs,

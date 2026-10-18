@@ -7,18 +7,28 @@ No new dependencies. Uses the stub extractor (deterministic, no API key).
 Demo writes go to ui/demo-ledger.json + audit/decisions.jsonl with UI- refs
 so the MI dashboard moves live. Nothing secret is stored or served.
 """
+# json: serialise responses.
 import json
+# os: env vars.
 import os
+# sys: path + stderr.
 import sys
+# uuid: unique refs.
 import uuid
+# Path: filesystem.
 from pathlib import Path
+# HTTP server.
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+# URL parsing.
 from urllib.parse import urlparse, parse_qs
 
+# ROOT: repo root.
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
+# Default ledger to demo-ledger.json.
 os.environ.setdefault("BINDER_LEDGER", str(ROOT / "ui" / "demo-ledger.json"))
 
+# Imports from engine.
 from nodes.extract import stub_extract  # noqa: E402
 from nodes import derive as drv  # noqa: E402
 from nodes import completeness as comp  # noqa: E402
@@ -29,13 +39,16 @@ from nodes import settle as stl  # noqa: E402
 from persistence import write_audit, evidence_pack  # noqa: E402
 from reports import mi as mi_mod  # noqa: E402
 
+# UI_DIR: static files.
 UI_DIR = ROOT / "ui"
 
 
+# _manifest: load sample manifest.
 def _manifest() -> dict:
     return json.loads((ROOT / "samples" / "manifest.json").read_text(encoding="utf-8"))
 
 
+# _case_by_id: fetch a case by id.
 def _case_by_id(case_id: str) -> dict:
     for c in _manifest()["cases"]:
         if c["id"] == case_id:
@@ -45,14 +58,8 @@ def _case_by_id(case_id: str) -> dict:
     raise KeyError(f"unknown case {case_id}")
 
 
+# run_pipeline: full path minus human pause.
 def run_pipeline(documents: list, submission_ref: str, llm: str | None = None) -> dict:
-    """Full path minus the human pause: parse->extract->derive->gate->evaluate->rank->narrative.
-
-    llm='nvidia' uses live Nemotron extraction (needs NVIDIA_API_KEY in the
-    server environment); default stub is deterministic and keyless.
-    Documents may carry content_b64 for real files; bytes are dropped
-    after parsing and never reach the audit trail.
-    """
     from nodes import parse as prs
     state: dict = {"submission_reference": submission_ref}
     state.update(prs.parse_documents(documents))
@@ -86,6 +93,7 @@ def run_pipeline(documents: list, submission_ref: str, llm: str | None = None) -
     return state
 
 
+# decide: record underwriter decision.
 def decide(run_state: dict, human: dict) -> dict:
     rulesets = run_state.get("rulesets") or {}
     selected = human.get("selected_binder") or run_state.get("recommendation")
@@ -114,6 +122,7 @@ def decide(run_state: dict, human: dict) -> dict:
     return out
 
 
+# overview: system overview for UI.
 def overview() -> dict:
     sys.path.insert(0, str(ROOT / "rules"))
     from store import load_effective
@@ -125,7 +134,7 @@ def overview() -> dict:
             data = load_effective(b["binder_id"])
             info.append({"binder_id": b["binder_id"], "status": b["status"],
                          "version": data.get("version"), "rules": len(data.get("rules", []))})
-        except Exception as e:  # noqa: BLE001 — overview must never 500
+        except Exception as e:
             info.append({"binder_id": b["binder_id"], "status": b["status"], "error": str(e)})
     return {
         "what": "Decision-support that recommends where to place a marine cargo / stock throughput risk. The system recommends; a named underwriter decides.",
@@ -138,6 +147,7 @@ def overview() -> dict:
     }
 
 
+# Handler: HTTP request handler.
 class Handler(BaseHTTPRequestHandler):
     server_version = "BinderDemo/1.0"
 
@@ -193,7 +203,6 @@ class Handler(BaseHTTPRequestHandler):
                     state = run_pipeline(docs, ref, llm=llm)
                     state["dataset_expected"] = case.get("expected")
                     state["dataset_covers"] = case.get("covers")
-                    # rulesets are JSON-serialisable; keep them for /api/decide
                     self._json(state)
                 elif payload.get("documents"):
                     ref = payload.get("submission_reference") or f"UI-custom-{uuid.uuid4().hex[:6]}"
@@ -211,10 +220,10 @@ class Handler(BaseHTTPRequestHandler):
                 self._json(decide(run_state, human))
             else:
                 self._json({"error": "not found"}, 404)
-        except Exception as e:  # noqa: BLE001 — demo server reports, never hangs
+        except Exception as e:
             self._json({"error": f"{type(e).__name__}: {e}"}, 500)
 
-    def log_message(self, fmt, *args):  # keep logs free of submission content
+    def log_message(self, fmt, *args):
         sys.stderr.write("binder-ui: %s\n" % (fmt % args,))
 
 

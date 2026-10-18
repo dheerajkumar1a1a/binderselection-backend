@@ -15,8 +15,11 @@ Each node represents a single processing step in the submission lifecycle:
 The graph is compiled into a LangGraph workflow that can optionally use a
 checkpointer to resume or inspect state across steps.
 """
+# StateGraph, END: LangGraph primitives.
 from langgraph.graph import StateGraph, END
+# SubmissionState: typed state contract.
 from state import SubmissionState
+# Node modules.
 from nodes import extract as ext
 from nodes import derive as drv
 from nodes import completeness as comp
@@ -26,17 +29,16 @@ from nodes import review as rev
 from nodes import settle as stl
 from nodes import timing as tmg
 from nodes import parse as prs
+# Persistence helpers.
 from persistence import get_checkpointer, write_audit
 
 
-# Build the workflow graph for handling submissions.
-# The StateGraph keeps the shared state object passed between nodes.
+# build: construct and compile the workflow graph.
 def build(checkpointer=None):
-    # Create the graph and initialize the shared state schema.
+    # Create graph with state schema.
     g = StateGraph(SubmissionState)
 
-    # Register each pipeline stage as a node.
-    # Each node is wrapped in a timing decorator to measure execution time.
+    # Register nodes (each wrapped in timing).
     g.add_node("parse", tmg.timed("parse", lambda s: prs.parse_documents(s.get("documents") or [])))
     g.add_node("extract", tmg.timed("extract", ext.extract))
     g.add_node("derive", tmg.timed("derive", drv.derive))
@@ -48,43 +50,39 @@ def build(checkpointer=None):
     g.add_node("settle", tmg.timed("settle", stl.settle))
     g.add_node("audit", tmg.timed("audit", write_audit))
 
-    # Start the workflow from the parsing step.
+    # Entry point.
     g.set_entry_point("parse")
 
-    # Parse first; a limit breach halts everything, anything else continues
-    # with per-document statuses riding along for the underwriter.
+    # Parse: halt on limit breach, else continue.
     g.add_conditional_edges(
         "parse",
         lambda s: END if (s.get("parse") or {}).get("halted") else "extract",
     )
 
-    # Linear flow until the completeness gate.
+    # Linear flow to completeness gate.
     g.add_edge("extract", "derive")
     g.add_edge("derive", "completeness")
 
-    # Decide whether the submission has enough information to evaluate binders.
-    # If not, stop the workflow early; otherwise continue to evaluation.
+    # Completeness gate.
     g.add_conditional_edges(
         "completeness",
         lambda s: "evaluate" if s["completeness"]["can_evaluate"] else END,
     )
 
-    # Evaluation pipeline: score candidates, then rank them, then summarize.
+    # Evaluation pipeline.
     g.add_edge("evaluate", "rank")
     g.add_edge("rank", "narrative")
     g.add_edge("narrative", "review")
 
-    # Review step decides whether to loop back for correction or proceed to final settlement.
-    # If the reviewer marks the decision as "correct", restart derivation so the state can be
-    # re-derived or corrected before finalizing. Otherwise, continue to settle.
+    # Review: correct → derive (re-evaluate), else settle.
     g.add_conditional_edges(
         "review",
         lambda s: "derive" if (s.get("decision") or {}).get("action") == "correct" else "settle",
     )
 
-    # Finalization and auditing.
+    # Finalization + audit.
     g.add_edge("settle", "audit")
     g.add_edge("audit", END)
 
-    # Compile the graph with an optional checkpointer for persistence / resume support.
+    # Compile with optional checkpointer.
     return g.compile(checkpointer=checkpointer)
