@@ -9,7 +9,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
 endobj
 4 0 obj
-<< /Length 925 >>
+<< /Length 2234 >>
 stream
 BT /F1 11 Tf 72 740 Td (MARINE CARGO SUBMISSION - CURRENCY-STRING) Tj ET
 BT /F1 11 Tf 72 718 Td (Broker: Acme) Tj ET
@@ -22,11 +22,36 @@ BT /F1 11 Tf 72 586 Td (Valuation basis: CIF+10%) Tj ET
 BT /F1 11 Tf 72 564 Td (Coverage type: ALL_RISK) Tj ET
 BT /F1 11 Tf 72 542 Td (Requested inception date: 2030-01-01) Tj ET
 BT /F1 11 Tf 72 520 Td (Expiring premium disclosed: False) Tj ET
-BT /F1 11 Tf 72 498 Td (Business commenced: 2019-01-01) Tj ET
-BT /F1 11 Tf 72 476 Td (Policy term: 12 months) Tj ET
-BT /F1 11 Tf 72 454 Td (Sprinklered: True) Tj ET
-BT /F1 11 Tf 72 432 Td (Expected: binder_A) Tj ET
-BT /F1 11 Tf 72 410 Td (Covers: BFR-EXT-008 normalisation) Tj ET
+BT /F1 11 Tf 72 498 Td (Insured in continental US: True) Tj ET
+BT /F1 11 Tf 72 476 Td (Business commenced: 2019-01-01) Tj ET
+BT /F1 11 Tf 72 454 Td (Profit share requested: False) Tj ET
+BT /F1 11 Tf 72 432 Td (Policy term: 12 months) Tj ET
+BT /F1 11 Tf 72 410 Td (Broker count: 1) Tj ET
+BT /F1 11 Tf 72 388 Td (SOV complete: True) Tj ET
+BT /F1 11 Tf 72 366 Td (Deductible options: 1) Tj ET
+BT /F1 11 Tf 72 344 Td (Loss run provided: True) Tj ET
+BT /F1 11 Tf 72 322 Td (Territory: TX) Tj ET
+BT /F1 11 Tf 72 300 Td (Wildfire risk score: 10) Tj ET
+BT /F1 11 Tf 72 278 Td (FEMA flood zone: X) Tj ET
+BT /F1 11 Tf 72 256 Td (Construction type: MASONRY) Tj ET
+BT /F1 11 Tf 72 234 Td (Alarm present: True) Tj ET
+BT /F1 11 Tf 72 212 Td (Year built: 2005) Tj ET
+BT /F1 11 Tf 72 190 Td (Alarm type: HARDWIRED) Tj ET
+BT /F1 11 Tf 72 168 Td (Flood tier: TIER_1) Tj ET
+BT /F1 11 Tf 72 146 Td (Roofing type: SHINGLE) Tj ET
+BT /F1 11 Tf 72 124 Td (CCTV present: True) Tj ET
+BT /F1 11 Tf 72 102 Td (COPE details complete: True) Tj ET
+BT /F1 11 Tf 72 80 Td (Location limit: 2000000) Tj ET
+BT /F1 11 Tf 72 58 Td (Sprinklered: True) Tj ET
+BT /F1 11 Tf 72 36 Td (Insured state: TX) Tj ET
+BT /F1 11 Tf 72 14 Td (Insured country: US) Tj ET
+BT /F1 11 Tf 72 -8 Td (Postcode/ZIP: 78701) Tj ET
+BT /F1 11 Tf 72 -30 Td (Claims \(3y\): 0) Tj ET
+BT /F1 11 Tf 72 -52 Td (Claims \(5y\): 0) Tj ET
+BT /F1 11 Tf 72 -74 Td (Largest single claim: 0) Tj ET
+BT /F1 11 Tf 72 -96 Td (Total claims amount: 0) Tj ET
+BT /F1 11 Tf 72 -118 Td (Expected: binder_A) Tj ET
+BT /F1 11 Tf 72 -140 Td (Covers: BFR-EXT-008 normalisation) Tj ET
 endstream
 endobj
 5 0 obj
@@ -39,9 +64,9 @@ xref
 0000000058 00000 n 
 0000000115 00000 n 
 0000000241 00000 n 
-0000001217 00000 n 
+0000002527 00000 n 
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-1287
+2597
 %%EOF

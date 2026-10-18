@@ -9,7 +9,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
 endobj
 4 0 obj
-<< /Length 1038 >>
+<< /Length 2988 >>
 stream
 BT /F1 11 Tf 72 740 Td (MARINE CARGO SUBMISSION - SPRINKLER-MIXED) Tj ET
 BT /F1 11 Tf 72 718 Td (Broker: Acme) Tj ET
@@ -23,12 +23,49 @@ BT /F1 11 Tf 72 564 Td (Valuation basis: CIF+10%) Tj ET
 BT /F1 11 Tf 72 542 Td (Coverage type: ALL_RISK) Tj ET
 BT /F1 11 Tf 72 520 Td (Requested inception date: 2030-01-01) Tj ET
 BT /F1 11 Tf 72 498 Td (Expiring premium disclosed: False) Tj ET
-BT /F1 11 Tf 72 476 Td (Business commenced: 2019-01-01) Tj ET
-BT /F1 11 Tf 72 454 Td (Policy term: 12 months) Tj ET
-BT /F1 11 Tf 72 432 Td (Sprinklered: True) Tj ET
-BT /F1 11 Tf 72 410 Td (Sprinklered: False) Tj ET
-BT /F1 11 Tf 72 388 Td (Expected: no eligible binder) Tj ET
-BT /F1 11 Tf 72 366 Td (Covers: BFR-APP-010 single location bites) Tj ET
+BT /F1 11 Tf 72 476 Td (Insured in continental US: True) Tj ET
+BT /F1 11 Tf 72 454 Td (Business commenced: 2019-01-01) Tj ET
+BT /F1 11 Tf 72 432 Td (Profit share requested: False) Tj ET
+BT /F1 11 Tf 72 410 Td (Policy term: 12 months) Tj ET
+BT /F1 11 Tf 72 388 Td (Broker count: 1) Tj ET
+BT /F1 11 Tf 72 366 Td (SOV complete: True) Tj ET
+BT /F1 11 Tf 72 344 Td (Deductible options: 1) Tj ET
+BT /F1 11 Tf 72 322 Td (Loss run provided: True) Tj ET
+BT /F1 11 Tf 72 300 Td (Territory: TX) Tj ET
+BT /F1 11 Tf 72 278 Td (Wildfire risk score: 10) Tj ET
+BT /F1 11 Tf 72 256 Td (FEMA flood zone: X) Tj ET
+BT /F1 11 Tf 72 234 Td (Construction type: MASONRY) Tj ET
+BT /F1 11 Tf 72 212 Td (Alarm present: True) Tj ET
+BT /F1 11 Tf 72 190 Td (Year built: 2005) Tj ET
+BT /F1 11 Tf 72 168 Td (Alarm type: HARDWIRED) Tj ET
+BT /F1 11 Tf 72 146 Td (Flood tier: TIER_1) Tj ET
+BT /F1 11 Tf 72 124 Td (Roofing type: SHINGLE) Tj ET
+BT /F1 11 Tf 72 102 Td (CCTV present: True) Tj ET
+BT /F1 11 Tf 72 80 Td (COPE details complete: True) Tj ET
+BT /F1 11 Tf 72 58 Td (Location limit: 2000000) Tj ET
+BT /F1 11 Tf 72 36 Td (Sprinklered: True) Tj ET
+BT /F1 11 Tf 72 14 Td (Territory: TX) Tj ET
+BT /F1 11 Tf 72 -8 Td (Wildfire risk score: 10) Tj ET
+BT /F1 11 Tf 72 -30 Td (FEMA flood zone: X) Tj ET
+BT /F1 11 Tf 72 -52 Td (Construction type: MASONRY) Tj ET
+BT /F1 11 Tf 72 -74 Td (Alarm present: True) Tj ET
+BT /F1 11 Tf 72 -96 Td (Year built: 2005) Tj ET
+BT /F1 11 Tf 72 -118 Td (Alarm type: HARDWIRED) Tj ET
+BT /F1 11 Tf 72 -140 Td (Flood tier: TIER_1) Tj ET
+BT /F1 11 Tf 72 -162 Td (Roofing type: SHINGLE) Tj ET
+BT /F1 11 Tf 72 -184 Td (CCTV present: True) Tj ET
+BT /F1 11 Tf 72 -206 Td (COPE details complete: True) Tj ET
+BT /F1 11 Tf 72 -228 Td (Location limit: 2000000) Tj ET
+BT /F1 11 Tf 72 -250 Td (Sprinklered: False) Tj ET
+BT /F1 11 Tf 72 -272 Td (Insured state: TX) Tj ET
+BT /F1 11 Tf 72 -294 Td (Insured country: US) Tj ET
+BT /F1 11 Tf 72 -316 Td (Postcode/ZIP: 78701) Tj ET
+BT /F1 11 Tf 72 -338 Td (Claims \(3y\): 0) Tj ET
+BT /F1 11 Tf 72 -360 Td (Claims \(5y\): 0) Tj ET
+BT /F1 11 Tf 72 -382 Td (Largest single claim: 0) Tj ET
+BT /F1 11 Tf 72 -404 Td (Total claims amount: 0) Tj ET
+BT /F1 11 Tf 72 -426 Td (Expected: no eligible binder) Tj ET
+BT /F1 11 Tf 72 -448 Td (Covers: BFR-APP-010 single location bites) Tj ET
 endstream
 endobj
 5 0 obj
@@ -41,9 +78,9 @@ xref
 0000000058 00000 n 
 0000000115 00000 n 
 0000000241 00000 n 
-0000001331 00000 n 
+0000003281 00000 n 
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-1401
+3351
 %%EOF

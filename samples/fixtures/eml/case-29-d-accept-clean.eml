@@ -15,13 +15,34 @@ Valuation basis: CIF+10%
 Coverage type: ALL_RISK
 Requested inception date: 2030-01-01
 Expiring premium disclosed: False
+Insured in continental US: True
 Business commenced: 2019-01-01
+Profit share requested: False
 Policy term: 12 months
 Broker count: 1
 SOV complete: True
 Deductible options: 1
+Loss run provided: True
+Territory: TX
+Wildfire risk score: 10
+FEMA flood zone: X
+Construction type: MASONRY
+Alarm present: True
+Year built: 2005
+Alarm type: HARDWIRED
+Flood tier: TIER_1
+Roofing type: SHINGLE
+CCTV present: True
+COPE details complete: True
 Location limit: 2000000
 Sprinklered: True
+Insured state: TX
+Insured country: US
+Postcode/ZIP: 78701
+Claims (3y): 0
+Claims (5y): 0
+Largest single claim: 0
+Total claims amount: 0
 
 Expected outcome: binder_A.
 

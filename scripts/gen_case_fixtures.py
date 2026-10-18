@@ -138,11 +138,37 @@ def main():
             "expiring_premium_disclosed": False,
             "policy_term_months": 12,
             "business_commencement_date": "2019-01-01",
+            "largest_single_claim_amount": 0,
+            "total_claims_amount": 0,
+            "claim_count_3_years": 0,
+            "claim_count_5_years": 0,
+            "insured_in_continental_us": True,
+            "insured_state_province": "TX",
+            "insured_country": "US",
+            "broker_count": 1,
+            "sov_complete": True,
+            "deductible_options_count": 1,
+            "loss_run_provided": True,
+            "insured_postcode_zip": "78701",
+            "valuation_basis_stated_clearly": True,
+            "profit_share_requested": False,
         }
         for k, v in defaults.items():
             hint0.setdefault(k, v)
         if not hint0.get("coverage_sections"):
             hint0["coverage_sections"] = [{"limit": 2000000}]
+        loc_defaults = {
+            "sprinklered": True, "construction_type": "MASONRY",
+            "alarm_type": "HARDWIRED", "alarm_present": True,
+            "year_built": 2005, "territory": "TX",
+            "wildfire_risk_score": 10, "fema_flood_zone": "X",
+            "flood_tier": "TIER_1", "roofing_type": "SHINGLE",
+            "cctv_present": True, "cope_details_complete": True,
+            "location_limit": 2000000, "location_count": len(locs) if locs else 1,
+        }
+        for l in locs:
+            for k, v in loc_defaults.items():
+                l.setdefault(k, v)
         extra_lines = []
         if hint0.get("coverage_sections"):
             extra_lines.append(f"Coverage section limit: {hint0['coverage_sections'][0].get('limit')}")
