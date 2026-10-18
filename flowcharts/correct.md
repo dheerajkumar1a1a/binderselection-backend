@@ -14,3 +14,13 @@ flowchart TD
 ## Example run
 
 state extracted TIV 20,000,000 (from doc d1) contested. apply(state, {total_insured_value: "$5,000,000"}, "u-corr"): normalises to 5,000,000.0, records pre_correction_value=20,000,000.0, corrected_by="u-corr", corrected_at=ISO, contested=false, conflict removed. Graph re-runs derive→evaluate→rank→narrative→review.
+
+## Example journey (in-flowchart)
+
+```mermaid
+flowchart TD
+    A["TIV contested 20M vs 6M"] --> B["underwriter sends correct: 5M"]
+    B --> C["pre_correction_value=20M, corrected_by=u-corr"]
+    C --> D["extracted TIV=5M, contested cleared"]
+    D --> E["graph routes back to derive → re-evaluate"]
+```

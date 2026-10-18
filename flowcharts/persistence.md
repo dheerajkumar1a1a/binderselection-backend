@@ -13,3 +13,13 @@ flowchart TD
 ## Example run
 
 After accept: `write_audit` appends one JSON line to `audit/decisions.jsonl` with audit_id `eval-8fde6f0a`, submission_reference, extracted_meta (12 fields), binder_results (A Accept, B Accept), scores {A:10.0, B:8.0}, recommendation binder_A, decision {action:accept, underwriter:demo-underwriter, decided_at}, settlement {action:reserved, binder:binder_A, available:3500000}, narrative, stage_timings, model_versions {extraction:stub-1}, supersedes null.
+
+## Example journey (in-flowchart)
+
+```mermaid
+flowchart TD
+    A["state after accept"] --> B["build record: 12 fields, 2 binder results, decision, settlement"]
+    B --> C["append → audit/decisions.jsonl"]
+    C --> D["audit_id = eval-8fde6f0a"]
+    D --> E["evidence_pack: values + outcomes + rules + decision + timings"]
+```

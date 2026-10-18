@@ -15,3 +15,13 @@ flowchart TD
 ## Example run
 
 Env `OPENROUTER_API_KEY` set. POST to OpenRouter with model liquid/lfm-2.5-2.6b:free, temp 0. On 429, with_retry waits 0.5s then 1s then 2s. Parses JSON content from choices[0].message.content, strips code fences, returns extracted+meta. Verified live in tests/test_openrouter.py.
+
+## Example journey (in-flowchart)
+
+```mermaid
+flowchart TD
+    A["docs text"] --> B["POST OpenRouter liquid/lfm-2.5-2.6b:free"]
+    B --> C["429 → retry 0.5s"]
+    C --> D["200 → parse JSON content"]
+    D --> E["validate envelope → extracted+meta"]
+```

@@ -22,3 +22,15 @@ flowchart TD
 ## Example run
 
 evaluate_binders on clean submission: binder_A Accept (all 9 pass), binder_B Accept (all 7 pass) — both eligible. score_binders: A 5+2+3=10.0 (preferred), B 5+0+3=8.0 (standard). ranking [binder_A, binder_B], recommendation binder_A. Removing binder_B from the list leaves A's score unchanged (absolute scoring).
+
+## Example journey (in-flowchart)
+
+```mermaid
+flowchart TD
+    A["extracted clean"] --> B["binder_A: capacity eligible → appetite Accept"]
+    A --> C["binder_B: capacity eligible → appetite Accept"]
+    B --> D["score A = 5+2+3 = 10.0"]
+    C --> E["score B = 5+0+3 = 8.0"]
+    D --> F["ranking [A,B], recommendation A"]
+    E --> F
+```

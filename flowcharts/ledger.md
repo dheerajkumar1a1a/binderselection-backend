@@ -17,3 +17,13 @@ flowchart TD
 ## Example run
 
 reserve(binder_A, 6,500,000, key="sub-1"): first call creates res-17010f98, available 10M→3.5M. Repeat with same key returns existing reservation (idempotent). bind(res-17010f98) converts to bound. cancel restores 3.5M→10M.
+
+## Example journey (in-flowchart)
+
+```mermaid
+flowchart TD
+    A["reserve 6.5M key=sub-1"] --> B["new reservation res-17010f98"]
+    B --> C["available 10M → 3.5M"]
+    C --> D["repeat same key → idempotent return"]
+    D --> E["bind → bound; cancel → restore 3.5M→10M"]
+```

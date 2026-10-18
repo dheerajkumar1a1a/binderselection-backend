@@ -15,3 +15,13 @@ flowchart TD
 ## Example run
 
 decision accept binder_A: reserve 6,500,000 → ledger available 10,000,000 → 3,500,000, reservation_id res-17010f98, deduped false. decision refer_back: release prior reservation, available restored.
+
+## Example journey (in-flowchart)
+
+```mermaid
+flowchart TD
+    A["decision accept binder_A"] --> B["reserve 6.5M"]
+    B --> C["available 10M → 3.5M"]
+    C --> D["reservation_id res-17010f98, deduped false"]
+    D --> E["settlement {action:reserved}"]
+```

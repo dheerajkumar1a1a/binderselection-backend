@@ -31,3 +31,17 @@ Input: `SUB-DEMO-001`, two docs, Acme Marine, TIV $6.5M, 1 sprinklered location,
 7. review → interrupt; underwriter sends `{action: "accept"}`
 8. settle → reserve 6.5M against binder_A (available 10M → 3.5M)
 9. audit → `eval-…` written to decisions.jsonl
+
+## Example journey (in-flowchart)
+
+```mermaid
+flowchart TD
+    A["extract: 12 fields, conf 1.0"] --> B["derive: years-trading=6, continental-US=true"]
+    B --> C["completeness: missing=[], can_evaluate=true"]
+    C --> D["evaluate: A=Accept, B=Accept"]
+    D --> E["rank: A=10.0, B=8.0 → rec binder_A"]
+    E --> F["narrative: advisory text"]
+    F --> G["review: accept by demo-underwriter"]
+    G --> H["settle: reserve 6.5M, avail 10→3.5M"]
+    H --> I["audit: eval-8fde6f0a"]
+```

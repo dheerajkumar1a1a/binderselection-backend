@@ -25,3 +25,18 @@ State after step 3 for SUB-DEMO-001:
 - `extracted_meta` = {total_insured_value: {value, confidence:1.0, source_document_id:"mail-001", ...}}
 - `completeness` = {missing: [], can_evaluate: true}
 - `binder_results`, `scores`, `narrative`, `decision`, `settlement` populated in later steps
+
+## Example journey (in-flowchart)
+
+```mermaid
+flowchart LR
+    S["SubmissionState"] --> E["extracted: TIV 6.5M, broker Acme, 1 loc"]
+    E --> M["extracted_meta: conf 1.0, src mail-001"]
+    M --> C["completeness: missing [], can_evaluate true"]
+    C --> BR["binder_results: A Accept, B Accept"]
+    BR --> SC["scores: A 10.0, B 8.0"]
+    SC --> REC["recommendation: binder_A"]
+    REC --> DEC["decision: accept by demo-underwriter"]
+    DEC --> SET["settlement: reserved 6.5M"]
+    SET --> AUD["audit_id: eval-8fde6f0a"]
+```

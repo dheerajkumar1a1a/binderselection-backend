@@ -18,3 +18,12 @@ flowchart TD
 ## Example run
 
 binder_A: authorised 15,000,000, written 5,000,000, reserved 0 → available 10,000,000 ≥ TIV 6,500,000 → eligible, snapshot attached. Suspended binder_B (hypothetical): screen_safe returns excluded:suspended-or-retired without touching capacity. Capacity source down: returns failed:... rather than omitting the binder.
+
+## Example journey (in-flowchart)
+
+```mermaid
+flowchart TD
+    A["binder_A: auth 15M, written 5M, reserved 0"] --> B["available = 10M"]
+    B --> C["10M >= TIV 6.5M → eligible"]
+    C --> D["snapshot attached to result"]
+```

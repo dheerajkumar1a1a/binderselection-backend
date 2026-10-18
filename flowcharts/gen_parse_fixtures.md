@@ -12,3 +12,11 @@ flowchart TD
 ## Example run
 
 `python scripts/gen_parse_fixtures.py` writes 5 files per type (pdf, docx, xlsx, eml, txt) plus negatives into samples/parsing/, 25 total, each with realistic submission content.
+
+## Example journey (in-flowchart)
+
+```mermaid
+flowchart TD
+    A["run script"] --> B["5 files per type (pdf,docx,xlsx,eml,txt)"]
+    B --> C["plus negatives → 25 total"]
+```

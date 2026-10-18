@@ -13,3 +13,12 @@ flowchart TD
 ## Example run
 
 timed("extract", extract)({}) runs extract, measures 0.012s, returns {..., stage_timings: {extract: 0.012}}. Subsequent nodes merge their durations into the same dict.
+
+## Example journey (in-flowchart)
+
+```mermaid
+flowchart TD
+    A["timed extract"] --> B["t0 recorded"]
+    B --> C["extract runs 0.012s"]
+    C --> D["stage_timings.extract = 0.012"]
+```

@@ -11,3 +11,11 @@ flowchart TD
 ## Example run
 
 Click "Reset demo" → deletes audit/decisions.jsonl, ledger.json, .checkpoints.sqlite → next Run starts from clean state.
+
+## Example journey (in-flowchart)
+
+```mermaid
+flowchart TD
+    A["click Reset"] --> B["delete audit/ledger/checkpoints"]
+    B --> C["next Run clean"]
+```

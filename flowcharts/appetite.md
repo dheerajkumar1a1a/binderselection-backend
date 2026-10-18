@@ -22,3 +22,20 @@ flowchart TD
 ## Example run
 
 binder_A clean submission: A-001 section limit 2M ≤ 2M → Pass; A-002 TIV 6.5M ≤ 10M → Pass; A-003a single claim 0 ≤ 50k → Pass; A-003b total 0 ≤ 100k → Pass; A-004 continental US true → Pass; A-005 sprinklered → Pass; A-006 valuation CIF+10% → Pass; A-007a ALL_RISK → Pass; A-007b inception 2030-06-01 future → Pass; A-008 expiring premium false → Pass; A-009 steel not in {LIVESTOCK,...} → Pass. No Decline, no Cannot assess → Accept.
+
+## Example journey (in-flowchart)
+
+```mermaid
+flowchart TD
+    A["binder_A rules vs clean extracted"] --> B["A-001 section 2M<=2M Pass"]
+    B --> C["A-002 TIV 6.5M<=10M Pass"]
+    C --> D["A-003a/b claims 0 Pass"]
+    D --> E["A-004 continental US Pass"]
+    E --> F["A-005 sprinklered Pass"]
+    F --> G["A-006 valuation CIF+10% Pass"]
+    G --> H["A-007a ALL_RISK Pass"]
+    H --> I["A-007b inception 2030 Pass"]
+    I --> J["A-008 no expiring premium Pass"]
+    J --> K["A-009 steel not livestock Pass"]
+    K --> L["no Decline/Cannot-assess → Accept"]
+```

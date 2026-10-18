@@ -13,3 +13,12 @@ flowchart TD
 ## Example run
 
 Env `NVIDIA_API_KEY` set. Calls Nemotron-120B with same envelope prompt. Used by nightly eval gate (scripts/eval_extraction.py) and local UI toggle. Returns extracted+meta identical in shape to stub/OpenRouter.
+
+## Example journey (in-flowchart)
+
+```mermaid
+flowchart TD
+    A["docs text"] --> B["POST NVIDIA Nemotron-120B"]
+    B --> C["200 → parse JSON"]
+    C --> D["validate envelope → extracted+meta"]
+```

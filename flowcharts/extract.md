@@ -20,3 +20,16 @@ flowchart TD
 
 Docs: mail-001 (TIV $6,500,000, broker Acme, 1 location sprinklered, steel) + sov-001 (empty hint).
 stub_extract merges hints: total_insured_value=6500000.0 conf 1.0 src mail-001; broker_name="Acme Marine Ltd." conf 1.0; locations=[{address:"12 Port Road",sprinklered:true}]; commodities=[{commodity_type:"STEEL"}]. No conflicts (sov-001 adds nothing). Mandatory fields all present.
+
+## Example journey (in-flowchart)
+
+```mermaid
+flowchart TD
+    A["mail-001 hint: TIV 6.5M, broker Acme, 1 loc, steel"] --> B["sov-001 hint: empty"]
+    B --> C["TIV 6500000.0 conf 1.0 src mail-001"]
+    C --> D["broker 'Acme Marine Ltd.' conf 1.0"]
+    D --> E["locations: [{12 Port Road, sprinklered}]"]
+    E --> F["commodities: [{STEEL}]"]
+    F --> G["no conflicts → contested none"]
+    G --> H["mandatory present → extract done"]
+```

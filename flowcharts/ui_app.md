@@ -16,3 +16,13 @@ flowchart TD
 ## Example run
 
 User uploads sov.xlsx + broker.eml, picks llm="openrouter" with BYOK key, clicks Run. UI shows parse status table (2 ok), per-binder outcomes (A Accept, B Accept), ranking bar (A 10.0 > B 8.0), narrative, then underwriter accept → settle + audit id.
+
+## Example journey (in-flowchart)
+
+```mermaid
+flowchart TD
+    A["upload 2 files"] --> B["parse status ok"]
+    B --> C["extract openrouter BYOK"]
+    C --> D["A Accept, B Accept, rec A 10.0"]
+    D --> E["underwriter accept → audit id"]
+```

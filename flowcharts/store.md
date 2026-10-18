@@ -17,3 +17,13 @@ flowchart TD
 ## Example run
 
 load_effective("binder_A", "2026-09-29") → v1 (3 rules); load_effective("binder_A", "2026-09-30") → v2 (9 rules). propose by author "alice" needs approver != "alice" (four-eyes). dry_run evaluates v2 against a sample submission without mutating.
+
+## Example journey (in-flowchart)
+
+```mermaid
+flowchart TD
+    A["load_effective binder_A 2026-09-29"] --> B["v1 (3 rules)"]
+    A2["load_effective binder_A 2026-09-30"] --> C["v2 (9 rules)"]
+    B --> D["propose by alice needs approver != alice"]
+    C --> D
+```

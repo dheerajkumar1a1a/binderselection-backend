@@ -20,3 +20,12 @@ flowchart TD
 ## Example run
 
 Underwriter sends `{action:"accept", underwriter_id:"demo-underwriter"}`. validate checks recommendation eligible → valid. decision recorded with identity + timestamp. Underwriter sends `{action:"correct", corrections:{total_insured_value:5000000}}` → graph routes back to derive and re-evaluates; decision recorded with corrections.
+
+## Example journey (in-flowchart)
+
+```mermaid
+flowchart TD
+    A["interrupt: recommendation binder_A"] --> B["underwriter sends accept"]
+    B --> C["validate: eligible → valid"]
+    C --> D["decision recorded: demo-underwriter, timestamp"]
+```
