@@ -225,6 +225,23 @@
    "covers": [
     "OPEN-10 doctrine"
    ]
+  },
+  {
+   "id": "b-accept-clean",
+   "file": "28-b-accept-clean.json",
+   "expects": "Accept binder_B",
+   "covers": [
+    "full Binder B happy path",
+    "geo enrichment"
+   ]
+  },
+  {
+   "id": "d-accept-clean",
+   "file": "29-d-accept-clean.json",
+   "expects": "Accept binder_D",
+   "covers": [
+    "full Binder D happy path"
+   ]
   }
  ]
 }
