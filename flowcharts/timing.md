@@ -9,3 +9,7 @@ flowchart TD
 ```
 
 **Business context:** MI-006 — per-stage wall time for MI reporting; human-wait in review included and labelled.
+
+## Example run
+
+timed("extract", extract)({}) runs extract, measures 0.012s, returns {..., stage_timings: {extract: 0.012}}. Subsequent nodes merge their durations into the same dict.

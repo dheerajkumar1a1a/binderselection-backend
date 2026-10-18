@@ -7,3 +7,7 @@ flowchart TD
 ```
 
 **Business context:** resets demo to clean state for repeatable demos.
+
+## Example run
+
+Click "Reset demo" → deletes audit/decisions.jsonl, ledger.json, .checkpoints.sqlite → next Run starts from clean state.
