@@ -61,7 +61,7 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
 <label>Or upload real files (pdf, eml, xlsx, csv, docx — max 10 files, 10 MB each; msg/images report explicit statuses)</label><input type="file" id="files" multiple accept=".pdf,.eml,.xlsx,.csv,.docx,.msg,.png,.jpg,.jpeg,.tiff">
 <p></p>
 <button id="run">Run evaluation ▶</button>
-<label style="display:inline-block;margin-left:12px">Extractor <select id="llm" style="width:auto"><option value="">stub (deterministic, keyless)</option><option value="nvidia">nemotron-120b live (needs server key)</option></select></label>
+<label style="display:inline-block;margin-left:12px">Extractor <select id="llm" style="width:auto"><option value="">stub (deterministic, keyless)</option><option value="openrouter">openrouter free (needs server key)</option><option value="nvidia">nemotron-120b live (needs server key)</option></select></label>
 <span class="mut">Stub runs are byte-identical every time; live LLM reads only.</span>
 <div class="stages" id="stages"></div>
 <h2>Documents (parse status)</h2><div id="docs"></div>

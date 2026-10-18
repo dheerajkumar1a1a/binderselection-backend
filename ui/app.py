@@ -65,6 +65,11 @@ def run_pipeline(documents: list, submission_ref: str, llm: str | None = None) -
         out = extract_node({"documents": documents}, llm="nvidia")
         ext, meta = out["extracted"], out["extracted_meta"]
         state["model_versions"] = out.get("model_versions")
+    elif llm == "openrouter":
+        from nodes.extract import extract as extract_node
+        out = extract_node({"documents": documents}, llm="openrouter")
+        ext, meta = out["extracted"], out["extracted_meta"]
+        state["model_versions"] = out.get("model_versions")
     else:
         ext, meta = stub_extract(documents)
     state["extracted"] = ext
@@ -179,8 +184,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if parsed.path == "/api/run":
                 llm = payload.get("llm")
-                if llm not in (None, "nvidia"):
-                    return self._json({"error": "llm must be 'nvidia' or omitted (stub)"}, 400)
+                if llm not in (None, "nvidia", "openrouter"):
+                    return self._json({"error": "llm must be 'nvidia', 'openrouter' or omitted (stub)"}, 400)
                 if payload.get("case_id"):
                     case = _case_by_id(payload["case_id"])
                     docs = case["documents"]

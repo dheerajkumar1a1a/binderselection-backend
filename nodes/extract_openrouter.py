@@ -12,7 +12,7 @@ import os
 import urllib.request
 
 API_URL = "https://openrouter.ai/api/v1/chat/completions"
-DEFAULT_MODEL = os.environ.get("OPENROUTER_MODEL", "google/gemma-4-31b-it:free")
+DEFAULT_MODEL = os.environ.get("OPENROUTER_MODEL", "liquid/lfm-2.5-2.6b:free")
 FIELDS = ["total_insured_value", "broker_name", "locations", "commodities"]
 
 PROMPT = """Extract marine-cargo submission fields from the documents below.
