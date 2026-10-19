@@ -1,8 +1,9 @@
 name: extraction-eval
 
 # Live-model extraction gate (BFR-EXT-009, BFR-NFR-027).
-# Scores Nemotron extraction per-field against labelled fixtures.
+# Scores each provider's extraction per-field against labelled fixtures.
 # Nightly plus on-demand. Fails below threshold or on any hallucination.
+# Keys live in repo secrets and are injected only into this workflow.
 on:
   schedule:
     - cron: "0 2 * * *"
@@ -11,18 +12,23 @@ on:
 jobs:
   eval:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        provider: [nvidia, gemini]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
-      - name: Run extraction eval
+      - name: Run extraction eval (${{ matrix.provider }})
         env:
           NVIDIA_API_KEY: ${{ secrets.NVIDIA_API_KEY }}
-        run: python scripts/eval_extraction.py --fixtures scripts/eval_fixtures.json --out eval-report.json
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python scripts/eval_extraction.py --provider ${{ matrix.provider }} --fixtures scripts/eval_fixtures.json --out eval-report-${{ matrix.provider }}.json
       - name: Upload report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: extraction-eval-report
-          path: eval-report.json
+          name: extraction-eval-report-${{ matrix.provider }}
+          path: eval-report-${{ matrix.provider }}.json
