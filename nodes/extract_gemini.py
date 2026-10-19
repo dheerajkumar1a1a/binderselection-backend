@@ -131,9 +131,31 @@ def _call(doc_texts: list[str], api_key: str, model: str) -> dict:
     content = "".join(p.get("text", "") for p in parts).strip()
     # Strip code fences if the model ignored the JSON mode.
     if content.startswith("```"):
-        content = content.split("\n", 1)[1].rsplit("```", 1)[0]
+        content = content.split("\n", 1)[1].rsplit("```", 1)[0].strip()
     # Parse the fields object.
-    return json.loads(content)
+    try:
+        return json.loads(content)
+    except json.JSONDecodeError:
+        # Gemini occasionally appends prose after the object ("Extra data").
+        # Take the first complete object instead of failing the whole evaluation.
+        start = content.find("{")
+        end = content.rfind("}")
+        if start < 0 or end <= start:
+            raise
+        return json.loads(content[start:end + 1])
+
+
+# _fields_of: accept either {"fields": [...]} or a bare list of field objects.
+# Gemini's JSON mode does not guarantee the wrapper key, and a shape mismatch
+# must not lose the whole extraction.
+def _fields_of(raw) -> list:
+    if isinstance(raw, list):
+        return [x for x in raw if isinstance(x, dict)]
+    if isinstance(raw, dict):
+        fields = raw.get("fields")
+        if isinstance(fields, list):
+            return [x for x in fields if isinstance(x, dict)]
+    return []
 
 
 # gemini_extract: public entry point; returns (extracted, meta).
@@ -150,7 +172,7 @@ def gemini_extract(documents: list[dict], api_key: str | None = None,
     extracted: dict = {}
     meta: dict = {}
     # Process each returned field.
-    for item in raw.get("fields", []):
+    for item in _fields_of(raw):
         name = item.get("name")
         # Drop anything outside the schema (anti-hallucination).
         if name not in FIELDS:

@@ -114,6 +114,7 @@ function chip(o){const c=o==='Pass'?'pass':(o==='Decline'?'dec':'ref');return `<
 function timeIt(fn){const t0=performance.now();const out=fn();return [out,Math.round((performance.now()-t0)*10000)/10000]}
 async function init(){
   const [binders,scoring,capacity,man,idx]=await Promise.all([j('data/rules/binders.json'),j('data/rules/scoring.json'),j('data/rules/capacity.json'),j('data/samples/manifest.json'),j('data/rules/index.json')]);
+  await loadSchema();
   const files=[...new Set(Object.values(idx).flat())];
   const loaded=await Promise.all(files.map(f=>j('data/rules/'+f)));
   DATA={binders:binders.binders,capacity:capacity.binders,scoring,rulesets:loaded};
@@ -122,7 +123,7 @@ async function init(){
   const docs=await Promise.all(CASES.map(c=>j('data/samples/cases/'+c.file)));
   docs.forEach((d,i)=>{CASEDOCS[CASES[i].id]=d});
   $('kpis').innerHTML=DATA.binders.map(b=>{const rs=DATA.rulesets.filter(r=>r.binder_id===b.binder_id).sort((x,y)=>y.version-x.version)[0];return `<div class="kpi"><b>${b.binder_id}</b><span>${b.status} · ruleset v${rs.version} · ${rs.rules.length} rules</span></div>`}).join('')+`<div class="kpi"><b>${CASES.length}</b><span>sample cases</span></div>`;
-  $('scoring').textContent='Score weights: '+JSON.stringify(DATA.scoring.weights)+' · tie-break: '+(DATA.scoring.tie_break||[]).join(', ');
+  $('scoring').textContent='Score weights: '+JSON.stringify(DATA.scoring.weights)+' · tie-break: '+(DATA.scoring.tie_break||[]).join(', ')+' · extraction schema: '+(SCHEMA.source==='published'?SCHEMA.fields.length+' fields (published)':'FALLBACK '+SCHEMA.fields.length+' fields - schema file unavailable');
   $('case').innerHTML=CASES.map(c=>`<option value="${c.id}">${c.id} — ${c.expects}</option>`).join('');
   $('case').value='demo-accept-full';updCase();renderMI();
   $('sel').innerHTML='<option value="">—</option>'+DATA.binders.filter(b=>b.status==='active').map(b=>`<option>${b.binder_id}</option>`).join('');
@@ -178,8 +179,24 @@ async function parseFile(name,buf,depth,docId){
     return {doc:attachStructured(Object.assign({doc_id:docId,filename:name,format:ext,size_bytes:buf.byteLength,text:tt,text_truncated:tr,parse_status:r.status,failure_reason:r.reason},r.meta),tt),kids:[]};
   }catch(e){return {doc:{doc_id:docId,filename:name,format:ext,size_bytes:buf.byteLength,parse_status:'failed',failure_reason:String((e&&e.message)||e)},kids:[]}}
 }
-const OR_FIELDS=["total_insured_value","broker_name","locations","commodities","coverage_sections","valuation_basis","coverage_type","requested_inception_date","expiring_premium_disclosed","insured_state_province","insured_country","largest_single_claim_amount","total_claims_amount"];
+// Fallback only: data/extract-schema.json (published from nodes/extract_gemini.py) is
+// authoritative. The old 13-field list silently dropped locations, claim counts,
+// loss run and postcode, which made binder E impossible to Accept in the browser.
+const FALLBACK_FIELDS=["total_insured_value","broker_name","locations","commodities","coverage_sections","valuation_basis","coverage_type","requested_inception_date","expiring_premium_disclosed","insured_state_province","insured_country","largest_single_claim_amount","total_claims_amount"];
+const MONEY_FIELDS=['total_insured_value','largest_single_claim_amount','total_claims_amount'];
 const OR_PROMPT='Extract marine-cargo submission fields from the documents below. Return ONLY valid JSON, no markdown, with this shape: {"fields": [{"name": "<one of: total_insured_value, broker_name, locations, commodities, coverage_sections, valuation_basis, coverage_type, requested_inception_date, expiring_premium_disclosed, insured_state_province, insured_country, largest_single_claim_amount, total_claims_amount>", "value": <JSON value or null if not stated>, "confidence": <0-1>, "source_locator": "<quote, max 120 chars>"}]} Return exactly one entry per name, in the listed order, using null where the documents do not state it. Shapes: total_insured_value number; broker_name string; locations [{"address": string, "sprinklered": true/false/null}]; commodities [{"commodity_type": "UPPER_SNAKE string"}]; coverage_sections [{"limit": number}]; valuation_basis, coverage_type, requested_inception_date (YYYY-MM-DD), insured_state_province (2-letter code), insured_country (2-letter code) strings; expiring_premium_disclosed boolean; largest_single_claim_amount, total_claims_amount numbers (0 when the text states no claims). Rules: never invent values - use null when absent. Money as number when possible. Documents:\n';
+// SCHEMA: the live extractors' field list + prompt. Authoritative copy is
+// data/extract-schema.json, published from nodes/extract_gemini.py; OR_PROMPT /
+// FALLBACK_FIELDS above only apply if that file cannot be fetched.
+let SCHEMA={fields:FALLBACK_FIELDS,prompt:OR_PROMPT,model_default:'gemini-3.5-flash-lite',source:'fallback'};
+async function loadSchema(){
+  try{
+    const s=await j('data/extract-schema.json');
+    if(s&&Array.isArray(s.fields)&&s.fields.length&&typeof s.prompt==='string'&&s.prompt){
+      SCHEMA={fields:s.fields,prompt:s.prompt,model_default:s.model_default||SCHEMA.model_default,source:'published'};
+    }
+  }catch(e){/* keep the fallback */}
+}
 // Coerce LLM money output ("USD 1,250,000.50", "$1.5m", 1250000) to a number; null if nothing numeric.
 function num(v){
   if(typeof v==='number')return isNaN(v)?null:v;
@@ -188,40 +205,44 @@ function num(v){
   return m?parseFloat(m[0]):null;
 }
 function mapFields(raw,model){
-  const ex={},meta={};
-  for(const it of raw.fields||[]){
-    if(!OR_FIELDS.includes(it.name))continue;
+  const fields=SCHEMA.fields,ex={},meta={};
+  // Gemini's JSON mode may return a bare array instead of {"fields":[...]}.
+  const items=Array.isArray(raw)?raw:((raw&&raw.fields)||[]);
+  for(const it of items){
+    if(!it||!fields.includes(it.name))continue;
     let v=it.value;
-    if((it.name==='total_insured_value')&&typeof v==='string'){v=num(v)}
+    if(MONEY_FIELDS.includes(it.name)&&typeof v==='string'){v=num(v)}
     if(it.name==='coverage_sections'&&Array.isArray(v)){v=v.map(s=>({limit:num(s.limit)}))}
     if(it.name==='expiring_premium_disclosed'&&typeof v==='string')v=/true|yes|disclosed/i.test(v)&&!/not disclosed|undisclosed|no /i.test(v);
     ex[it.name]=v;
     meta[it.name]={value:v,original_value:it.value,present:v!==null&&v!==undefined,confidence:Number(it.confidence||0.5),source_document_id:it.source_document_id,source_locator:String(it.source_locator||'').slice(0,120),model:model};
   }
-  for(const f of OR_FIELDS)if(!(f in ex)){ex[f]=null;meta[f]={present:false,confidence:0,reason:'absent'}}
+  for(const f of fields)if(!(f in ex)){ex[f]=null;meta[f]={present:false,confidence:0,reason:'absent'}}
   return [ex,meta];
 }
 function stripFence(c){c=(c||'').trim();if(c.startsWith('```'))c=c.split('\n').slice(1).join('\n').replace(/```\s*$/,'');return c}
+// Models occasionally append prose after the JSON object; take the first object.
+function parseJsonLoose(c){try{return JSON.parse(c)}catch(e){const a=c.indexOf('{'),b=c.lastIndexOf('}');if(a<0||b<=a)throw e;return JSON.parse(c.slice(a,b+1))}}
 async function extractOpenRouter(docs,key,model){
   const texts=docs.map(d=>'['+(d.doc_id||'?')+':'+(d.filename||'doc')+'] '+(d.text||''));
   const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',
     headers:{'Authorization':'Bearer '+key,'Content-Type':'application/json','HTTP-Referer':'https://dheerajkumar1a1a.github.io/binderselection-backend/','X-Title':'binderselection-demo'},
-    body:JSON.stringify({model:model,messages:[{role:'user',content:OR_PROMPT+texts.join('\n---\n')}],temperature:0})});
+    body:JSON.stringify({model:model,messages:[{role:'user',content:SCHEMA.prompt+texts.join('\n---\n')}],temperature:0})});
   if(!r.ok)throw new Error('OpenRouter '+r.status+': '+(await r.text()).slice(0,200));
   const p=await r.json();
-  return mapFields(JSON.parse(stripFence(p.choices[0].message.content)),model);
+  return mapFields(parseJsonLoose(stripFence(p.choices[0].message.content)),model);
 }
 async function extractGemini(docs,key,model){
   // BYOK: the visitor's key lives in page memory only and is sent solely to Google.
   const texts=docs.map(d=>'['+(d.doc_id||'?')+':'+(d.filename||'doc')+'] '+(d.text||''));
   const url='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent?key='+encodeURIComponent(key);
   const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
-    body:JSON.stringify({contents:[{role:'user',parts:[{text:OR_PROMPT+texts.join('\n---\n')}]}],generationConfig:{temperature:0,responseMimeType:'application/json'}})});
+    body:JSON.stringify({contents:[{role:'user',parts:[{text:SCHEMA.prompt+texts.join('\n---\n')}]}],generationConfig:{temperature:0,responseMimeType:'application/json'}})});
   if(!r.ok)throw new Error('Gemini '+r.status+': '+(await r.text()).slice(0,200));
   const p=await r.json();
   const cand=(p.candidates||[])[0]||{};
   const c=stripFence((((cand.content||{}).parts||[]).map(x=>x.text||'').join('')));
-  return mapFields(JSON.parse(c),model);
+  return mapFields(parseJsonLoose(c),model);
 }
 // --- repo-secret (CI) mode: the key stays in GitHub, never in this page ------
 const GH={owner:'dheerajkumar1a1a',repo:'binderselection-backend',workflow:'extract-request.yml'};
