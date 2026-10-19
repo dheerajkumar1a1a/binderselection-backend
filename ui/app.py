@@ -149,6 +149,14 @@ def overview() -> dict:
         "binders": info,
         "scoring": {"weights": scoring.get("weights"), "tie_break": scoring.get("tie_break")},
         "cases": len(_manifest()["cases"]),
+        # Which live extractors have a resolvable key (never the key itself).
+        "extractors": {
+            "gemini": {"model": "gemini-3.5-flash-lite", "default": True,
+                       "key": bool(os.environ.get("GEMINI_API_KEY")
+                                   or os.environ.get("GEMINI_API_KEY_FILE"))},
+            "nvidia": {"key": bool(os.environ.get("NVIDIA_API_KEY"))},
+            "openrouter": {"key": bool(os.environ.get("OPENROUTER_API_KEY"))},
+        },
     }
 
 
@@ -236,4 +244,12 @@ if __name__ == "__main__":
     port = int(sys.argv[1]) if len(sys.argv) > 1 else int(os.environ.get("PORT", "8080"))
     srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
     print(f"Binder Selection Agent — leadership demo at http://127.0.0.1:{port} (Ctrl+C to stop)")
+    # Report which live extractors can resolve a key. Never print the key.
+    gemini = "present" if (os.environ.get("GEMINI_API_KEY")
+                           or os.environ.get("GEMINI_API_KEY_FILE")) else "MISSING"
+    nvidia = "present" if os.environ.get("NVIDIA_API_KEY") else "missing"
+    openrouter = "present" if os.environ.get("OPENROUTER_API_KEY") else "missing"
+    print(f"extractors: gemini-3.5-flash-lite (UI default) key={gemini} | "
+          f"nvidia key={nvidia} | openrouter key={openrouter} | stub always available",
+          flush=True)
     srv.serve_forever()

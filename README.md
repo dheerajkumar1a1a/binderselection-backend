@@ -315,6 +315,11 @@ preferred) / `GEMINI_MODEL` (default `gemini-3.5-flash-lite`). The model reads;
 it never decides. Submission text must never reach logs (BFR-NFR-003) nor train
 a third-party model (BFR-DAT-005, ASM-7).
 
+The local leadership UI (`ui/app.py`) defaults its Extractor dropdown to
+`gemini-3.5-flash-lite` and shows whether the server can resolve a key; pick
+`stub` for keyless deterministic runs. The public Pages demo stays keyless, so
+it never holds a key.
+
 ---
 
 ## 7. Testing

@@ -61,8 +61,8 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
 <label>Or upload real files (pdf, eml, xlsx, csv, docx — max 10 files, 10 MB each; msg/images report explicit statuses)</label><input type="file" id="files" multiple accept=".pdf,.eml,.xlsx,.csv,.docx,.msg,.png,.jpg,.jpeg,.tiff">
 <p></p>
 <button id="run">Run evaluation ▶</button>
-<label style="display:inline-block;margin-left:12px">Extractor <select id="llm" style="width:auto"><option value="">stub (deterministic, keyless)</option><option value="openrouter">openrouter free (needs server key)</option><option value="nvidia">nemotron-120b live (needs server key)</option><option value="gemini">gemini-3.5-flash-lite live (needs server key)</option></select></label>
-<span class="mut">Stub runs are byte-identical every time; live LLM reads only.</span>
+<label style="display:inline-block;margin-left:12px">Extractor <select id="llm" style="width:auto"><option value="gemini">gemini-3.5-flash-lite live (default; server key)</option><option value="">stub (deterministic, keyless)</option><option value="openrouter">openrouter free (needs server key)</option><option value="nvidia">nemotron-120b live (needs server key)</option></select></label>
+<span class="mut">Live LLM reads only; the stub is byte-identical every time. <span id="extkey"></span></span>
 <div class="stages" id="stages"></div>
 <h2>Documents (parse status)</h2><div id="docs"></div>
 <div class="grid2"><div><h2>Extracted facts</h2><div id="facts"></div></div>
@@ -103,6 +103,8 @@ async function init(){
   const ov=await j('/api/overview');
   $('kpis').innerHTML=ov.binders.map(b=>`<div class="kpi"><b>${b.binder_id}</b><span>${b.status} · ruleset v${b.version??'?'} · ${b.rules??'?'} rules</span></div>`).join('')+`<div class="kpi"><b>${ov.cases}</b><span>sample cases</span></div>`;
   $('scoring').textContent='Score weights: '+JSON.stringify(ov.scoring.weights)+' · tie-break: '+(ov.scoring.tie_break||[]).join(', ');
+  // Show which live extractor keys the server can resolve (never the key).
+  if(ov.extractors){const g=ov.extractors.gemini||{};$('extkey').textContent = g.key?'Gemini key: present (default extractor).':'Gemini key: MISSING on the server — set GEMINI_API_KEY/GEMINI_API_KEY_FILE or pick stub.';}
   const m=await j('/api/cases');CASES=m.cases;
   CASES.sort((a,b)=>(a.id==='demo-accept-full'?-1:b.id==='demo-accept-full'?1:a.id.localeCompare(b.id)));
   $('case').innerHTML=CASES.map(c=>`<option value="${c.id}">${c.id} — ${c.expects}</option>`).join('');
