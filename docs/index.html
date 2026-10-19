@@ -59,11 +59,20 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
 <p class="mut" id="caseinfo"></p>
 <label>Or upload real files (pdf, eml, xlsx, csv, docx — parsed in your browser, max 10 files / 10 MB each)</label><input type="file" id="files" multiple accept=".pdf,.eml,.xlsx,.csv,.docx,.msg,.png,.jpg,.jpeg,.tiff">
 <p class="mut">No files handy? Download this case as <a id="dlpdf" href="demo-upload.pdf" download>PDF</a>, <a id="dldocx" href="#" download>DOCX</a> or <a id="dleml" href="#" download>EML</a>, then upload it back and run. Generated fixtures carry a machine-readable submission record, so they reproduce the case deterministically — the live LLM is only needed for genuinely unstructured files.</p>
-<label>Extractor <select id="llm" style="width:auto"><option value="gemini">Gemini live (default — paste your key below; reads uploaded files too)</option><option value="">stub (deterministic, keyless — reads sample hints only)</option><option value="openrouter">OpenRouter live (paste your key below)</option></select></label>
+<label>Extractor <select id="llm" style="width:auto"><option value="gemini">Gemini live (default — paste your key below; reads uploaded files too)</option><option value="">stub (deterministic, keyless — reads sample hints only)</option><option value="ci">Gemini via repo secret (CI — key never reaches this page)</option><option value="openrouter">OpenRouter live (paste your key below)</option></select></label>
 <label>Your Gemini API key (typed at runtime, kept in page memory only, sent only to generativelanguage.googleapis.com — never to us, never stored in this page)</label><input id="gkey" type="password" autocomplete="off" placeholder="AQ.…">
 <label>Gemini model (editable)</label><input id="gmodel" value="gemini-3.5-flash-lite">
 <label>Your OpenRouter key (only used when the OpenRouter extractor is selected; kept in page memory only)</label><input id="orkey" type="password" autocomplete="off" placeholder="sk-or-v1-…">
 <label>OpenRouter model (editable)</label><input id="ormodel" value="openai/gpt-4o-mini">
+<div id="cipanel" style="display:none;border:1px solid #d9d9d9;border-radius:8px;padding:10px;margin:10px 0">
+  <b>Repo-secret mode.</b> The extraction runs as a GitHub Actions job using the repo's
+  <code>GEMINI_API_KEY</code> — the key never reaches this page.
+  <label style="display:block;margin-top:6px">Dispatch token (optional; a fine-grained PAT with <i>only</i> Actions: write — it cannot read secrets)</label>
+  <input id="citoken" type="password" autocomplete="off" placeholder="github_pat_…" style="width:auto">
+  <div id="cistat" class="mut"></div>
+  <div id="cimanual" style="display:none;margin-top:6px"></div>
+  <p class="mut" style="color:#a33">Privacy: GitHub records workflow inputs, so text sent this way is effectively public in the run log. Do not submit confidential documents. Use the BYOK Gemini option for those.</p>
+</div>
 <p></p>
 <button id="run">Run evaluation ▶</button> <span class="mut">Stub runs are byte-identical every time; live LLM reads only, never decides.</span>
 <div class="stages" id="stages"></div>
@@ -214,6 +223,54 @@ async function extractGemini(docs,key,model){
   const c=stripFence((((cand.content||{}).parts||[]).map(x=>x.text||'').join('')));
   return mapFields(JSON.parse(c),model);
 }
+// --- repo-secret (CI) mode: the key stays in GitHub, never in this page ------
+const GH={owner:'dheerajkumar1a1a',repo:'binderselection-backend',workflow:'extract-request.yml'};
+function payloadFor(docs,model){
+  const documents=docs.filter(d=>d.text).map(d=>({doc_id:d.doc_id,filename:d.filename,text:(d.text||'').slice(0,120000)}));
+  return {model:model,documents:documents,client:'pages'};
+}
+async function gzB64(obj){
+  const bytes=new TextEncoder().encode(JSON.stringify(obj));
+  const buf=await new Response(new Blob([bytes]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();
+  const u=new Uint8Array(buf);let s='';
+  for(let i=0;i<u.length;i+=8192)s+=String.fromCharCode.apply(null,u.subarray(i,i+8192));
+  return btoa(s);
+}
+async function ciDispatch(id,b64,token){
+  const r=await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}/actions/workflows/${GH.workflow}/dispatches`,{method:'POST',
+    headers:{'Authorization':'Bearer '+token,'Accept':'application/vnd.github+json','Content-Type':'application/json'},
+    body:JSON.stringify({ref:'main',inputs:{request_id:id,payload_gz_b64:b64}})});
+  if(!r.ok)throw new Error('dispatch failed '+r.status+': '+(await r.text()).slice(0,180));
+}
+async function ciExtract(docs){
+  const stat=$('cistat');
+  const id=(Math.random().toString(16).slice(2)+Math.random().toString(16).slice(2)).slice(0,16);
+  const model=$('gmodel').value.trim()||'gemini-3.5-flash-lite';
+  const b64=await gzB64(payloadFor(docs,model));
+  if(b64.length>60000)throw new Error('payload too large for CI mode ('+b64.length+' chars) — trim the documents or use the BYOK Gemini option');
+  const token=$('citoken').value.trim();
+  $('cimanual').style.display='none';
+  if(token){
+    stat.textContent='dispatching to GitHub Actions…';
+    await ciDispatch(id,b64,token);
+  }else{
+    $('cimanual').style.display='';
+    $('cimanual').innerHTML='<b>Manual:</b> copy this payload, open the workflow, press <i>Run workflow</i>, paste request_id <code>'+id+'</code> plus this payload, then wait here.'
+      +'<textarea readonly style="width:100%;height:56px;margin-top:4px" onclick="this.select()">'+b64+'</textarea>'
+      +'<a href="https://github.com/'+GH.owner+'/'+GH.repo+'/actions/workflows/'+GH.workflow+'" target="_blank" rel="noopener">Open Actions → Run workflow</a>';
+  }
+  for(let i=0;i<60;i++){
+    stat.textContent='waiting for the CI result ('+((i+1)*5)+'s)…';
+    await new Promise(r=>setTimeout(r,5000));
+    try{
+      const r=await fetch('data/extract-results/'+id+'.json?t='+Date.now(),{cache:'no-store'});
+      if(r.ok){const j=await r.json();
+        if(j.ok){stat.textContent='done — extracted by '+j.model+' on the repo secret.';return j;}
+        throw new Error('CI extraction failed: '+j.error);}
+    }catch(e){if(String((e&&e.message)||e).startsWith('CI extraction failed'))throw e;}
+  }
+  throw new Error('timed out waiting for the CI result — check the Actions run');
+}
 async function run(){
   $('run').disabled=true;
   try{
@@ -234,18 +291,25 @@ async function run(){
     docs=c.documents;expected=c.expected;covers=c.covers;
   }
   const T={};let t;
-  let ex0,meta;
+  let ex0,meta,usedModel='stub-1';
   if(llm==='gemini'&&!docs.some(d=>d.structured_hint)){
     const key=$('gkey').value.trim(),model=$('gmodel').value.trim()||'gemini-3.5-flash-lite';
     if(!key)throw new Error('paste your Gemini API key first (kept in page memory only)');
     const t0=performance.now();
     [ex0,meta]=await extractGemini(docs.filter(d=>d.text),key,model);
+    usedModel=model;
+    T.extract=Math.round((performance.now()-t0)*10000)/10000;
+  }else if(llm==='ci'&&!docs.some(d=>d.structured_hint)){
+    const t0=performance.now();
+    const r=await ciExtract(docs.filter(d=>d.text));
+    ex0=r.extracted;meta=r.meta;usedModel=r.model||'gemini-3.5-flash-lite';
     T.extract=Math.round((performance.now()-t0)*10000)/10000;
   }else if(llm==='openrouter'&&!docs.some(d=>d.structured_hint)){
     const key=$('orkey').value.trim(),model=$('ormodel').value.trim()||'openai/gpt-4o-mini';
     if(!key)throw new Error('paste your OpenRouter key first (kept in page memory only)');
     const t0=performance.now();
     [ex0,meta]=await extractOpenRouter(docs.filter(d=>d.text),key,model);
+    usedModel=model;
     T.extract=Math.round((performance.now()-t0)*10000)/10000;
   }else{
     [t,T.extract]=timeIt(()=>E.stubExtract(docs));[ex0,meta]=t;
@@ -253,7 +317,7 @@ async function run(){
   [t,T.derive]=timeIt(()=>E.derive(ex0));const ex=t;
   [t,T.completeness]=timeIt(()=>E.checkCompleteness(ex,meta));const comp=t;
   const usedStructured=docs.some(d=>d.structured_hint);
-  RUN={submission_reference:ref,documents:docs.map(d=>{const o=Object.assign({},d);return o}),extracted:ex,extracted_meta:meta,completeness:comp,halt:null,stage_timings:T,dataset_expected:expected,dataset_covers:covers,model_versions:{extraction:usedStructured?'structured-data':(llm==='gemini'?($('gmodel').value.trim()||'gemini-3.5-flash-lite'):(llm==='openrouter'?$('ormodel').value.trim():'stub-1'))}};
+  RUN={submission_reference:ref,documents:docs.map(d=>{const o=Object.assign({},d);return o}),extracted:ex,extracted_meta:meta,completeness:comp,halt:null,stage_timings:T,dataset_expected:expected,dataset_covers:covers,model_versions:{extraction:usedStructured?'structured-data':usedModel}};
   if(!comp.can_evaluate){RUN.halt='completeness';}
   else{
     const t0=performance.now();
@@ -317,7 +381,7 @@ function renderMI(){
   $('mikpis').innerHTML=`<div class="kpi"><b>${AUDIT.length}</b><span>evaluations this session</span></div><div class="kpi"><b>${JSON.stringify(byOut)}</b><span>outcome mix</span></div><div class="kpi"><b>${ov}/${AUDIT.length}</b><span>overrides / decided</span></div><div class="kpi"><b>${info}</b><span>info requests</span></div>`;
   $('mifull').textContent=JSON.stringify({volume_mix:{total:AUDIT.length,by_outcome:byOut,by_broker:byBroker,by_underwriter:byUW},decline_reasons:{by_rule:byRule},override_rate:{decided:AUDIT.length,overrides:ov},data_quality:{missing_fields:missing,info_requests:info},refer_by_field:{by_field:byField},stage_timing:{mean_seconds:means,n:AUDIT.length}},null,1);
 }
-$('case').onchange=updCase;$('run').onclick=()=>{try{run()}catch(e){alert(e.message)}};
+$('case').onchange=updCase;$('llm').onchange=()=>{$('cipanel').style.display=$('llm').value==='ci'?'':'none'};$('run').onclick=()=>{try{run()}catch(e){alert(e.message)}};
 $('decide').onclick=()=>{try{decide()}catch(e){alert(e.message)}};$('mi').onclick=()=>{try{renderMI()}catch(e){alert(e.message)}};
 init().catch(e=>document.body.insertAdjacentHTML('beforeend','<p style="color:red">Failed to load: '+e.message+'</p>'));
 </script>

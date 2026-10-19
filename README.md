@@ -326,6 +326,20 @@ No key is ever embedded in the page. Sample cases and generated fixtures still
 run keyless because they carry a machine-readable submission record; only
 genuinely unstructured uploads need a key.
 
+### Repo-secret extraction (CI mode)
+The Pages demo also offers **Gemini via repo secret (CI)**: it gzip+base64s the
+parsed text, dispatches `.github/workflows/extract-request.yml`, and polls
+`docs/data/extract-results/<request_id>.json`. The job runs
+`scripts/extract_request.py` with `GEMINI_API_KEY` injected from repo secrets, so
+the key never reaches the browser and is never in the page or the repo.
+
+Triggering it one-click needs a fine-grained PAT with **only** `Actions: write`
+paste it into the page; that token cannot read secrets. Without a token the page
+shows the payload plus a link and you press *Run workflow* yourself. Because
+`workflow_dispatch` inputs are recorded on a public repo, text sent this way is
+effectively public - do not submit confidential documents (use the BYOK Gemini
+option for those). Result files are pruned after a day.
+
 ---
 
 ## 7. Testing
