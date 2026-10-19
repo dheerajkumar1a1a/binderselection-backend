@@ -242,6 +242,19 @@ async function ciDispatch(id,b64,token){
     body:JSON.stringify({ref:'main',inputs:{request_id:id,payload_gz_b64:b64}})});
   if(!r.ok)throw new Error('dispatch failed '+r.status+': '+(await r.text()).slice(0,180));
 }
+function b64ToObj(b64){const bin=atob(String(b64).replace(/\s+/g,''));const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);return JSON.parse(new TextDecoder().decode(u))}
+async function ciFetchResult(id,token){
+  // GitHub Contents API first: it reflects the job's commit immediately and does
+  // not wait for the Pages redeploy. Falls back to the Pages-served copy.
+  try{
+    const h={'Accept':'application/vnd.github+json'};
+    if(token)h['Authorization']='Bearer '+token;
+    const r=await fetch(`https://api.github.com/repos/${GH.owner}/${GH.repo}/contents/docs/data/extract-results/${id}.json?ref=main&t=${Date.now()}`,{cache:'no-store',headers:h});
+    if(r.ok){const j=await r.json();if(j&&j.content)return b64ToObj(j.content);}
+  }catch(e){}
+  try{const r=await fetch('data/extract-results/'+id+'.json?t='+Date.now(),{cache:'no-store'});if(r.ok)return await r.json();}catch(e){}
+  return null;
+}
 async function ciExtract(docs){
   const stat=$('cistat');
   const id=(Math.random().toString(16).slice(2)+Math.random().toString(16).slice(2)).slice(0,16);
