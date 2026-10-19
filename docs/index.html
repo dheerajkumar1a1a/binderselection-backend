@@ -59,9 +59,11 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
 <p class="mut" id="caseinfo"></p>
 <label>Or upload real files (pdf, eml, xlsx, csv, docx — parsed in your browser, max 10 files / 10 MB each)</label><input type="file" id="files" multiple accept=".pdf,.eml,.xlsx,.csv,.docx,.msg,.png,.jpg,.jpeg,.tiff">
 <p class="mut">No files handy? Download this case as <a id="dlpdf" href="demo-upload.pdf" download>PDF</a>, <a id="dldocx" href="#" download>DOCX</a> or <a id="dleml" href="#" download>EML</a>, then upload it back and run. Generated fixtures carry a machine-readable submission record, so they reproduce the case deterministically — the live LLM is only needed for genuinely unstructured files.</p>
-<label>Extractor <select id="llm" style="width:auto"><option value="">stub (deterministic, keyless — reads sample hints only)</option><option value="openrouter">live LLM via your OpenRouter key (reads uploaded files too)</option></select></label>
-<label>Your OpenRouter key (typed at runtime, kept in page memory only, never stored or sent anywhere but api.openrouter.ai)</label><input id="orkey" type="password" autocomplete="off" placeholder="sk-or-v1-…">
-<label>Model (editable)</label><input id="ormodel" value="openai/gpt-4o-mini">
+<label>Extractor <select id="llm" style="width:auto"><option value="gemini">Gemini live (default — paste your key below; reads uploaded files too)</option><option value="">stub (deterministic, keyless — reads sample hints only)</option><option value="openrouter">OpenRouter live (paste your key below)</option></select></label>
+<label>Your Gemini API key (typed at runtime, kept in page memory only, sent only to generativelanguage.googleapis.com — never to us, never stored in this page)</label><input id="gkey" type="password" autocomplete="off" placeholder="AQ.…">
+<label>Gemini model (editable)</label><input id="gmodel" value="gemini-3.5-flash-lite">
+<label>Your OpenRouter key (only used when the OpenRouter extractor is selected; kept in page memory only)</label><input id="orkey" type="password" autocomplete="off" placeholder="sk-or-v1-…">
+<label>OpenRouter model (editable)</label><input id="ormodel" value="openai/gpt-4o-mini">
 <p></p>
 <button id="run">Run evaluation ▶</button> <span class="mut">Stub runs are byte-identical every time; live LLM reads only, never decides.</span>
 <div class="stages" id="stages"></div>
@@ -169,6 +171,28 @@ async function parseFile(name,buf,depth,docId){
 }
 const OR_FIELDS=["total_insured_value","broker_name","locations","commodities","coverage_sections","valuation_basis","coverage_type","requested_inception_date","expiring_premium_disclosed","insured_state_province","insured_country","largest_single_claim_amount","total_claims_amount"];
 const OR_PROMPT='Extract marine-cargo submission fields from the documents below. Return ONLY valid JSON, no markdown, with this shape: {"fields": [{"name": "<one of: total_insured_value, broker_name, locations, commodities, coverage_sections, valuation_basis, coverage_type, requested_inception_date, expiring_premium_disclosed, insured_state_province, insured_country, largest_single_claim_amount, total_claims_amount>", "value": <JSON value or null if not stated>, "confidence": <0-1>, "source_locator": "<quote, max 120 chars>"}]} Return exactly one entry per name, in the listed order, using null where the documents do not state it. Shapes: total_insured_value number; broker_name string; locations [{"address": string, "sprinklered": true/false/null}]; commodities [{"commodity_type": "UPPER_SNAKE string"}]; coverage_sections [{"limit": number}]; valuation_basis, coverage_type, requested_inception_date (YYYY-MM-DD), insured_state_province (2-letter code), insured_country (2-letter code) strings; expiring_premium_disclosed boolean; largest_single_claim_amount, total_claims_amount numbers (0 when the text states no claims). Rules: never invent values - use null when absent. Money as number when possible. Documents:\n';
+// Coerce LLM money output ("USD 1,250,000.50", "$1.5m", 1250000) to a number; null if nothing numeric.
+function num(v){
+  if(typeof v==='number')return isNaN(v)?null:v;
+  if(typeof v!=='string')return null;
+  const m=v.replace(/,/g,'').match(/-?\d+(\.\d+)?([eE][-+]?\d+)?/);
+  return m?parseFloat(m[0]):null;
+}
+function mapFields(raw,model){
+  const ex={},meta={};
+  for(const it of raw.fields||[]){
+    if(!OR_FIELDS.includes(it.name))continue;
+    let v=it.value;
+    if((it.name==='total_insured_value')&&typeof v==='string'){v=num(v)}
+    if(it.name==='coverage_sections'&&Array.isArray(v)){v=v.map(s=>({limit:num(s.limit)}))}
+    if(it.name==='expiring_premium_disclosed'&&typeof v==='string')v=/true|yes|disclosed/i.test(v)&&!/not disclosed|undisclosed|no /i.test(v);
+    ex[it.name]=v;
+    meta[it.name]={value:v,original_value:it.value,present:v!==null&&v!==undefined,confidence:Number(it.confidence||0.5),source_document_id:it.source_document_id,source_locator:String(it.source_locator||'').slice(0,120),model:model};
+  }
+  for(const f of OR_FIELDS)if(!(f in ex)){ex[f]=null;meta[f]={present:false,confidence:0,reason:'absent'}}
+  return [ex,meta];
+}
+function stripFence(c){c=(c||'').trim();if(c.startsWith('```'))c=c.split('\n').slice(1).join('\n').replace(/```\s*$/,'');return c}
 async function extractOpenRouter(docs,key,model){
   const texts=docs.map(d=>'['+(d.doc_id||'?')+':'+(d.filename||'doc')+'] '+(d.text||''));
   const r=await fetch('https://openrouter.ai/api/v1/chat/completions',{method:'POST',
@@ -176,20 +200,19 @@ async function extractOpenRouter(docs,key,model){
     body:JSON.stringify({model:model,messages:[{role:'user',content:OR_PROMPT+texts.join('\n---\n')}],temperature:0})});
   if(!r.ok)throw new Error('OpenRouter '+r.status+': '+(await r.text()).slice(0,200));
   const p=await r.json();
-  let c=(p.choices[0].message.content||'').trim();
-  if(c.startsWith('```'))c=c.split('\n').slice(1).join('\n').replace(/```\s*$/,'');
-  const raw=JSON.parse(c),ex={},meta={};
-  for(const it of raw.fields||[]){
-    if(!OR_FIELDS.includes(it.name))continue;
-    let v=it.value;
-    if((it.name==='total_insured_value')&&typeof v==='string'){const n=parseFloat(v.replace(/\$/g,'').replace(/,/g,'').trim());v=isNaN(n)?null:n}
-    if(it.name==='coverage_sections'&&Array.isArray(v)){v=v.map(s=>({limit:typeof s.limit==='string'?parseFloat(s.limit.replace(/\$/g,'').replace(/,/g,'').trim())||null:s.limit}))}
-    if(it.name==='expiring_premium_disclosed'&&typeof v==='string')v=/true|yes|disclosed/i.test(v)&&!/not disclosed|undisclosed|no /i.test(v);
-    ex[it.name]=v;
-    meta[it.name]={value:v,original_value:it.value,present:v!==null&&v!==undefined,confidence:Number(it.confidence||0.5),source_document_id:it.source_document_id,source_locator:String(it.source_locator||'').slice(0,120),model:model};
-  }
-  for(const f of OR_FIELDS)if(!(f in ex)){ex[f]=null;meta[f]={present:false,confidence:0,reason:'absent'}}
-  return [ex,meta];
+  return mapFields(JSON.parse(stripFence(p.choices[0].message.content)),model);
+}
+async function extractGemini(docs,key,model){
+  // BYOK: the visitor's key lives in page memory only and is sent solely to Google.
+  const texts=docs.map(d=>'['+(d.doc_id||'?')+':'+(d.filename||'doc')+'] '+(d.text||''));
+  const url='https://generativelanguage.googleapis.com/v1beta/models/'+encodeURIComponent(model)+':generateContent?key='+encodeURIComponent(key);
+  const r=await fetch(url,{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({contents:[{role:'user',parts:[{text:OR_PROMPT+texts.join('\n---\n')}]}],generationConfig:{temperature:0,responseMimeType:'application/json'}})});
+  if(!r.ok)throw new Error('Gemini '+r.status+': '+(await r.text()).slice(0,200));
+  const p=await r.json();
+  const cand=(p.candidates||[])[0]||{};
+  const c=stripFence((((cand.content||{}).parts||[]).map(x=>x.text||'').join('')));
+  return mapFields(JSON.parse(c),model);
 }
 async function run(){
   $('run').disabled=true;
@@ -212,7 +235,13 @@ async function run(){
   }
   const T={};let t;
   let ex0,meta;
-  if(llm==='openrouter'&&!docs.some(d=>d.structured_hint)){
+  if(llm==='gemini'&&!docs.some(d=>d.structured_hint)){
+    const key=$('gkey').value.trim(),model=$('gmodel').value.trim()||'gemini-3.5-flash-lite';
+    if(!key)throw new Error('paste your Gemini API key first (kept in page memory only)');
+    const t0=performance.now();
+    [ex0,meta]=await extractGemini(docs.filter(d=>d.text),key,model);
+    T.extract=Math.round((performance.now()-t0)*10000)/10000;
+  }else if(llm==='openrouter'&&!docs.some(d=>d.structured_hint)){
     const key=$('orkey').value.trim(),model=$('ormodel').value.trim()||'openai/gpt-4o-mini';
     if(!key)throw new Error('paste your OpenRouter key first (kept in page memory only)');
     const t0=performance.now();
@@ -224,7 +253,7 @@ async function run(){
   [t,T.derive]=timeIt(()=>E.derive(ex0));const ex=t;
   [t,T.completeness]=timeIt(()=>E.checkCompleteness(ex,meta));const comp=t;
   const usedStructured=docs.some(d=>d.structured_hint);
-  RUN={submission_reference:ref,documents:docs.map(d=>{const o=Object.assign({},d);return o}),extracted:ex,extracted_meta:meta,completeness:comp,halt:null,stage_timings:T,dataset_expected:expected,dataset_covers:covers,model_versions:{extraction:usedStructured?'structured-data':(llm==='openrouter'?$('ormodel').value.trim():'stub-1')}};
+  RUN={submission_reference:ref,documents:docs.map(d=>{const o=Object.assign({},d);return o}),extracted:ex,extracted_meta:meta,completeness:comp,halt:null,stage_timings:T,dataset_expected:expected,dataset_covers:covers,model_versions:{extraction:usedStructured?'structured-data':(llm==='gemini'?($('gmodel').value.trim()||'gemini-3.5-flash-lite'):(llm==='openrouter'?$('ormodel').value.trim():'stub-1'))}};
   if(!comp.can_evaluate){RUN.halt='completeness';}
   else{
     const t0=performance.now();
@@ -242,7 +271,7 @@ function renderRun(){
   $('docs').innerHTML=`<table><tr><th>Document</th><th>Format</th><th>Status</th><th>Detail</th></tr>${(r.documents||[]).map(d=>`<tr><td>${d.doc_id} (${d.filename||'?'})</td><td>${d.format||'—'}</td><td>${chip(d.parse_status==='parsed'||d.parse_status==='pre-parsed'?'Pass':d.parse_status==='ocr_pending'?'Refer':'Decline')} ${d.parse_status||'—'}</td><td>${d.failure_reason||(d.text_truncated?'truncated at limit':'')}</td></tr>`).join('')}</table>`;
   const meta=r.extracted_meta||{};
   $('facts').innerHTML=`<table><tr><th>Fact</th><th>Value</th><th>Conf</th><th>Source</th></tr>${Object.keys(r.extracted||{}).map(f=>{const m=meta[f]||{};return `<tr><td>${f}</td><td>${JSON.stringify(r.extracted[f])}</td><td>${m.confidence??'—'}</td><td>${m.source_document_id??'—'}</td></tr>`}).join('')}</table>`;
-  $('reco').innerHTML=`<div class="kpi"><b>${r.recommendation||r.halt||'—'}</b><span>scores: ${JSON.stringify(r.scores||{})}</span></div>${r.dataset_expected?`<p class="mut">Pinned suite expects: ${r.dataset_expected}</p>`:''}${r.halt==='completeness'&&!(r.documents||[]).some(d=>d.structured_hint!==undefined)?`<p class="mut">The stub extractor only reads pre-labelled sample data — it cannot read file text by design (it must never invent values). Switch the extractor to live LLM above to read these files.</p>`:''}`;
+  $('reco').innerHTML=`<div class="kpi"><b>${r.recommendation||r.halt||'—'}</b><span>scores: ${JSON.stringify(r.scores||{})}</span></div>${r.dataset_expected?`<p class="mut">Pinned suite expects: ${r.dataset_expected}</p>`:''}${r.halt==='completeness'&&!(r.documents||[]).some(d=>d.structured_hint!==undefined)?`<p class="mut">The stub extractor only reads pre-labelled sample data — it cannot read file text by design (it must never invent values). Switch the extractor to Gemini live (default) or OpenRouter live above and paste your key to read these files.</p>`:''}`;
   $('binders').innerHTML=(r.binder_results||[]).map(b=>`<table><tr><th colspan="3">${b.binder_id} — ${b.outcome} ${b.reason||''} ${b.ruleset_version?'(ruleset v'+b.ruleset_version+')':''}</th></tr><tr><th>Rule</th><th>Outcome</th><th>Value / reason</th></tr>${(b.rule_outcomes||[]).map(o=>`<tr><td>${o.rule_id}</td><td>${chip(o.outcome)}</td><td>${JSON.stringify(o.value??o.reason??'')}</td></tr>`).join('')}</table>`).join('')||'<p class="mut">Halted before binder evaluation.</p>';
   $('narr').textContent=r.narrative||'—';
 }

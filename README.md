@@ -317,8 +317,14 @@ a third-party model (BFR-DAT-005, ASM-7).
 
 The local leadership UI (`ui/app.py`) defaults its Extractor dropdown to
 `gemini-3.5-flash-lite` and shows whether the server can resolve a key; pick
-`stub` for keyless deterministic runs. The public Pages demo stays keyless, so
-it never holds a key.
+`stub` for keyless deterministic runs.
+
+The public Pages demo (`docs/`) also defaults to Gemini, but **BYOK**: the
+visitor pastes their own key at runtime, it stays in page memory only, and it is
+sent solely to `generativelanguage.googleapis.com` (which allows browser CORS).
+No key is ever embedded in the page. Sample cases and generated fixtures still
+run keyless because they carry a machine-readable submission record; only
+genuinely unstructured uploads need a key.
 
 ---
 
