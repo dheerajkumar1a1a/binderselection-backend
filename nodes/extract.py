@@ -71,6 +71,13 @@ def json_dumps(v: Any) -> str:
 # extract: graph node entry point; routes to provider or stub.
 def extract(state: dict, llm=None) -> dict:
     documents = state.get("documents", [])
+    # A live model was requested, but the submission carries machine-readable
+    # data (an embedded block, or a pre-labelled sample case). Use that data
+    # deterministically - an LLM must never re-derive values we already hold.
+    if llm in ("nvidia", "openrouter") and any((d.get("structured_hint") or {}) for d in documents):
+        extracted, meta = stub_extract(documents)
+        return {"extracted": extracted, "extracted_meta": meta,
+                "model_versions": {"extraction": "structured-data", "narrative": None}}
     # OpenRouter live extraction.
     if llm == "openrouter":
         from nodes.extract_openrouter import openrouter_extract, DEFAULT_MODEL

@@ -17,7 +17,7 @@ import urllib.request
 API_URL = "https://integrate.api.nvidia.com/v1/chat/completions"
 # Default model, overridable via env.
 DEFAULT_MODEL = os.environ.get("NVIDIA_MODEL", "nvidia/nemotron-3-super-120b-a12b")
-# Fields accepted from the model (13-field schema).
+# Fields accepted from the model (30-field schema).
 FIELDS = ["total_insured_value", "broker_name", "locations", "commodities",
           "coverage_sections", "valuation_basis", "coverage_type",
           "requested_inception_date", "expiring_premium_disclosed",
@@ -32,7 +32,7 @@ FIELDS = ["total_insured_value", "broker_name", "locations", "commodities",
           "sov_complete", "deductible_options_count",
           "insured_postcode_zip", "loss_run_provided", "prior_cargo_coverage_cancelled"]
 
-# PROMPT: instruction sent to the model (full 13-field schema).
+# PROMPT: instruction sent to the model (full 30-field schema).
 PROMPT = """Extract marine-cargo submission fields from the documents below.
 Return ONLY valid JSON, no markdown, with this shape:
 {"fields": [

@@ -10,12 +10,14 @@ Byte payloads are dropped after parsing; raw retention is the document
 store's job (DEP-3), not graph state. Documents arriving with text and no
 bytes (tests, hints, LLM-prefilled) pass through as `pre-parsed`.
 """
-# base64: decode content_b64.
+# base64: decode content_b64 and embedded machine-readable blocks.
 import base64
 # csv: parse CSV bytes.
 import csv
 # io: in-memory byte streams.
 import io
+# json: decode embedded machine-readable submission data.
+import json
 # email parser for .eml.
 from email import policy
 from email.parser import BytesParser
@@ -25,6 +27,12 @@ MAX_DOCS = 10
 MAX_BYTES = 10_000_000
 MAX_TEXT_CHARS = 100_000
 MAX_NESTING = 1
+
+# Marker for a machine-readable submission block. Our synthetic fixtures embed
+# one (base64 JSON) so a submission that arrives with an electronic record is
+# read deterministically instead of via an LLM. Real broker documents without
+# the marker are unaffected and still fall through to the text/LLM path.
+STRUCTURED_MARKER = "SUBMISSION-DATA-B64:"
 
 # Status constants.
 STATUS_PARSED = "parsed"
@@ -163,6 +171,26 @@ def _parse_docx(data: bytes) -> tuple[str, dict]:
     return "\n".join(paras), {"paragraphs": len(paras), "tables": tables}, STATUS_PARSED, ""
 
 
+# _recover_structured: pull an embedded machine-readable submission block from
+# parsed text, if present. Returns the decoded dict or None. Never guesses: a
+# malformed block is simply ignored (text/LLM path still applies).
+def _recover_structured(text: str):
+    idx = text.find(STRUCTURED_MARKER)
+    if idx < 0:
+        return None
+    tail = text[idx + len(STRUCTURED_MARKER):]
+    if not tail:
+        return None
+    line = tail.splitlines()[0].strip()
+    if not line:
+        return None
+    try:
+        obj = json.loads(base64.b64decode(line).decode("utf-8"))
+    except Exception:
+        return None
+    return obj if isinstance(obj, dict) else None
+
+
 # parse_one: parse a single document; returns (enriched doc, child docs).
 def parse_one(doc: dict, depth: int = 0) -> tuple[dict, list]:
     out = {k: v for k, v in doc.items() if k not in ("content_bytes", "content_b64")}
@@ -234,6 +262,13 @@ def parse_one(doc: dict, depth: int = 0) -> tuple[dict, list]:
     text, truncated = _truncate(text)
     out.update(format=ext, text=text, text_truncated=truncated,
                parse_status=status, failure_reason=reason, **meta)
+    # Recover any embedded machine-readable submission data. A document that
+    # carries it is treated as pre-labelled, so the deterministic extractor
+    # can read it without an LLM (and without ever inventing a value).
+    hint = _recover_structured(text)
+    if hint:
+        out["structured_hint"] = hint
+        out["structured_source"] = "machine-readable"
     return out, children
 
 

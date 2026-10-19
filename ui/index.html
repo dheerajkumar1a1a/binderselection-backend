@@ -42,7 +42,7 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
 <header>
 <h1>Binder Selection Agent — leadership demonstration</h1>
 <p>Decision-support for marine cargo / stock throughput placement. The system reads a submission, screens capacity, applies each binder's appetite rules, and recommends where to place. <b>A named underwriter always decides</b> — the system never binds.</p>
-<div class="badges"><span>Private prototype</span><span>Deterministic rules — no LLM decisions</span><span>Missing data → Refer, never silent Pass</span><span>Full audit trail</span></div>
+<div class="badges"><span>Prototype (demo)</span><span>Deterministic rules — no LLM decisions</span><span>Missing data → Refer, never silent Pass</span><span>Full audit trail</span></div>
 </header>
 <main>
 <section><h2>At a glance</h2><div class="kpis" id="kpis"></div><p class="mut" id="scoring"></p></section>
@@ -56,7 +56,7 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
 <li><b>Underwriter decides</b> — accept, override with a reason code, or refer back. Overrides and corrections are recorded.</li>
 </ol></section>
 <section><h2>1 · Pick a submission</h2>
-<label>Sample submission (27 realistic cases)</label><select id="case"></select>
+<label>Sample submission (29 realistic cases)</label><select id="case"></select>
 <p class="mut" id="caseinfo"></p>
 <label>Or upload real files (pdf, eml, xlsx, csv, docx — max 10 files, 10 MB each; msg/images report explicit statuses)</label><input type="file" id="files" multiple accept=".pdf,.eml,.xlsx,.csv,.docx,.msg,.png,.jpg,.jpeg,.tiff">
 <p></p>
@@ -134,7 +134,7 @@ async function run(){
   $('docs').innerHTML=`<table><tr><th>Document</th><th>Format</th><th>Status</th><th>Detail</th></tr>${(r.documents||[]).map(d=>`<tr><td>${d.doc_id} (${d.filename||'?'})</td><td>${d.format||'—'}</td><td>${chip(d.parse_status==='parsed'||d.parse_status==='pre-parsed'?'Pass':d.parse_status==='ocr_pending'?'Refer':'Decline')} ${d.parse_status||'—'}</td><td>${d.failure_reason||(d.text_truncated?'truncated at limit':'')}</td></tr>`).join('')}</table>`;
   const meta=r.extracted_meta||{};
   $('facts').innerHTML=`<table><tr><th>Fact</th><th>Value</th><th>Conf</th><th>Source</th></tr>${Object.keys(r.extracted||{}).map(f=>{const m=meta[f]||{};return `<tr><td>${f}</td><td>${JSON.stringify(r.extracted[f])}</td><td>${m.confidence??'—'}</td><td>${m.source_document_id??'—'}</td></tr>`}).join('')}</table>`;
-  $('reco').innerHTML=`<div class="kpi"><b>${r.recommendation||r.halt||'—'}</b><span>scores: ${JSON.stringify(r.scores||{})}</span></div>${r.dataset_expected?`<p class="mut">Dataset expects: ${r.dataset_expected}</p>`:''}${r.halt==='completeness'&&!(r.documents||[]).some(d=>d.structured_hint)?`<p class="mut">The stub extractor only reads pre-labelled sample data — it cannot read file text by design (it must never invent values). Switch the extractor to nemotron-120b live above to read these files.</p>`:''}`;
+  $('reco').innerHTML=`<div class="kpi"><b>${r.recommendation||r.halt||'—'}</b><span>scores: ${JSON.stringify(r.scores||{})}</span></div>${r.model_versions&&r.model_versions.extraction?`<p class="mut">Extraction: ${r.model_versions.extraction}</p>`:''}${r.dataset_expected?`<p class="mut">Dataset expects: ${r.dataset_expected}</p>`:''}${r.halt==='completeness'&&!(r.documents||[]).some(d=>d.structured_hint)?`<p class="mut">No machine-readable data found in this file, and the stub extractor cannot read raw text by design (it must never invent values). Switch the extractor above to a live model, or upload a generated sample fixture (which carries a machine-readable submission block).</p>`:''}`;
   $('binders').innerHTML=(r.binder_results||[]).map(b=>`<table><tr><th colspan="3">${b.binder_id} — ${b.outcome} ${b.reason||''} ${b.ruleset_version?'(ruleset v'+b.ruleset_version+')':''}</th></tr><tr><th>Rule</th><th>Outcome</th><th>Value / reason</th></tr>${(b.rule_outcomes||[]).map(o=>`<tr><td>${o.rule_id}</td><td>${chip(o.outcome)}</td><td>${JSON.stringify(o.value??o.reason??'')}</td></tr>`).join('')}</table>`).join('')||'<p class="mut">Halted before binder evaluation.</p>';
   $('narr').textContent=r.narrative||'—';
   }finally{$('run').disabled=false;}

@@ -9,7 +9,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
 endobj
 4 0 obj
-<< /Length 2470 >>
+<< /Length 2972 >>
 stream
 BT /F1 11 Tf 72 740 Td (MARINE CARGO SUBMISSION - D-LOCATION-CAP-BITE) Tj ET
 BT /F1 11 Tf 72 718 Td (Broker: Acme) Tj ET
@@ -55,6 +55,7 @@ BT /F1 11 Tf 72 -140 Td (Largest single claim: 0) Tj ET
 BT /F1 11 Tf 72 -162 Td (Total claims amount: 0) Tj ET
 BT /F1 11 Tf 72 -184 Td (Expected: no eligible binder) Tj ET
 BT /F1 11 Tf 72 -206 Td (Covers: D-001 per-location cap vs A/E per-section \(OPEN-2\)) Tj ET
+BT /F1 11 Tf 72 -228 Td (SUBMISSION-DATA-B64: eyJicm9rZXJfY291bnQiOjEsImJyb2tlcl9uYW1lIjoiQWNtZSIsImNvbW1vZGl0aWVzIjpbeyJjb21tb2RpdHlfdHlwZSI6IlNURUVMIn1dLCJjb3ZlcmFnZV90eXBlIjoiQUxMX1JJU0siLCJkZWR1Y3RpYmxlX29wdGlvbnNfY291bnQiOjEsImxvY2F0aW9ucyI6W3siYWRkcmVzcyI6Ik1lZ2EgRGVwb3QiLCJsb2NhdGlvbl9saW1pdCI6NDAwMDAwMCwic3ByaW5rbGVyZWQiOnRydWV9XSwicG9saWN5X3Rlcm1fbW9udGhzIjoxMiwicHJpb3JfY2FyZ29fY292ZXJhZ2VfY2FuY2VsbGVkIjpmYWxzZSwic292X2NvbXBsZXRlIjp0cnVlLCJ0b3RhbF9pbnN1cmVkX3ZhbHVlIjo0MDAwMDAwfQ==) Tj ET
 endstream
 endobj
 5 0 obj
@@ -67,9 +68,9 @@ xref
 0000000058 00000 n 
 0000000115 00000 n 
 0000000241 00000 n 
-0000002763 00000 n 
+0000003265 00000 n 
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-2833
+3335
 %%EOF

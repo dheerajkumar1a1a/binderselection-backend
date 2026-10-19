@@ -65,4 +65,4 @@ def test_full_schema_validated(monkeypatch):
     assert ext["largest_single_claim_amount"] == 6000.0
     assert ext["valuation_basis"] is None
     assert meta["valuation_basis"]["present"] is False
-    assert len(ext) == 13
+    assert len(ext) == len(nv.FIELDS)

@@ -9,7 +9,7 @@ endobj
 << /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>
 endobj
 4 0 obj
-<< /Length 2462 >>
+<< /Length 3084 >>
 stream
 BT /F1 11 Tf 72 740 Td (MARINE CARGO SUBMISSION - LOSS-SINGLE-BITE) Tj ET
 BT /F1 11 Tf 72 718 Td (Broker: Acme) Tj ET
@@ -55,6 +55,7 @@ BT /F1 11 Tf 72 -140 Td (Largest single claim: 0) Tj ET
 BT /F1 11 Tf 72 -162 Td (Total claims amount: 0) Tj ET
 BT /F1 11 Tf 72 -184 Td (Expected: no eligible binder) Tj ET
 BT /F1 11 Tf 72 -206 Td (Covers: loss aggregates derived from losses[], A-003a) Tj ET
+BT /F1 11 Tf 72 -228 Td (SUBMISSION-DATA-B64: eyJicm9rZXJfbmFtZSI6IkFjbWUiLCJjb21tb2RpdGllcyI6W3siY29tbW9kaXR5X3R5cGUiOiJTVEVFTCJ9XSwiY292ZXJhZ2Vfc2VjdGlvbnMiOlt7ImxpbWl0IjoxMDAwMDAwfV0sImNvdmVyYWdlX3R5cGUiOiJBTExfUklTSyIsImV4cGlyaW5nX3ByZW1pdW1fZGlzY2xvc2VkIjpmYWxzZSwiaW5zdXJlZF9pbl9jb250aW5lbnRhbF91cyI6dHJ1ZSwibG9jYXRpb25zIjpbeyJhZGRyZXNzIjoiMTIgUG9ydCBSb2FkIiwic3ByaW5rbGVyZWQiOnRydWV9XSwibG9zc2VzIjpbeyJsb3NzX2RhdGUiOiIyMDI0LTAxLTAxIiwicGFpZF9pbmN1cnJlZF9hbW91bnQiOjYwMDB9XSwicmVxdWVzdGVkX2luY2VwdGlvbl9kYXRlIjoiMjAzMC0wMS0wMSIsInRvdGFsX2luc3VyZWRfdmFsdWUiOjIwMDAwMDAsInZhbHVhdGlvbl9iYXNpcyI6IkNJRisxMCUifQ==) Tj ET
 endstream
 endobj
 5 0 obj
@@ -67,9 +68,9 @@ xref
 0000000058 00000 n 
 0000000115 00000 n 
 0000000241 00000 n 
-0000002755 00000 n 
+0000003377 00000 n 
 trailer
 << /Size 6 /Root 1 0 R >>
 startxref
-2825
+3447
 %%EOF

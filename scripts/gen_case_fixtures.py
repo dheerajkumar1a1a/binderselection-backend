@@ -129,6 +129,15 @@ def main():
 
         # PDF
         hint0 = case["documents"][0].get("structured_hint", {}) if case.get("documents") else {}
+        # Capture the case's intended fields *before* enrichment defaults are
+        # applied below, and embed them as a machine-readable block so the
+        # keyless extractor reproduces the sample case exactly from the fixture
+        # (upload behaves identically to picking the case from the dropdown).
+        structured_block = json.loads(json.dumps(hint0)) if hint0 else {}
+        block_line = None
+        if structured_block:
+            block_line = ("SUBMISSION-DATA-B64: " + base64.b64encode(
+                json.dumps(structured_block, separators=(",", ":")).encode("utf-8")).decode("ascii"))
         # Sensible defaults so the PDF is a complete submission document and the
         # live extractor can populate every field the rules need.
         defaults = {
@@ -257,7 +266,7 @@ def main():
         ] + [f"  - {l}" for l in loc_lines] + extra_lines + [
             f"Expected: {case.get('expected', {}).get('recommendation', '?')}",
             f"Covers: {', '.join(case.get('covers', []))}",
-        ]]
+        ] + ([block_line] if block_line else [])]
         (OUT / "pdf" / f"{tag}.pdf").write_bytes(build_pdf(pages))
 
         # CSV sov
@@ -286,7 +295,8 @@ def main():
                 f"Locations: {', '.join(l.get('address','?') for l in locs) or 'see SOV'}.\n"
                 f"{chr(10).join(extra_lines)}\n\n"
                 f"Expected outcome: {case.get('expected', {}).get('recommendation', '?')}.\n\n"
-                f"Regards,\nBroker\n")
+                f"Regards,\nBroker\n"
+                f"{block_line + chr(10) if block_line else ''}")
         sov_csv = _csv_block("Site,Sprinklered", rows[1:])
         (OUT / "eml" / f"{tag}.eml").write_bytes(
             eml(body, [("sov.csv", sov_csv, "text/csv")], subject=f"Submission {cid}"))
@@ -302,6 +312,8 @@ def main():
             for l in loc_lines:
                 doc.add_paragraph(l)
             doc.add_paragraph(f"Expected: {case.get('expected', {}).get('recommendation', '?')}")
+            if block_line:
+                doc.add_paragraph(block_line)
             doc.save(OUT / "docx" / f"{tag}.docx")
         except Exception:
             pass

@@ -195,3 +195,24 @@ def test_scanned_pdf_reports_ocr_pending():
     out, _ = P.parse_one(_doc("negative", "scanned.pdf"))
     assert out["parse_status"] == "ocr_pending"
     assert out["pages"] == 1
+
+
+def test_case_fixture_recovers_machine_readable_data():
+    # Each generated case fixture embeds its own machine-readable submission
+    # block, so an upload reproduces the sample case without an LLM.
+    out, _ = P.parse_one(_doc("pdf", "case-21-c-accept-clean.pdf"))
+    assert out.get("structured_source") == "machine-readable"
+    hint = out["structured_hint"]
+    assert hint["insured_state_province"] == "TX"
+    assert hint["locations"][0]["construction_type"] == "MASONRY"
+
+
+def test_docx_fixture_recovers_machine_readable_data():
+    out, _ = P.parse_one(_doc("docx", "case-28-b-accept-clean.docx", "d"))
+    assert out.get("structured_source") == "machine-readable"
+    assert out["structured_hint"]["commodities"][0]["commodity_type"] == "STEEL"
+
+
+def test_plain_document_has_no_machine_readable_data():
+    out, _ = P.parse_one(_doc("pdf", "demo-upload.pdf"))
+    assert "structured_hint" not in out

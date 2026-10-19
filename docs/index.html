@@ -55,7 +55,7 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
 <li><b>Underwriter decides</b> — accept, override with a reason code, or refer back. Everything is recorded.</li>
 </ol></section>
 <section><h2>1 · Pick a submission</h2>
-<label>Sample submission (27 realistic cases)</label><select id="case"></select>
+<label>Sample submission (29 realistic cases)</label><select id="case"></select>
 <p class="mut" id="caseinfo"></p>
 <label>Or upload real files (pdf, eml, xlsx, csv, docx — parsed in your browser, max 10 files / 10 MB each)</label><input type="file" id="files" multiple accept=".pdf,.eml,.xlsx,.csv,.docx,.msg,.png,.jpg,.jpeg,.tiff">
 <p class="mut">No files handy? <a href="demo-upload.pdf" download>Download our sample submission PDF</a>, upload it back with live extraction on, and watch the full pipeline run.</p>
@@ -87,7 +87,7 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
 <button class="ghost" id="mi">Refresh dashboard</button><div class="kpis" id="mikpis" style="margin-top:10px"></div><pre id="mifull"></pre>
 </section>
 <section><h2>About this page</h2>
-<p class="mut">Static snapshot of the Binder Selection Agent prototype. The JavaScript engine (<span style="font-family:monospace">engine.js</span>) is a line-for-line port of the Python core and is verified identical on all 27 sample cases (<span style="font-family:monospace">node scripts/verify_engine_js.cjs</span> in the repo). Uploaded files are parsed in your browser (PDF.js, SheetJS, mammoth — pinned CDN builds); nothing you upload leaves your machine except, if you choose live extraction, the document text sent to api.openrouter.ai under <em>your own</em> key, which lives in page memory only and is never stored. Rules data is a snapshot — the live system versions rules with approval. <a href="https://github.com/dheerajkumar1a1a/binderselection-backend">Source repository</a>.</p></section>
+<p class="mut">Static snapshot of the Binder Selection Agent prototype. The JavaScript engine (<span style="font-family:monospace">engine.js</span>) is a line-for-line port of the Python core and is verified identical on all 29 sample cases (<span style="font-family:monospace">node scripts/verify_engine_js.cjs</span> in the repo). Uploaded files are parsed in your browser (PDF.js, SheetJS, mammoth — pinned CDN builds); nothing you upload leaves your machine except, if you choose live extraction, the document text sent to api.openrouter.ai under <em>your own</em> key, which lives in page memory only and is never stored. Rules data is a snapshot — the live system versions rules with approval. <a href="https://github.com/dheerajkumar1a1a/binderselection-backend">Source repository</a>.</p></section>
 </main>
 <footer>Binder Selection Agent · public demo · synthetic data only</footer>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -125,6 +125,8 @@ function parseXlsx(buf){const wb=XLSX.read(buf,{type:'array'});const lines=[],sh
 function csvRows(t){const rows=[];let cur=[''],q=false;for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c==='"'){if(t[i+1]==='"'){cur[cur.length-1]+='"';i++}else q=false}else cur[cur.length-1]+=c}else{if(c==='"')q=true;else if(c===',')cur.push('');else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;rows.push(cur);cur=['']}else cur[cur.length-1]+=c}}if(cur.length>1||cur[0]!=='')rows.push(cur);return rows}
 function parseCsv(buf){const t=new TextDecoder('utf-8').decode(buf);const rows=csvRows(t);return {text:rows.map(r=>r.join(' | ')).join('\n'),meta:{rows:rows.length},status:'parsed',reason:''}}
 async function parseDocx(buf){const r=await mammoth.extractRawText({arrayBuffer:buf});const ps=r.value.split('\n').filter(x=>x.trim());return {text:ps.join('\n'),meta:{paragraphs:ps.length},status:'parsed',reason:''}}
+function recoverStructured(text){const m='SUBMISSION-DATA-B64:';const i=(text||'').indexOf(m);if(i<0)return null;const line=((text.slice(i+m.length).split('\n')[0])||'').replace(/\s+/g,'');if(!line)return null;try{return JSON.parse(atob(line))}catch(e){return null}}
+function attachStructured(doc,text){const h=recoverStructured(text);if(h){doc.structured_hint=h;doc.structured_source='machine-readable'}return doc}
 function parseEmlText(buf){const raw=new TextDecoder('utf-8').decode(buf);const idx=raw.search(/\r?\n\r?\n/);const head=idx>=0?raw.slice(0,idx):raw,body=idx>=0?raw.slice(idx).replace(/^\r?\n/,''):'';
   const bm=(head.match(/boundary="?([^";\r\n]+)"?/i)||[])[1];
   if(!bm)return {body,atts:[]};
@@ -153,12 +155,12 @@ async function parseFile(name,buf,depth,docId){
         k.doc.parent_doc_id=docId;kids.push(k);
       }
       const [tt,tr]=trunc(r.text);
-      return {doc:Object.assign({doc_id:docId,filename:name,format:ext,size_bytes:buf.byteLength,text:tt,text_truncated:tr,parse_status:r.status,failure_reason:r.reason},r.meta),kids};
+      return {doc:attachStructured(Object.assign({doc_id:docId,filename:name,format:ext,size_bytes:buf.byteLength,text:tt,text_truncated:tr,parse_status:r.status,failure_reason:r.reason},r.meta),tt),kids};
     }
     else if(['png','jpg','jpeg','tiff','bmp','gif'].includes(ext))return {doc:{doc_id:docId,filename:name,format:ext,size_bytes:buf.byteLength,parse_status:'ocr_pending',failure_reason:'image input, OCR engine pending'},kids:[]};
     else return {doc:{doc_id:docId,filename:name,format:ext,size_bytes:buf.byteLength,parse_status:'unsupported_format',failure_reason:"format '."+(ext||'?')+"' has no parser"},kids:[]};
     const [tt,tr]=trunc(r.text);
-    return {doc:Object.assign({doc_id:docId,filename:name,format:ext,size_bytes:buf.byteLength,text:tt,text_truncated:tr,parse_status:r.status,failure_reason:r.reason},r.meta),kids:[]};
+    return {doc:attachStructured(Object.assign({doc_id:docId,filename:name,format:ext,size_bytes:buf.byteLength,text:tt,text_truncated:tr,parse_status:r.status,failure_reason:r.reason},r.meta),tt),kids:[]};
   }catch(e){return {doc:{doc_id:docId,filename:name,format:ext,size_bytes:buf.byteLength,parse_status:'failed',failure_reason:String((e&&e.message)||e)},kids:[]}}
 }
 const OR_FIELDS=["total_insured_value","broker_name","locations","commodities","coverage_sections","valuation_basis","coverage_type","requested_inception_date","expiring_premium_disclosed","insured_state_province","insured_country","largest_single_claim_amount","total_claims_amount"];
@@ -206,7 +208,7 @@ async function run(){
   }
   const T={};let t;
   let ex0,meta;
-  if(llm==='openrouter'){
+  if(llm==='openrouter'&&!docs.some(d=>d.structured_hint)){
     const key=$('orkey').value.trim(),model=$('ormodel').value.trim()||'openai/gpt-4o-mini';
     if(!key)throw new Error('paste your OpenRouter key first (kept in page memory only)');
     const t0=performance.now();
