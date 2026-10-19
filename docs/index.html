@@ -58,7 +58,7 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
 <label>Sample submission (29 realistic cases)</label><select id="case"></select>
 <p class="mut" id="caseinfo"></p>
 <label>Or upload real files (pdf, eml, xlsx, csv, docx — parsed in your browser, max 10 files / 10 MB each)</label><input type="file" id="files" multiple accept=".pdf,.eml,.xlsx,.csv,.docx,.msg,.png,.jpg,.jpeg,.tiff">
-<p class="mut">No files handy? <a href="demo-upload.pdf" download>Download our sample submission PDF</a>, upload it back with live extraction on, and watch the full pipeline run.</p>
+<p class="mut">No files handy? Download this case as <a id="dlpdf" href="demo-upload.pdf" download>PDF</a>, <a id="dldocx" href="#" download>DOCX</a> or <a id="dleml" href="#" download>EML</a>, then upload it back and run. Generated fixtures carry a machine-readable submission record, so they reproduce the case deterministically — the live LLM is only needed for genuinely unstructured files.</p>
 <label>Extractor <select id="llm" style="width:auto"><option value="">stub (deterministic, keyless — reads sample hints only)</option><option value="openrouter">live LLM via your OpenRouter key (reads uploaded files too)</option></select></label>
 <label>Your OpenRouter key (typed at runtime, kept in page memory only, never stored or sent anywhere but api.openrouter.ai)</label><input id="orkey" type="password" autocomplete="off" placeholder="sk-or-v1-…">
 <label>Model (editable)</label><input id="ormodel" value="openai/gpt-4o-mini">
@@ -116,7 +116,11 @@ async function init(){
   $('case').value='demo-accept-full';updCase();renderMI();
   $('sel').innerHTML='<option value="">—</option>'+DATA.binders.filter(b=>b.status==='active').map(b=>`<option>${b.binder_id}</option>`).join('');
 }
-function updCase(){const c=CASES.find(x=>x.id===$('case').value);if(c)$('caseinfo').textContent='Tests: '+(c.covers||[]).join(' · ')}
+function updCase(){const c=CASES.find(x=>x.id===$('case').value);if(!c)return;$('caseinfo').textContent='Tests: '+(c.covers||[]).join(' · ');
+  const stem='case-'+c.file.replace(/\.json$/,'');
+  const base='https://raw.githubusercontent.com/dheerajkumar1a1a/binderselection-backend/main/samples/fixtures/';
+  [['pdf','dlpdf'],['docx','dldocx'],['eml','dleml']].forEach(([fmt,id])=>{const a=$(id);if(a){a.href=base+fmt+'/'+stem+'.'+fmt;a.setAttribute('download',stem+'.'+fmt)}});
+}
 const MAX_BYTES=10000000, MAX_TEXT=100000;
 function trunc(t){return t.length>MAX_TEXT?[t.slice(0,MAX_TEXT),true]:[t,false]}
 function extOf(n){n=(n||'').toLowerCase();return n.includes('.')?n.split('.').pop():''}
@@ -125,7 +129,7 @@ function parseXlsx(buf){const wb=XLSX.read(buf,{type:'array'});const lines=[],sh
 function csvRows(t){const rows=[];let cur=[''],q=false;for(let i=0;i<t.length;i++){const c=t[i];if(q){if(c==='"'){if(t[i+1]==='"'){cur[cur.length-1]+='"';i++}else q=false}else cur[cur.length-1]+=c}else{if(c==='"')q=true;else if(c===',')cur.push('');else if(c==='\n'||c==='\r'){if(c==='\r'&&t[i+1]==='\n')i++;rows.push(cur);cur=['']}else cur[cur.length-1]+=c}}if(cur.length>1||cur[0]!=='')rows.push(cur);return rows}
 function parseCsv(buf){const t=new TextDecoder('utf-8').decode(buf);const rows=csvRows(t);return {text:rows.map(r=>r.join(' | ')).join('\n'),meta:{rows:rows.length},status:'parsed',reason:''}}
 async function parseDocx(buf){const r=await mammoth.extractRawText({arrayBuffer:buf});const ps=r.value.split('\n').filter(x=>x.trim());return {text:ps.join('\n'),meta:{paragraphs:ps.length},status:'parsed',reason:''}}
-function recoverStructured(text){const m='SUBMISSION-DATA-B64:';const i=(text||'').indexOf(m);if(i<0)return null;const line=((text.slice(i+m.length).split('\n')[0])||'').replace(/\s+/g,'');if(!line)return null;try{return JSON.parse(atob(line))}catch(e){return null}}
+function recoverStructured(text){const flat=(text||'').replace(/\s+/g,'');const m='SUBMISSION-DATA-B64:',e=':END-SUBMISSION-DATA';const i=flat.indexOf(m);if(i<0)return null;const j=flat.indexOf(e,i+m.length);if(j<0)return null;try{return JSON.parse(atob(flat.slice(i+m.length,j)))}catch(err){return null}}
 function attachStructured(doc,text){const h=recoverStructured(text);if(h){doc.structured_hint=h;doc.structured_source='machine-readable'}return doc}
 function parseEmlText(buf){const raw=new TextDecoder('utf-8').decode(buf);const idx=raw.search(/\r?\n\r?\n/);const head=idx>=0?raw.slice(0,idx):raw,body=idx>=0?raw.slice(idx).replace(/^\r?\n/,''):'';
   const bm=(head.match(/boundary="?([^";\r\n]+)"?/i)||[])[1];
@@ -219,7 +223,8 @@ async function run(){
   }
   [t,T.derive]=timeIt(()=>E.derive(ex0));const ex=t;
   [t,T.completeness]=timeIt(()=>E.checkCompleteness(ex,meta));const comp=t;
-  RUN={submission_reference:ref,documents:docs.map(d=>{const o=Object.assign({},d);return o}),extracted:ex,extracted_meta:meta,completeness:comp,halt:null,stage_timings:T,dataset_expected:expected,dataset_covers:covers,model_versions:{extraction:llm==='openrouter'?$('ormodel').value.trim():'stub-1'}};
+  const usedStructured=docs.some(d=>d.structured_hint);
+  RUN={submission_reference:ref,documents:docs.map(d=>{const o=Object.assign({},d);return o}),extracted:ex,extracted_meta:meta,completeness:comp,halt:null,stage_timings:T,dataset_expected:expected,dataset_covers:covers,model_versions:{extraction:usedStructured?'structured-data':(llm==='openrouter'?$('ormodel').value.trim():'stub-1')}};
   if(!comp.can_evaluate){RUN.halt='completeness';}
   else{
     const t0=performance.now();
@@ -237,7 +242,7 @@ function renderRun(){
   $('docs').innerHTML=`<table><tr><th>Document</th><th>Format</th><th>Status</th><th>Detail</th></tr>${(r.documents||[]).map(d=>`<tr><td>${d.doc_id} (${d.filename||'?'})</td><td>${d.format||'—'}</td><td>${chip(d.parse_status==='parsed'||d.parse_status==='pre-parsed'?'Pass':d.parse_status==='ocr_pending'?'Refer':'Decline')} ${d.parse_status||'—'}</td><td>${d.failure_reason||(d.text_truncated?'truncated at limit':'')}</td></tr>`).join('')}</table>`;
   const meta=r.extracted_meta||{};
   $('facts').innerHTML=`<table><tr><th>Fact</th><th>Value</th><th>Conf</th><th>Source</th></tr>${Object.keys(r.extracted||{}).map(f=>{const m=meta[f]||{};return `<tr><td>${f}</td><td>${JSON.stringify(r.extracted[f])}</td><td>${m.confidence??'—'}</td><td>${m.source_document_id??'—'}</td></tr>`}).join('')}</table>`;
-  $('reco').innerHTML=`<div class="kpi"><b>${r.recommendation||r.halt||'—'}</b><span>scores: ${JSON.stringify(r.scores||{})}</span></div>${r.dataset_expected?`<p class="mut">Pinned suite expects: ${r.dataset_expected}</p>`:''}${r.halt==='completeness'&&!(r.documents||[]).some(d=>d.structured_hint)?`<p class="mut">The stub extractor only reads pre-labelled sample data — it cannot read file text by design (it must never invent values). Switch the extractor to live LLM above to read these files.</p>`:''}`;
+  $('reco').innerHTML=`<div class="kpi"><b>${r.recommendation||r.halt||'—'}</b><span>scores: ${JSON.stringify(r.scores||{})}</span></div>${r.dataset_expected?`<p class="mut">Pinned suite expects: ${r.dataset_expected}</p>`:''}${r.halt==='completeness'&&!(r.documents||[]).some(d=>d.structured_hint!==undefined)?`<p class="mut">The stub extractor only reads pre-labelled sample data — it cannot read file text by design (it must never invent values). Switch the extractor to live LLM above to read these files.</p>`:''}`;
   $('binders').innerHTML=(r.binder_results||[]).map(b=>`<table><tr><th colspan="3">${b.binder_id} — ${b.outcome} ${b.reason||''} ${b.ruleset_version?'(ruleset v'+b.ruleset_version+')':''}</th></tr><tr><th>Rule</th><th>Outcome</th><th>Value / reason</th></tr>${(b.rule_outcomes||[]).map(o=>`<tr><td>${o.rule_id}</td><td>${chip(o.outcome)}</td><td>${JSON.stringify(o.value??o.reason??'')}</td></tr>`).join('')}</table>`).join('')||'<p class="mut">Halted before binder evaluation.</p>';
   $('narr').textContent=r.narrative||'—';
 }

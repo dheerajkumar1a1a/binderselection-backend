@@ -33,6 +33,9 @@ MAX_NESTING = 1
 # read deterministically instead of via an LLM. Real broker documents without
 # the marker are unaffected and still fall through to the text/LLM path.
 STRUCTURED_MARKER = "SUBMISSION-DATA-B64:"
+# End marker: lets text extractors recover the block even if they inject
+# whitespace or split the marker line (PDF.js does this in the browser).
+STRUCTURED_END = ":END-SUBMISSION-DATA"
 
 # Status constants.
 STATUS_PARSED = "parsed"
@@ -172,20 +175,30 @@ def _parse_docx(data: bytes) -> tuple[str, dict]:
 
 
 # _recover_structured: pull an embedded machine-readable submission block from
-# parsed text, if present. Returns the decoded dict or None. Never guesses: a
-# malformed block is simply ignored (text/LLM path still applies).
+# parsed text, if present. Returns the decoded dict or None. Whitespace is
+# ignored so extractors that split lines (e.g. PDF.js) still recover it. Never
+# guesses: a malformed block is simply ignored (text/LLM path still applies).
 def _recover_structured(text: str):
-    idx = text.find(STRUCTURED_MARKER)
-    if idx < 0:
+    flat = "".join(text.split())
+    start = flat.find(STRUCTURED_MARKER)
+    if start < 0:
         return None
-    tail = text[idx + len(STRUCTURED_MARKER):]
-    if not tail:
-        return None
-    line = tail.splitlines()[0].strip()
-    if not line:
+    after = start + len(STRUCTURED_MARKER)
+    end = flat.find(STRUCTURED_END, after)
+    if end >= 0:
+        blob = flat[after:end]
+    else:
+        # Backward compatibility: legacy block with no end marker - take the
+        # remainder of the marker's own line.
+        legacy = text.find(STRUCTURED_MARKER)
+        if legacy < 0:
+            return None
+        tail = text[legacy + len(STRUCTURED_MARKER):]
+        blob = "".join(tail.splitlines()[0].split()) if tail else ""
+    if not blob:
         return None
     try:
-        obj = json.loads(base64.b64decode(line).decode("utf-8"))
+        obj = json.loads(base64.b64decode(blob).decode("utf-8"))
     except Exception:
         return None
     return obj if isinstance(obj, dict) else None
@@ -203,6 +216,13 @@ def parse_one(doc: dict, depth: int = 0) -> tuple[dict, list]:
             return out, []
     if raw is None:
         out.setdefault("parse_status", STATUS_PREPARSED)
+        # Pre-parsed text (e.g. browser-parsed or test fixtures) may still carry
+        # an embedded machine-readable block - recover it here too.
+        if not out.get("structured_hint") and out.get("text"):
+            hint = _recover_structured(out["text"])
+            if hint is not None:
+                out["structured_hint"] = hint
+                out["structured_source"] = "machine-readable"
         return out, []
     out["size_bytes"] = len(raw)
     if len(raw) > MAX_BYTES:
@@ -266,7 +286,7 @@ def parse_one(doc: dict, depth: int = 0) -> tuple[dict, list]:
     # carries it is treated as pre-labelled, so the deterministic extractor
     # can read it without an LLM (and without ever inventing a value).
     hint = _recover_structured(text)
-    if hint:
+    if hint is not None:
         out["structured_hint"] = hint
         out["structured_source"] = "machine-readable"
     return out, children

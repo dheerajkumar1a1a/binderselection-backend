@@ -74,7 +74,9 @@ def extract(state: dict, llm=None) -> dict:
     # A live model was requested, but the submission carries machine-readable
     # data (an embedded block, or a pre-labelled sample case). Use that data
     # deterministically - an LLM must never re-derive values we already hold.
-    if llm in ("nvidia", "openrouter") and any((d.get("structured_hint") or {}) for d in documents):
+    # An explicitly empty block still counts: it says "this submission has no
+    # machine-readable fields", so a model must not invent them.
+    if llm in ("nvidia", "openrouter") and any("structured_hint" in d for d in documents):
         extracted, meta = stub_extract(documents)
         return {"extracted": extracted, "extracted_meta": meta,
                 "model_versions": {"extraction": "structured-data", "narrative": None}}

@@ -128,16 +128,22 @@ def main():
         loc_lines = [f"{l.get('address','?')} (sprinklered={l.get('sprinklered')})" for l in locs] or ["(none stated)"]
 
         # PDF
-        hint0 = case["documents"][0].get("structured_hint", {}) if case.get("documents") else {}
+        has_first_doc = bool(case.get("documents"))
+        hint0 = case["documents"][0].get("structured_hint", {}) if has_first_doc else {}
         # Capture the case's intended fields *before* enrichment defaults are
         # applied below, and embed them as a machine-readable block so the
         # keyless extractor reproduces the sample case exactly from the fixture
         # (upload behaves identically to picking the case from the dropdown).
         structured_block = json.loads(json.dumps(hint0)) if hint0 else {}
         block_line = None
-        if structured_block:
+        # Embed a block for every case that has a document, even when the
+        # record is empty. An explicitly empty block says "no machine-readable
+        # fields in this submission", which keeps the upload deterministic and
+        # key-free (the extractor will not call a model to invent values).
+        if has_first_doc:
             block_line = ("SUBMISSION-DATA-B64: " + base64.b64encode(
-                json.dumps(structured_block, separators=(",", ":")).encode("utf-8")).decode("ascii"))
+                json.dumps(structured_block, separators=(",", ":")).encode("utf-8")).decode("ascii")
+                + " :END-SUBMISSION-DATA")
         # Sensible defaults so the PDF is a complete submission document and the
         # live extractor can populate every field the rules need.
         defaults = {
