@@ -38,7 +38,7 @@ Each node maps to a BFR group:
 
 | Node | File | BFR |
 |---|---|---|
-| extract | `nodes/extract.py` (+ `extract_openrouter.py` live path) | BFR-EXT, §7.1/7.1.7 |
+| extract | `nodes/extract.py` (+ `extract_openrouter.py` / `extract_nvidia.py` / `extract_gemini.py` live paths) | BFR-EXT, §7.1/7.1.7 |
 | derive | `nodes/derive.py` | BFR 7.1.6 derived aggregates |
 | completeness | `nodes/completeness.py` | BFR-APP-003 (Refer, never Pass) |
 | evaluate | `nodes/multibind.py` + `capacity.py` + `appetite.py` | BFR-CAP, BFR-APP-004/005/010/011 |
@@ -295,15 +295,25 @@ the `is_active` filter). Onboarding binder #6 is reference-data entry only
 BFR-ADM-010) is OPEN-3 — no source of record yet, so `rank.py` stays a
 placeholder returning absolute scores.
 
-### 6.4 Extraction provider hook
+### 6.4 Extraction providers
 
-`nodes/extract.py::extract(state, llm=None)` — pass a LangChain chat model to
-replace the stub; the live path must return the same envelope
-(`value/original_value/present/confidence/source_document_id/source_locator`)
-and mark unmappable coded values as unmapped → Cannot-assess (BFR-DAT-006/007).
-No provider is installed and no keys are configured; the stub path needs
-neither. Submission text must never reach logs (BFR-NFR-003) nor train a
-third-party model (BFR-DAT-005, ASM-7).
+`nodes/extract.py::extract(state, llm=None)` — `None` runs the deterministic
+stub (no key). `llm="nvidia"`, `llm="openrouter"` or `llm="gemini"` run a live
+model. Every provider returns the same envelope
+(`value/original_value/present/confidence/source_document_id/source_locator`),
+drops unknown fields (anti-hallucination), marks absent fields absent, and
+records the model id in `model_versions`.
+
+Live providers only run for genuinely unstructured documents: a submission that
+carries a machine-readable block (our generated fixtures, or a pre-labelled
+sample case) is read deterministically and never sent to a model.
+
+Keys are supplied at runtime, never stored or committed in the repo:
+`NVIDIA_API_KEY` / `NVIDIA_MODEL`, `OPENROUTER_API_KEY` / `OPENROUTER_MODEL`,
+`GEMINI_API_KEY` (or `GEMINI_API_KEY_FILE` — a path to a file holding the key,
+preferred) / `GEMINI_MODEL` (default `gemini-3.5-flash-lite`). The model reads;
+it never decides. Submission text must never reach logs (BFR-NFR-003) nor train
+a third-party model (BFR-DAT-005, ASM-7).
 
 ---
 

@@ -76,10 +76,16 @@ def extract(state: dict, llm=None) -> dict:
     # deterministically - an LLM must never re-derive values we already hold.
     # An explicitly empty block still counts: it says "this submission has no
     # machine-readable fields", so a model must not invent them.
-    if llm in ("nvidia", "openrouter") and any("structured_hint" in d for d in documents):
+    if llm in ("nvidia", "openrouter", "gemini") and any("structured_hint" in d for d in documents):
         extracted, meta = stub_extract(documents)
         return {"extracted": extracted, "extracted_meta": meta,
                 "model_versions": {"extraction": "structured-data", "narrative": None}}
+    # Google Gemini live extraction.
+    if llm == "gemini":
+        from nodes.extract_gemini import gemini_extract, DEFAULT_MODEL as GEM_MODEL
+        extracted, meta = gemini_extract(documents)
+        return {"extracted": extracted, "extracted_meta": meta,
+                "model_versions": {"extraction": GEM_MODEL, "narrative": None}}
     # OpenRouter live extraction.
     if llm == "openrouter":
         from nodes.extract_openrouter import openrouter_extract, DEFAULT_MODEL
@@ -94,7 +100,7 @@ def extract(state: dict, llm=None) -> dict:
                 "model_versions": {"extraction": NV_MODEL, "narrative": None}}
     # Unknown option → error.
     if llm is not None:
-        raise NotImplementedError("Unknown llm option; use llm='nvidia', 'openrouter' or None (stub).")
+        raise NotImplementedError("Unknown llm option; use llm='nvidia', 'openrouter', 'gemini' or None (stub).")
     # Default: stub extraction.
     extracted, meta = stub_extract(documents)
     return {"extracted": extracted, "extracted_meta": meta,
