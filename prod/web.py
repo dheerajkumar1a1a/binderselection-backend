@@ -103,11 +103,25 @@ def workboard(request: Request):
 
 
 @app.post("/case/new")
-def case_new(request: Request, broker_firm: str = Form(""),
-             underwriter: str = Form(""), sample_case_id: str = Form(""),
-             documents_json: str = Form("")):
+async def case_new(request: Request, broker_firm: str = Form(""),
+                   underwriter: str = Form(""), sample_case_id: str = Form(""),
+                   documents_json: str = Form(""),
+                   files: list[UploadFile] = File(default=[])):
     _staff(request)
-    documents = json.loads(documents_json) if documents_json else None
+    documents = None
+    if files and any(getattr(f, "filename", "") for f in files):
+        documents = []
+        for f in files:
+            fn = getattr(f, "filename", "") or "upload.bin"
+            data = await f.read()
+            import base64 as _b64
+            documents.append({"filename": fn,
+                              "content_b64": _b64.b64encode(data).decode("ascii")})
+    if documents is None and documents_json:
+        try:
+            documents = json.loads(documents_json)
+        except json.JSONDecodeError:
+            documents = None
     try:
         out = service.create_case(broker_firm, underwriter, sample_case_id,
                                   documents)
@@ -367,6 +381,109 @@ async def portal_round_submit(request: Request, case_id: str, round_id: int,
     except ValueError as e:
         raise HTTPException(400, str(e))
     return RedirectResponse(f"/portal/case/{case_id}", status_code=303)
+
+
+# --- rules console (phase 4) -------------------------------------------------
+
+def _rc():
+    import prod.rules_console as rc
+    return rc
+
+
+@app.get("/admin/rules", response_class=HTMLResponse)
+def rules_console(request: Request):
+    _staff(request)
+    rc = _rc()
+    return tpl.TemplateResponse(request, "rules.html",
+                                {"binders": rc.list_binders(),
+                                 "proposals": rc.list_proposals()})
+
+
+@app.get("/admin/rules/binder/{binder_id}", response_class=HTMLResponse)
+def rules_binder(request: Request, binder_id: str):
+    _staff(request)
+    rc = _rc()
+    detail = next((b for b in rc.list_binders()
+                   if b["binder"]["binder_id"] == binder_id), None)
+    if detail is None:
+        raise HTTPException(404, "binder not found")
+    return tpl.TemplateResponse(request, "rules_binder.html",
+                                {"detail": detail, "binder_id": binder_id})
+
+
+@app.get("/admin/rules/propose/{binder_id}", response_class=HTMLResponse)
+def rules_propose_page(request: Request, binder_id: str):
+    _staff(request)
+    rc = _rc()
+    try:
+        cur = rc._current_ruleset(binder_id)
+        cur_json = json.dumps(cur, indent=2)
+    except Exception:
+        cur_json = "{}"
+    return tpl.TemplateResponse(request, "rules_propose.html",
+                                {"binder_id": binder_id, "current_json": cur_json,
+                                 "today": __import__("datetime").date.today().isoformat()})
+
+
+@app.post("/admin/rules/propose/{binder_id}")
+async def rules_propose_post(request: Request, binder_id: str):
+    _staff(request)
+    u = auth.session_user(request)
+    form = await request.form()
+    effective_from = form.get("effective_from", "")
+    summary = form.get("summary", "")
+    raw = form.get("ruleset_json", "")
+    try:
+        ruleset = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise HTTPException(400, f"invalid JSON: {e}")
+    rc = _rc()
+    try:
+        prop = rc.create_proposal(binder_id, ruleset,
+                                  u.username if u else "unknown",
+                                  effective_from, summary)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return RedirectResponse(f"/admin/rules/proposal/{prop['proposal_id']}", 303)
+
+
+@app.post("/admin/rules/dryrun/{binder_id}")
+async def rules_dryrun(request: Request, binder_id: str):
+    _staff(request)
+    form = await request.form()
+    raw = form.get("ruleset_json", "")
+    try:
+        ruleset = json.loads(raw)
+    except json.JSONDecodeError as e:
+        raise HTTPException(400, f"invalid JSON: {e}")
+    case_ids = [c.strip() for c in (form.get("case_ids", "") or "").split(",")
+                if c.strip()]
+    rc = _rc()
+    res = rc.dry_run_proposal(binder_id, ruleset, case_ids)
+    return HTMLResponse(f"<pre>{json.dumps(res, indent=2)}</pre>")
+
+
+@app.get("/admin/rules/proposal/{proposal_id}", response_class=HTMLResponse)
+def rules_proposal_page(request: Request, proposal_id: str):
+    _staff(request)
+    rc = _rc()
+    prop = rc.get_proposal(proposal_id)
+    if prop is None:
+        raise HTTPException(404, "proposal not found")
+    return tpl.TemplateResponse(request, "rules_proposal.html",
+                                {"proposal": prop, "user": auth.session_user(request)})
+
+
+@app.post("/admin/rules/proposal/{proposal_id}/approve")
+def rules_proposal_approve(request: Request, proposal_id: str):
+    _staff(request)
+    u = auth.session_user(request)
+    rc = _rc()
+    try:
+        rc.approve_proposal(proposal_id, u.username if u else "unknown")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return RedirectResponse(f"/admin/rules/proposal/{proposal_id}", 303)
 
 
 @app.get("/portal/case/{case_id}/letter/{decision_id}", response_class=HTMLResponse)

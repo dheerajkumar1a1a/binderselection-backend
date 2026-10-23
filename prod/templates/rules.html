@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Rules console</title>
+<style>:root{--ink:#1a2332;--mut:#5b6b7f;--line:#dfe6ee;--bg:#f5f8fb;--card:#fff}
+*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:#0f2a44;color:#fff;padding:22px 24px}
+header h1{margin:0;font-size:20px}header p{margin:4px 0 0;color:#c9d6e4;font-size:13px}
+main{max-width:1100px;margin:0 auto;padding:20px}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin:14px 0}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left}
+th{background:#eef3f8}.mut{color:var(--mut);font-size:13px}
+button{background:#0f2a44;color:#fff;border:0;border-radius:6px;padding:9px 15px;font-size:14px;cursor:pointer;margin-top:10px}
+a{color:#0f2a44}
+</style></head>
+<body>
+<header><h1>Rules console — maker-checker</h1>
+<p>Propose a change to a binder's appetite. A different underwriter or admin approves it; the engine picks the effective version by date. <a style="color:#c9d6e4" href="/">← workboard</a> · <a style="color:#c9d6e4" href="/admin/users">accounts</a></p></header>
+<main>
+<section><h2 style="margin-top:0">Binders</h2>
+<table><tr><th>Binder</th><th>Current effective version</th><th>Versions</th><th></th></tr>
+{% for b in binders %}<tr>
+<td><b>{{ b.binder.binder_id }}</b> — {{ b.binder.binder_name }}</td>
+<td>{% if b.current %}v{{ b.current.version }} from {{ b.current.effective_from }}{% else %}—{% endif %}</td>
+<td>{{ b.versions|length }}</td>
+<td><a href="/admin/rules/binder/{{ b.binder.binder_id }}">history →</a> · <a href="/admin/rules/propose/{{ b.binder.binder_id }}">propose →</a></td>
+</tr>{% endfor %}</table>
+</section>
+<section><h2 style="margin-top:0">Proposals</h2>
+{% if not proposals %}<p class="mut">No proposals yet.</p>{% else %}
+<table><tr><th>Proposal</th><th>Binder</th><th>Status</th><th>Author</th><th>Approver</th><th>Effective from</th><th></th></tr>
+{% for p in proposals %}<tr>
+<td>{{ p.proposal_id }}</td><td>{{ p.binder_id }}</td><td>{{ p.status }}</td>
+<td>{{ p.author }}</td><td>{{ p.approver or '—' }}</td><td>{{ p.effective_from }}</td>
+<td><a href="/admin/rules/proposal/{{ p.proposal_id }}">open →</a></td>
+</tr>{% endfor %}</table>
+{% endif %}
+</section>
+</main>
+</body></html>

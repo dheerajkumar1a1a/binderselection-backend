@@ -43,8 +43,10 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:16px}
 <div><label>Assessor (underwriter)</label><input type="text" name="underwriter" value="{{ user.display_name or user.username }}"></div>
 <div><label>Source</label><select name="sample_case_id">{% for sid, label in samples %}<option value="{{ sid }}">{{ label }}</option>{% endfor %}<option value="">(upload files — paste JSON below)</option></select></div>
 </div>
-<label>Or upload documents (optional JSON: [{"filename": "...", "content_b64": "..."}] — base64 of file bytes)</label>
-<input type="text" name="documents_json" placeholder='[{"filename":"submission.pdf","content_b64":"JVBER..."}]'>
+<div><label>Or upload documents (multiple files supported — base64-encoded server-side)</label>
+<input type="file" name="files" multiple></div>
+<div><label>Or paste documents as JSON (optional, advanced)</label>
+<input type="text" name="documents_json" placeholder='[{"filename":"submission.pdf","content_b64":"JVBER..."}]'></div>
 <button>Open case</button>
 </form>
 </section>
