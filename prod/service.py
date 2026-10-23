@@ -93,6 +93,12 @@ def evaluate_case(case_id: str, llm: str | None = None) -> dict:
             ref_mod.attach(state)
         except Exception:
             state["reference_facts"] = []
+        # Phase 6: overlay live ledger capacity figures onto the snapshot.
+        try:
+            from . import capacity_desk as cd_mod
+            cd_mod.augment_payload(state)
+        except Exception:
+            pass
         ev = store.Evaluation(case_id=case_id, created_at=store.now(), llm=llm,
                               model=((state.get("model_versions") or {})
                                      .get("extraction", "")),
@@ -175,6 +181,15 @@ def decide_case(case_id: str, action: str, underwriter: str,
         case.status = "awaiting-broker" if (action == "refer_back" and round_issued) \
             else "decided"
         s.commit()
+        # Phase 6: capacity alerts fire at the moment a reservation lands.
+        try:
+            settlement_binder = (settlement.get("binder") if isinstance(settlement, dict)
+                                 else None)
+            if settlement.get("action") == "reserved" and settlement_binder:
+                from . import capacity_desk as cd_mod
+                cd_mod.check_alerts(settlement_binder, placed_by=underwriter)
+        except Exception:
+            pass
         # Broker notification: bound letters say what was placed; referred
         # letters carry the ask list (Q10, Q13).
         from . import mail

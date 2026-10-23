@@ -384,6 +384,25 @@ async def portal_round_submit(request: Request, case_id: str, round_id: int,
     return RedirectResponse(f"/portal/case/{case_id}", status_code=303)
 
 
+# --- capacity desk (phase 6) -------------------------------------------------
+
+@app.get("/admin/capacity", response_class=HTMLResponse)
+def capacity_page(request: Request):
+    _staff(request)
+    from prod import capacity_desk as cd
+    return tpl.TemplateResponse(request, "capacity.html",
+                                {"desk": cd.desk()})
+
+
+@app.post("/admin/capacity/release")
+def capacity_release(request: Request, submission_ref: str = Form(...),
+                     binder_id: str = Form(...)):
+    _staff(request)
+    from capacity import ledger as L
+    L.release(submission_ref, binder_id)
+    return RedirectResponse("/admin/capacity", 303)
+
+
 # --- reference data (phase 5) ------------------------------------------------
 
 @app.get("/admin/reference", response_class=HTMLResponse)
