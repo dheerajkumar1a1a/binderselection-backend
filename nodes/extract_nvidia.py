@@ -111,8 +111,14 @@ def _call(doc_texts: list[str], api_key: str, model: str) -> dict:
 # nvidia_extract: public entry point.
 def nvidia_extract(documents: list[dict], api_key: str | None = None,
                    model: str | None = None) -> tuple[dict, dict]:
-    # Resolve API key.
+    # Resolve API key (env var, or a file path given via NVIDIA_API_KEY_FILE).
     key = api_key or os.environ.get("NVIDIA_API_KEY")
+    if not key and os.environ.get("NVIDIA_API_KEY_FILE"):
+        try:
+            key = open(os.environ["NVIDIA_API_KEY_FILE"],
+                       encoding="utf-8").read().strip() or None
+        except OSError:
+            key = None
     if not key:
         raise RuntimeError("NVIDIA_API_KEY not set")
     # Resolve model.

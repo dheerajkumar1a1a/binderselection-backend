@@ -36,6 +36,13 @@ pre{background:#0f2a44;color:#d7e5f2;padding:12px;border-radius:8px;overflow:aut
 .stage{border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:12px;background:#fafcfe}
 .stage b{display:block;font-size:12px}
 footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
+.verdict{position:sticky;top:8px;z-index:5;border:1px solid var(--line);border-left:6px solid var(--ok);border-radius:8px;padding:12px 16px;background:#e9f6ee;margin:12px 0}
+.verdict b{font-size:18px}
+.verdict .sub{display:block;font-size:12px;color:var(--mut);margin-top:2px}
+.badV{border-left-color:var(--bad);background:#fbeaec}
+.vchips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.mixrow{margin:10px 0 4px}
+details{margin:6px 0}summary{cursor:pointer;font-size:13px;color:var(--mut)}
 </style>
 </head>
 <body>
@@ -51,7 +58,7 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
 <li><b>Read</b> — pull risk facts from broker documents, each with source and confidence.</li>
 <li><b>Completeness check</b> — anything mandatory missing goes back to the broker as a named information request.</li>
 <li><b>Capacity screen</b> — each binder's free capacity is derived (line minus written minus reserved); full binders are excluded with the shortfall stated.</li>
-<li><b>Appetite rules</b> — every rule evaluated identically every time: Pass, Decline, or Cannot-assess.</li>
+<li><b>Appetite rules</b> — every rule evaluated identically every time: Pass, Decline, or Needs-information (held, never a silent Pass).</li>
 <li><b>Rank &amp; explain</b> — eligible binders ranked by a published score, with a plain-English rationale.</li>
 <li><b>Underwriter decides</b> — accept, override with a reason code, or refer back. Overrides and corrections are recorded.</li>
 </ol></section>
@@ -61,29 +68,30 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
 <label>Or upload real files (pdf, eml, xlsx, csv, docx — max 10 files, 10 MB each; msg/images report explicit statuses)</label><input type="file" id="files" multiple accept=".pdf,.eml,.xlsx,.csv,.docx,.msg,.png,.jpg,.jpeg,.tiff">
 <p></p>
 <button id="run">Run evaluation ▶</button>
-<label style="display:inline-block;margin-left:12px">Extractor <select id="llm" style="width:auto"><option value="gemini">gemini-3.5-flash-lite live (default; server key)</option><option value="">stub (deterministic, keyless)</option><option value="openrouter">openrouter free (needs server key)</option><option value="nvidia">nemotron-120b live (needs server key)</option></select></label>
+<label style="display:inline-block;margin-left:12px">Extractor <select id="llm" style="width:auto"><option value="nvidia" selected>nemotron-120b live (default; NVIDIA server key)</option><option value="gemini">gemini-3.5-flash-lite live (fallback; server key)</option><option value="">stub (deterministic, keyless)</option><option value="openrouter">openrouter free (fallback; server key)</option></select></label>
 <span class="mut">Live LLM reads only; the stub is byte-identical every time. <span id="extkey"></span></span>
 <div class="stages" id="stages"></div>
+<div class="verdict okV" id="verdict" style="display:none"></div>
 <h2>Documents (parse status)</h2><div id="docs"></div>
 <div class="grid2"><div><h2>Extracted facts</h2><div id="facts"></div></div>
 <div><h2>Recommendation</h2><div id="reco"></div></div></div>
 <h2>Per-binder results</h2><div id="binders"></div>
-<h2>Plain-English summary</h2><p id="narr"></p>
+<h2>Plain-English summary</h2><div id="narr"></div>
 </section>
 <section><h2>2 · Underwriter decision (the human decides)</h2>
 <div class="grid2"><div>
 <label>Underwriter name</label><input id="uw" value="demo-underwriter">
 <label>Action</label><select id="action"><option value="accept">Accept recommendation</option><option value="override">Override (pick different binder)</option><option value="refer_back">Refer back for information</option></select>
-</div><div>
+</div><div><div id="ovf" style="display:none">
 <label>Selected binder (override only)</label><select id="sel"><option value="">—</option><option>binder_A</option><option>binder_B</option></select>
 <label>Reason code (override only)</label><select id="rc"><option value="">—</option><option>PRIOR_RELATIONSHIP</option><option>CAPACITY_PREFERENCE</option><option>TERMS_NEGOTIATED</option><option>BROKER_REQUEST</option><option>OTHER</option></select>
-</div></div>
+</div></div></div>
 <button id="decide">Record decision</button>
 <div id="settle"></div>
 <h2>Evidence pack (auditor view)</h2><pre id="evi">Run an evaluation and record a decision to generate the evidence pack.</pre>
 </section>
 <section><h2>3 · Management picture (live from this demo's audit trail)</h2>
-<button class="ghost" id="mi">Refresh dashboard</button><div class="kpis" id="mikpis" style="margin-top:10px"></div><pre id="mifull"></pre>
+<button class="ghost" id="mi">Refresh dashboard</button><div class="kpis" id="mikpis" style="margin-top:10px"></div><div id="mitbl" style="margin-top:10px"></div><details><summary>Full management JSON</summary><pre id="mifull"></pre></details>
 </section>
 <section><h2>Guardrails &amp; honest limits</h2>
 <ul class="mut">
@@ -98,13 +106,42 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
 let RUN=null, CASES=[];
 const $=id=>document.getElementById(id);
 async function j(u,o){const r=await fetch(u,o);const t=await r.json();if(!r.ok)throw new Error(t.error||r.status);return t}
-function chip(o){const c=o==='Pass'?'pass':o==='Decline'?'dec':'ref';return `<span class="chip ${c}">${o}</span>`}
+function chip(o){const c=o==='Pass'?'pass':o==='Decline'?'dec':(/^excluded$/i.test(o))?'exc':'ref';return `<span class="chip ${c}">${o==='Cannot assess'?'Needs information':(/^excluded$/i.test(o)?'Excluded':o)}</span>`}
+function parseChip(s){const good=s==='parsed'||s==='pre-parsed';return chip(good?'Pass':s==='ocr_pending'?'Refer':'Decline')}
+function fmtExpected(e){if(!e)return'';if(typeof e==='string')return e;if(e.halt)return'halt ('+(e.halt||'completeness')+')';return e.recommendation+' expected'}
+function humanField(m){const mm=String(m||'').match(/^missing:(.+)$/);if(!mm)return null;const p=mm[1].replace(/^[a-z_]+\./,'').replace(/_/g,' ');return p?p.charAt(0).toUpperCase()+p.slice(1):null}
+function verdictHTML(r){
+  if(r.halt==='completeness')return `<b>✖ Halt — mandatory facts missing</b><span class="sub">No binder was scored and nothing was invented. The named gaps go back to the broker as information requests.</span>`;
+  if(!(r.binder_results||[]).length)return '';
+  const rec=String(r.recommendation||'');
+  const chips=(r.binder_results||[]).map(b=>{const o=String(b.outcome||'').toLowerCase();const c=o==='accept'?'pass':o==='decline'?'dec':o==='excluded'?'exc':'ref';return `<span class="chip ${c}">${/^excluded$/i.test(b.outcome)?'Excluded':b.outcome}</span>`}).join('');
+  if(!rec||rec.startsWith('no eligible'))return `<b>✖ No eligible binder</b><span class="sub">Every binder declined or was screened out — nothing was invented.</span><div class="vchips">${chips}</div>`;
+  const score=(r.scores||{})[rec];
+  return `<b>✓ Recommended: ${rec}</b>${score!==undefined&&score!==null?` — score ${score}`:''}<div class="vchips">${chips}</div>`;
+}
+function narrHTML(r){
+  const bl=(r.binder_results||[]).map(b=>{
+    const o=String(b.outcome||'').toLowerCase();
+    if(o==='accept')return `<li><b>${b.binder_id}</b>: eligible — all of its rules passed.</li>`;
+    if(o==='decline')return `<li><b>${b.binder_id}</b>: declined${b.reason?' — '+b.reason:''}.</li>`;
+    if(o==='excluded')return `<li><b>${b.binder_id}</b>: excluded (capacity screen)${b.reason?' — '+b.reason:''}.</li>`;
+    const nc=(b.rule_outcomes||[]).filter(o2=>o2.outcome==='Cannot assess').length;
+    return `<li><b>${b.binder_id}</b>: ${b.outcome}${b.reason?' — '+b.reason:''}${nc?` — holds ${nc} rule${nc===1?'':'s'} pending information.`:''}</li>`;
+  }).join('');
+  if(!bl)return r.narrative||'—';
+  return `<ul>${bl}</ul><details><summary>Full engine summary (verbatim)</summary><p class="mut">${r.narrative||'—'}</p></details>`;
+}
+function updAction(){$('ovf').style.display=$('action').value==='override'?'':'none'}
 async function init(){
   const ov=await j('/api/overview');
   $('kpis').innerHTML=ov.binders.map(b=>`<div class="kpi"><b>${b.binder_id}</b><span>${b.status} · ruleset v${b.version??'?'} · ${b.rules??'?'} rules</span></div>`).join('')+`<div class="kpi"><b>${ov.cases}</b><span>sample cases</span></div>`;
   $('scoring').textContent='Score weights: '+JSON.stringify(ov.scoring.weights)+' · tie-break: '+(ov.scoring.tie_break||[]).join(', ');
   // Show which live extractor keys the server can resolve (never the key).
-  if(ov.extractors){const g=ov.extractors.gemini||{};$('extkey').textContent = g.key?'Gemini key: present (default extractor).':'Gemini key: MISSING on the server — set GEMINI_API_KEY/GEMINI_API_KEY_FILE or pick stub.';}
+  if(ov.extractors){const ex=ov.extractors,nv=ex.nvidia||{},parts=[];
+    parts.push(nv.key?'NVIDIA (nemotron) key: present — default extractor.':'NVIDIA key: MISSING on the server — set NVIDIA_API_KEY, or switch extractor below.');
+    if(ex.gemini&&ex.gemini.key)parts.push('Gemini key: present (fallback).');
+    if(ex.openrouter&&ex.openrouter.key)parts.push('OpenRouter key: present (fallback).');
+    $('extkey').textContent=parts.join(' ');}
   const m=await j('/api/cases');CASES=m.cases;
   CASES.sort((a,b)=>(a.id==='demo-accept-full'?-1:b.id==='demo-accept-full'?1:a.id.localeCompare(b.id)));
   $('case').innerHTML=CASES.map(c=>`<option value="${c.id}">${c.id} — ${c.expects}</option>`).join('');
@@ -112,7 +149,7 @@ async function init(){
   $('sel').innerHTML='<option value="">—</option>'+ov.binders.filter(b=>b.status==='active').map(b=>`<option>${b.binder_id}</option>`).join('');
   updCase();mi();
 }
-function updCase(){const c=CASES.find(x=>x.id===$('case').value);if(c)$('caseinfo').textContent='Tests: '+(c.covers||[]).join(' · ')}
+function updCase(){const c=CASES.find(x=>x.id===$('case').value);if(!c)return;const s=c.expects||'';const cl=s.startsWith('Accept')?'pass':s.startsWith('Decline')?'dec':'ref';$('caseinfo').innerHTML=`<span class="chip ${cl}">${s}</span> <span class="mut">Tests: ${(c.covers||[]).join(' · ')}</span>`}
 function readFiles(files){
   return Promise.all([...files].map(f=>new Promise((res,rej)=>{
     const r=new FileReader();
@@ -133,12 +170,26 @@ async function run(){
   const comp=r.completeness||{};
   const stages=(r.parse&&r.parse.halted)?['parse']:['parse','extract','derive','completeness','evaluate','rank','narrative'];
   $('stages').innerHTML=stages.map(s=>`<div class="stage"><b>${s}</b>${s==='parse'?(r.parse&&r.parse.halted?'HALTED — '+(r.parse.reason||''):'done'):s==='completeness'?(comp.can_evaluate?'complete':'halted — missing'):'done'}</div>`).join('');
-  $('docs').innerHTML=`<table><tr><th>Document</th><th>Format</th><th>Status</th><th>Detail</th></tr>${(r.documents||[]).map(d=>`<tr><td>${d.doc_id} (${d.filename||'?'})</td><td>${d.format||'—'}</td><td>${chip(d.parse_status==='parsed'||d.parse_status==='pre-parsed'?'Pass':d.parse_status==='ocr_pending'?'Refer':'Decline')} ${d.parse_status||'—'}</td><td>${d.failure_reason||(d.text_truncated?'truncated at limit':'')}</td></tr>`).join('')}</table>`;
+  const vX=verdictHTML(r);$('verdict').innerHTML=vX;$('verdict').style.display=vX?'':'none';
+  $('action').value=(r.halt||(r.recommendation&&String(r.recommendation).startsWith('no eligible')))?'refer_back':'accept';updAction();
+  $('docs').innerHTML=`<table><tr><th>Document</th><th>Format</th><th>Status</th><th>Detail</th></tr>${(r.documents||[]).map(d=>`<tr><td>${d.doc_id}${d.filename?` (${d.filename})`:''}</td><td>${d.format||(d.parse_status==='pre-parsed'?'sample · pre-parsed':(d.parse_status||'—'))}</td><td>${parseChip(d.parse_status)} ${d.parse_status||'—'}</td><td>${d.failure_reason||(d.text_truncated?'truncated at limit':'')}</td></tr>`).join('')}</table>`;
   const meta=r.extracted_meta||{};
   $('facts').innerHTML=`<table><tr><th>Fact</th><th>Value</th><th>Conf</th><th>Source</th></tr>${Object.keys(r.extracted||{}).map(f=>{const m=meta[f]||{};return `<tr><td>${f}</td><td>${JSON.stringify(r.extracted[f])}</td><td>${m.confidence??'—'}</td><td>${m.source_document_id??'—'}</td></tr>`}).join('')}</table>`;
-  $('reco').innerHTML=`<div class="kpi"><b>${r.recommendation||r.halt||'—'}</b><span>scores: ${JSON.stringify(r.scores||{})}</span></div>${r.model_versions&&r.model_versions.extraction?`<p class="mut">Extraction: ${r.model_versions.extraction}</p>`:''}${r.dataset_expected?`<p class="mut">Dataset expects: ${r.dataset_expected}</p>`:''}${r.halt==='completeness'&&!(r.documents||[]).some(d=>d.structured_hint)?`<p class="mut">No machine-readable data found in this file, and the stub extractor cannot read raw text by design (it must never invent values). Switch the extractor above to a live model, or upload a generated sample fixture (which carries a machine-readable submission block).</p>`:''}`;
-  $('binders').innerHTML=(r.binder_results||[]).map(b=>`<table><tr><th colspan="3">${b.binder_id} — ${b.outcome} ${b.reason||''} ${b.ruleset_version?'(ruleset v'+b.ruleset_version+')':''}</th></tr><tr><th>Rule</th><th>Outcome</th><th>Value / reason</th></tr>${(b.rule_outcomes||[]).map(o=>`<tr><td>${o.rule_id}</td><td>${chip(o.outcome)}</td><td>${JSON.stringify(o.value??o.reason??'')}</td></tr>`).join('')}</table>`).join('')||'<p class="mut">Halted before binder evaluation.</p>';
-  $('narr').textContent=r.narrative||'—';
+  $('reco').innerHTML=`<div class="kpi"><b>${r.recommendation||r.halt||'—'}</b><span>scores: ${JSON.stringify(r.scores||{})}</span></div>${r.model_versions&&r.model_versions.extraction?`<p class="mut">Extraction: ${r.model_versions.extraction}</p>`:''}${r.dataset_expected?`<p class="mut">Pinned suite expects: ${fmtExpected(r.dataset_expected)}</p>`:''}${r.halt==='completeness'&&!(r.documents||[]).some(d=>d.structured_hint)?`<p class="mut">No machine-readable data found in this file, and the stub extractor cannot read raw text by design (it must never invent values). Switch the extractor above to a live model, or upload a generated sample fixture (which carries a machine-readable submission block).</p>`:''}`;
+  $('binders').innerHTML=(r.binder_results||[]).map(b=>{
+    const outs=b.rule_outcomes||[];
+    const cnt=o=>outs.filter(x=>x.outcome===o).length;
+    const np=cnt('Pass'),nd=cnt('Decline'),nc=cnt('Cannot assess');
+    const mix=['Pass','Decline','Cannot assess'].map((o,i)=>{const n=[np,nd,nc][i];if(!n)return'';const cl=o==='Pass'?'pass':o==='Decline'?'dec':'ref';const lbl=o==='Cannot assess'?'Needs information':o;return `<span class="chip ${cl}">${lbl} ×${n}</span>`}).filter(Boolean).join(' ');
+    const vis=outs.filter(o=>o.outcome!=='Cannot assess');
+    const hid=outs.filter(o=>o.outcome==='Cannot assess');
+    const row=o=>`<tr><td>${o.rule_id}</td><td>${chip(o.outcome)}</td><td>${JSON.stringify(o.value??o.reason??'')}</td></tr>`;
+    const visTable=`<table><tr><th>Rule</th><th>Outcome</th><th>Value / reason</th></tr>${vis.map(row).join('')||'<tr><td colspan="3" class="mut">none</td></tr>'}</table>`;
+    const asks=hid.map(o=>humanField(o.reason)).filter(Boolean);
+    const hidBlock=hid.length?`${asks.length?`<p class="mut" style="margin:6px 0 2px">To assess these, ask the broker for: ${asks.join(', ')}.</p>`:''}<details><summary>Show the ${hid.length} rule${hid.length===1?'':'s'} held pending information</summary><table><tr><th>Rule</th><th>Outcome</th><th>Value / reason</th></tr>${hid.map(row).join('')}</table></details>`:'';
+    return `<p><b>${b.binder_id} — ${/^excluded$/i.test(b.outcome)?'Excluded':b.outcome}</b> ${b.ruleset_version?'(ruleset v'+b.ruleset_version+')':''} ${b.reason&&b.reason!=='Cannot assess'?b.reason:''}</p>${mix?`<div class="mixrow">${mix}</div>`:''}${visTable}${hidBlock}`;
+  }).join('')||'<p class="mut">Halted before binder evaluation.</p>';
+  $('narr').innerHTML=narrHTML(r);
   }finally{$('run').disabled=false;}
 }
 async function decide(){
@@ -153,9 +204,12 @@ async function mi(){
   const m=await j('/api/mi');
   const v=m.volume_mix||{},o=m.override_rate||{},q=m.data_quality||{},s=m.stage_timing||{};
   $('mikpis').innerHTML=`<div class="kpi"><b>${v.total??0}</b><span>evaluations this demo</span></div><div class="kpi"><b>${JSON.stringify(v.by_outcome??{})}</b><span>outcome mix</span></div><div class="kpi"><b>${o.overrides??0}/${o.decided??0}</b><span>overrides / decided</span></div><div class="kpi"><b>${q.info_requests??0}</b><span>info requests</span></div>`;
+  const dr=(m.decline_reasons&&m.decline_reasons.by_rule)||{};
+  const dRows=Object.entries(dr).map(([r2,c2])=>`<tr><td>${r2}</td><td>${c2}</td></tr>`).join('')||'<tr><td colspan="2" class="mut">no Decline outcomes yet</td></tr>';
+  $('mitbl').innerHTML=`<table><tr><th>Decline rule</th><th>Times</th></tr>${dRows}</table>`;
   $('mifull').textContent=JSON.stringify(m,null,1);
 }
-$('case').onchange=updCase;$('run').onclick=()=>run().catch(e=>alert(e.message));
+$('case').onchange=updCase;$('action').onchange=updAction;$('run').onclick=()=>run().catch(e=>alert(e.message));
 $('decide').onclick=()=>decide().catch(e=>alert(e.message));$('mi').onclick=()=>mi().catch(e=>alert(e.message));
 init().catch(e=>document.body.insertAdjacentHTML('beforeend','<p style="color:red">Failed to load: '+e.message+'</p>'));
 </script>

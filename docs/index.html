@@ -30,11 +30,19 @@ th{background:#eef3f8}
 .pass{color:var(--ok);border-color:var(--ok);background:#e9f6ee}
 .dec{color:var(--bad);border-color:var(--bad);background:#fbeaec}
 .ref{color:var(--warn);border-color:var(--warn);background:#fff6dd}
+.exc{color:#555;border-color:#999;background:#eee}
 pre{background:#0f2a44;color:#d7e5f2;padding:12px;border-radius:8px;overflow:auto;font-size:12px;max-height:320px;white-space:pre-wrap}
 .stages{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0}
 .stage{border:1px solid var(--line);border-radius:6px;padding:6px 10px;font-size:12px;background:#fafcfe}
 .stage b{display:block;font-size:12px}
 footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
+.verdict{position:sticky;top:8px;z-index:5;border:1px solid var(--line);border-left:6px solid var(--ok);border-radius:8px;padding:12px 16px;background:#e9f6ee;margin:12px 0}
+.verdict b{font-size:18px}
+.verdict .sub{display:block;font-size:12px;color:var(--mut);margin-top:2px}
+.badV{border-left-color:var(--bad);background:#fbeaec}
+.vchips{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
+.mixrow{margin:10px 0 4px}
+details{margin:6px 0}summary{cursor:pointer;font-size:13px;color:var(--mut)}
 </style>
 </head>
 <body>
@@ -50,7 +58,7 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
 <li><b>Read</b> — pull risk facts from broker documents, each with source and confidence.</li>
 <li><b>Completeness check</b> — anything mandatory missing goes back to the broker as a named information request.</li>
 <li><b>Capacity screen</b> — each binder's free capacity is derived (line minus written minus reserved); full binders are excluded with the shortfall stated.</li>
-<li><b>Appetite rules</b> — every rule evaluated identically every time: Pass, Decline, or Cannot-assess.</li>
+<li><b>Appetite rules</b> — every rule evaluated identically every time: Pass, Decline, or Needs-information (held, never a silent Pass).</li>
 <li><b>Rank &amp; explain</b> — eligible binders ranked by a published score, with a plain-English rationale.</li>
 <li><b>Underwriter decides</b> — accept, override with a reason code, or refer back. Everything is recorded.</li>
 </ol></section>
@@ -76,29 +84,30 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:18px}
 <p></p>
 <button id="run">Run evaluation ▶</button> <span class="mut">Stub runs are byte-identical every time; live LLM reads only, never decides.</span>
 <div class="stages" id="stages"></div>
+<div class="verdict okV" id="verdict" style="display:none"></div>
 <h2>Documents (parse status)</h2><div id="docs"><p class="mut">No run yet.</p></div>
 <div class="grid2"><div><h2>Extracted facts</h2><div id="facts"></div></div>
 <div><h2>Recommendation</h2><div id="reco"></div></div></div>
 <h2>Per-binder results</h2><div id="binders"></div>
-<h2>Plain-English summary</h2><p id="narr"></p>
+<h2>Plain-English summary</h2><div id="narr"></div>
 </section>
 <section><h2>2 · Underwriter decision (the human decides)</h2>
 <div class="grid2"><div>
 <label>Underwriter name</label><input id="uw" value="demo-underwriter">
 <label>Action</label><select id="action"><option value="accept">Accept recommendation</option><option value="override">Override (pick different binder)</option><option value="refer_back">Refer back for information</option></select>
-</div><div>
+</div><div><div id="ovf" style="display:none">
 <label>Selected binder (override only)</label><select id="sel"><option value="">—</option><option>binder_A</option><option>binder_B</option></select>
 <label>Reason code (override only)</label><select id="rc"><option value="">—</option><option>PRIOR_RELATIONSHIP</option><option>CAPACITY_PREFERENCE</option><option>TERMS_NEGOTIATED</option><option>BROKER_REQUEST</option><option>OTHER</option></select>
-</div></div>
+</div></div></div>
 <button id="decide">Record decision</button>
 <div id="settle"></div>
 <h2>Evidence pack (auditor view)</h2><pre id="evi">Run an evaluation and record a decision to generate the evidence pack.</pre>
 </section>
 <section><h2>3 · Management picture (this session)</h2>
-<button class="ghost" id="mi">Refresh dashboard</button><div class="kpis" id="mikpis" style="margin-top:10px"></div><pre id="mifull"></pre>
+<button class="ghost" id="mi">Refresh dashboard</button><div class="kpis" id="mikpis" style="margin-top:10px"></div><div id="mitbl" style="margin-top:10px"></div><details><summary>Full management JSON</summary><pre id="mifull"></pre></details>
 </section>
 <section><h2>About this page</h2>
-<p class="mut">Static snapshot of the Binder Selection Agent prototype. The JavaScript engine (<span style="font-family:monospace">engine.js</span>) is a line-for-line port of the Python core and is verified identical on all 29 sample cases (<span style="font-family:monospace">node scripts/verify_engine_js.cjs</span> in the repo). Uploaded files are parsed in your browser (PDF.js, SheetJS, mammoth — pinned CDN builds); nothing you upload leaves your machine except, if you choose live extraction, the document text sent to api.openrouter.ai under <em>your own</em> key, which lives in page memory only and is never stored. Rules data is a snapshot — the live system versions rules with approval. <a href="https://github.com/dheerajkumar1a1a/binderselection-backend">Source repository</a>.</p></section>
+<p class="mut">Static snapshot of the Binder Selection Agent prototype. The JavaScript engine (<span style="font-family:monospace">engine.js</span>) is a line-for-line port of the Python core and is verified identical on all 29 sample cases (<span style="font-family:monospace">node scripts/verify_engine_js.cjs</span> in the repo). Uploaded files are parsed in your browser (PDF.js, SheetJS, mammoth — pinned CDN builds); nothing you upload leaves your machine except, if you choose live extraction, the document text sent to the extractor you pick (Google's or OpenRouter's API) under <em>your own</em> key, which lives in page memory only and is never stored. NVIDIA's Nemotron — the production backend's default extractor — cannot be called directly from a browser (no CORS), so it only runs on the server-backed UI. Rules data is a snapshot — the live system versions rules with approval. <a href="https://github.com/dheerajkumar1a1a/binderselection-backend">Source repository</a>.</p></section>
 </main>
 <footer>Binder Selection Agent · public demo · synthetic data only</footer>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
@@ -110,7 +119,33 @@ const E=window.BinderEngine;
 const $=id=>document.getElementById(id);
 let DATA=null,CASES=[],CASEDOCS={},RUN=null,AUDIT=[],LEDGER=null;
 async function j(p){const r=await fetch(p);if(!r.ok)throw new Error(p+': '+r.status);return r.json()}
-function chip(o){const c=o==='Pass'?'pass':(o==='Decline'?'dec':'ref');return `<span class="chip ${c}">${o}</span>`}
+function chip(o){const c=(o==='Pass'?'pass':(o==='Decline'?'dec':((/^excluded$/i.test(o))?'exc':'ref')));return `<span class="chip ${c}">${o==='Cannot assess'?'Needs information':(/^excluded$/i.test(o)?'Excluded':o)}</span>`}
+function parseChip(s){const good=s==='parsed'||s==='pre-parsed';return chip(good?'Pass':s==='ocr_pending'?'Refer':'Decline')}
+function fmtExpected(e){if(!e)return'';if(typeof e==='string')return e;if(e.halt)return'halt ('+(e.halt||'completeness')+')';return e.recommendation+' expected'}
+function humanField(m){const mm=String(m||'').match(/^missing:(.+)$/);if(!mm)return null;const p=mm[1].replace(/^[a-z_]+\./,'').replace(/_/g,' ');return p?p.charAt(0).toUpperCase()+p.slice(1):null}
+function verdictHTML(r){
+  if(r.halt==='completeness')return `<b>✖ Halt — mandatory facts missing</b><span class="sub">No binder was scored and nothing was invented. The named gaps go back to the broker as information requests.</span>`;
+  if(!(r.binder_results||[]).length)return '';
+  const rec=String(r.recommendation||'');
+  const chips=(r.binder_results||[]).map(b=>{const o=String(b.outcome||'').toLowerCase();const c=o==='accept'?'pass':o==='decline'?'dec':o==='excluded'?'exc':'ref';return `<span class="chip ${c}">${/^excluded$/i.test(b.outcome)?'Excluded':b.outcome}</span>`}).join('');
+  if(!rec||rec.startsWith('no eligible'))return `<b>✖ No eligible binder</b><span class="sub">Every binder declined or was screened out — nothing was invented.</span><div class="vchips">${chips}</div>`;
+  const score=(r.scores||{})[rec];
+  return `<b>✓ Recommended: ${rec}</b>${score!==undefined&&score!==null?` — score ${score}`:''}<div class="vchips">${chips}</div>`;
+}
+function narrHTML(r){
+  const bl=(r.binder_results||[]).map(b=>{
+    const o=String(b.outcome||'').toLowerCase();
+    if(o==='accept')return `<li><b>${b.binder_id}</b>: eligible — all of its rules passed.</li>`;
+    if(o==='decline')return `<li><b>${b.binder_id}</b>: declined${b.reason?' — '+b.reason:''}.</li>`;
+    if(o==='excluded')return `<li><b>${b.binder_id}</b>: excluded (capacity screen)${b.reason?' — '+b.reason:''}.</li>`;
+    const nc=(b.rule_outcomes||[]).filter(o2=>o2.outcome==='Cannot assess').length;
+    return `<li><b>${b.binder_id}</b>: ${b.outcome}${b.reason?' — '+b.reason:''}${nc?` — holds ${nc} rule${nc===1?'':'s'} pending information.`:''}</li>`;
+  }).join('');
+  if(!bl)return r.narrative||'—';
+  return `<ul>${bl}</ul><details><summary>Full engine summary (verbatim)</summary><p class="mut">${r.narrative||'—'}</p></details>`;
+}
+function updAction(){$('ovf').style.display=$('action').value==='override'?'':'none'}
+function docsHaveStructured(r){return (r.documents||[]).some(d=>d.structured_hint)}
 function timeIt(fn){const t0=performance.now();const out=fn();return [out,Math.round((performance.now()-t0)*10000)/10000]}
 async function init(){
   const [binders,scoring,capacity,man,idx]=await Promise.all([j('data/rules/binders.json'),j('data/rules/scoring.json'),j('data/rules/capacity.json'),j('data/samples/manifest.json'),j('data/rules/index.json')]);
@@ -128,7 +163,8 @@ async function init(){
   $('case').value='demo-accept-full';updCase();renderMI();
   $('sel').innerHTML='<option value="">—</option>'+DATA.binders.filter(b=>b.status==='active').map(b=>`<option>${b.binder_id}</option>`).join('');
 }
-function updCase(){const c=CASES.find(x=>x.id===$('case').value);if(!c)return;$('caseinfo').textContent='Tests: '+(c.covers||[]).join(' · ');
+function updCase(){const c=CASES.find(x=>x.id===$('case').value);if(!c)return;const s=c.expects||'';const cl=s.startsWith('Accept')?'pass':s.startsWith('Decline')?'dec':'ref';
+  $('caseinfo').innerHTML=`<span class="chip ${cl}">${s}</span> <span class="mut">Tests: ${(c.covers||[]).join(' · ')}</span>`;
   const stem='case-'+c.file.replace(/\.json$/,'');
   const base='https://raw.githubusercontent.com/dheerajkumar1a1a/binderselection-backend/main/samples/fixtures/';
   [['pdf','dlpdf'],['docx','dldocx'],['eml','dleml']].forEach(([fmt,id])=>{const a=$(id);if(a){a.href=base+fmt+'/'+stem+'.'+fmt;a.setAttribute('download',stem+'.'+fmt)}});
@@ -366,12 +402,26 @@ async function run(){
 function renderRun(){
   const r=RUN,comp=r.completeness||{};
   $('stages').innerHTML=['parse','extract','derive','completeness','evaluate','rank','narrative'].map(s=>`<div class="stage"><b>${s}</b>${s==='parse'?'done':s==='completeness'?(comp.can_evaluate?'complete':'halted — missing'):(r.halt&&['evaluate','rank','narrative'].includes(s)?'skipped':(r.stage_timings[s]??'')+'s')}</div>`).join('');
-  $('docs').innerHTML=`<table><tr><th>Document</th><th>Format</th><th>Status</th><th>Detail</th></tr>${(r.documents||[]).map(d=>`<tr><td>${d.doc_id} (${d.filename||'?'})</td><td>${d.format||'—'}</td><td>${chip(d.parse_status==='parsed'||d.parse_status==='pre-parsed'?'Pass':d.parse_status==='ocr_pending'?'Refer':'Decline')} ${d.parse_status||'—'}</td><td>${d.failure_reason||(d.text_truncated?'truncated at limit':'')}</td></tr>`).join('')}</table>`;
+  const vX=verdictHTML(r);$('verdict').innerHTML=vX;$('verdict').style.display=vX?'':'none';
+  $('action').value=(r.halt||(r.recommendation&&String(r.recommendation).startsWith('no eligible')))?'refer_back':'accept';updAction();
+  $('docs').innerHTML=`<table><tr><th>Document</th><th>Format</th><th>Status</th><th>Detail</th></tr>${(r.documents||[]).map(d=>`<tr><td>${d.doc_id}${d.filename?` (${d.filename})`:''}</td><td>${d.format||(d.parse_status==='pre-parsed'?'sample · pre-parsed':(d.parse_status||'—'))}</td><td>${parseChip(d.parse_status)} ${d.parse_status||'—'}</td><td>${d.failure_reason||(d.text_truncated?'truncated at limit':'')}</td></tr>`).join('')}</table>`;
   const meta=r.extracted_meta||{};
   $('facts').innerHTML=`<table><tr><th>Fact</th><th>Value</th><th>Conf</th><th>Source</th></tr>${Object.keys(r.extracted||{}).map(f=>{const m=meta[f]||{};return `<tr><td>${f}</td><td>${JSON.stringify(r.extracted[f])}</td><td>${m.confidence??'—'}</td><td>${m.source_document_id??'—'}</td></tr>`}).join('')}</table>`;
-  $('reco').innerHTML=`<div class="kpi"><b>${r.recommendation||r.halt||'—'}</b><span>scores: ${JSON.stringify(r.scores||{})}</span></div>${r.dataset_expected?`<p class="mut">Pinned suite expects: ${r.dataset_expected}</p>`:''}${r.halt==='completeness'&&!(r.documents||[]).some(d=>d.structured_hint!==undefined)?`<p class="mut">The stub extractor only reads pre-labelled sample data — it cannot read file text by design (it must never invent values). Switch the extractor to Gemini live (default) or OpenRouter live above and paste your key to read these files.</p>`:''}`;
-  $('binders').innerHTML=(r.binder_results||[]).map(b=>`<table><tr><th colspan="3">${b.binder_id} — ${b.outcome} ${b.reason||''} ${b.ruleset_version?'(ruleset v'+b.ruleset_version+')':''}</th></tr><tr><th>Rule</th><th>Outcome</th><th>Value / reason</th></tr>${(b.rule_outcomes||[]).map(o=>`<tr><td>${o.rule_id}</td><td>${chip(o.outcome)}</td><td>${JSON.stringify(o.value??o.reason??'')}</td></tr>`).join('')}</table>`).join('')||'<p class="mut">Halted before binder evaluation.</p>';
-  $('narr').textContent=r.narrative||'—';
+  $('reco').innerHTML=`<div class="kpi"><b>${r.recommendation||r.halt||'—'}</b><span>scores: ${JSON.stringify(r.scores||{})}</span></div>${r.model_versions&&r.model_versions.extraction?`<p class="mut">Extraction: ${r.model_versions.extraction}</p>`:''}${r.dataset_expected?`<p class="mut">Pinned suite expects: ${fmtExpected(r.dataset_expected)}</p>`:''}${r.halt==='completeness'&&!docsHaveStructured(r)?`<p class="mut">The stub extractor only reads pre-labelled sample data — it cannot read file text by design (it must never invent values). Switch the extractor to Gemini live (default) or OpenRouter live above and paste your key to read these files.</p>`:''}`;
+  $('binders').innerHTML=(r.binder_results||[]).map(b=>{
+    const outs=b.rule_outcomes||[];
+    const cnt=o=>outs.filter(x=>x.outcome===o).length;
+    const np=cnt('Pass'),nd=cnt('Decline'),nc=cnt('Cannot assess');
+    const mix=['Pass','Decline','Cannot assess'].map((o,i)=>{const n=[np,nd,nc][i];if(!n)return'';const cl=o==='Pass'?'pass':o==='Decline'?'dec':'ref';const lbl=o==='Cannot assess'?'Needs information':o;return `<span class="chip ${cl}">${lbl} ×${n}</span>`}).filter(Boolean).join(' ');
+    const vis=outs.filter(o=>o.outcome!=='Cannot assess');
+    const hid=outs.filter(o=>o.outcome==='Cannot assess');
+    const row=o=>`<tr><td>${o.rule_id}</td><td>${chip(o.outcome)}</td><td>${JSON.stringify(o.value??o.reason??'')}</td></tr>`;
+    const visTable=`<table><tr><th>Rule</th><th>Outcome</th><th>Value / reason</th></tr>${vis.map(row).join('')||'<tr><td colspan="3" class="mut">none</td></tr>'}</table>`;
+    const asks=hid.map(o=>humanField(o.reason)).filter(Boolean);
+    const hidBlock=hid.length?`${asks.length?`<p class="mut" style="margin:6px 0 2px">To assess these, ask the broker for: ${asks.join(', ')}.</p>`:''}<details><summary>Show the ${hid.length} rule${hid.length===1?'':'s'} held pending information</summary><table><tr><th>Rule</th><th>Outcome</th><th>Value / reason</th></tr>${hid.map(row).join('')}</table></details>`:'';
+    return `<p><b>${b.binder_id} — ${/^excluded$/i.test(b.outcome)?'Excluded':b.outcome}</b> ${b.ruleset_version?'(ruleset v'+b.ruleset_version+')':''} ${b.reason&&b.reason!=='Cannot assess'?b.reason:''}</p>${mix?`<div class="mixrow">${mix}</div>`:''}${visTable}${hidBlock}`;
+  }).join('')||'<p class="mut">Halted before binder evaluation.</p>';
+  $('narr').innerHTML=narrHTML(r);
 }
 function evidencePack(rec){
   const L=['# Evidence pack — '+rec.evaluation_id,'Submission: '+rec.submission_reference+' · evaluated '+rec.evaluated_at,'## Extracted values (value | confidence | source)'];
@@ -413,9 +463,11 @@ function renderMI(){
   });
   const means={};Object.keys(tS).forEach(s=>{means[s]=Math.round(tS[s]/tC[s]*10000)/10000});
   $('mikpis').innerHTML=`<div class="kpi"><b>${AUDIT.length}</b><span>evaluations this session</span></div><div class="kpi"><b>${JSON.stringify(byOut)}</b><span>outcome mix</span></div><div class="kpi"><b>${ov}/${AUDIT.length}</b><span>overrides / decided</span></div><div class="kpi"><b>${info}</b><span>info requests</span></div>`;
+  const dRows=Object.entries(byRule).map(([r2,c2])=>`<tr><td>${r2}</td><td>${c2}</td></tr>`).join('')||'<tr><td colspan="2" class="mut">no Decline outcomes yet</td></tr>';
+  $('mitbl').innerHTML=`<table><tr><th>Decline rule</th><th>Times</th></tr>${dRows}</table>`;
   $('mifull').textContent=JSON.stringify({volume_mix:{total:AUDIT.length,by_outcome:byOut,by_broker:byBroker,by_underwriter:byUW},decline_reasons:{by_rule:byRule},override_rate:{decided:AUDIT.length,overrides:ov},data_quality:{missing_fields:missing,info_requests:info},refer_by_field:{by_field:byField},stage_timing:{mean_seconds:means,n:AUDIT.length}},null,1);
 }
-$('case').onchange=updCase;$('llm').onchange=()=>{$('cipanel').style.display=$('llm').value==='ci'?'':'none'};$('run').onclick=()=>{try{run()}catch(e){alert(e.message)}};
+$('case').onchange=updCase;$('llm').onchange=()=>{$('cipanel').style.display=$('llm').value==='ci'?'':'none'};$('action').onchange=updAction;$('run').onclick=()=>{try{run()}catch(e){alert(e.message)}};
 $('decide').onclick=()=>{try{decide()}catch(e){alert(e.message)}};$('mi').onclick=()=>{try{renderMI()}catch(e){alert(e.message)}};
 init().catch(e=>document.body.insertAdjacentHTML('beforeend','<p style="color:red">Failed to load: '+e.message+'</p>'));
 </script>

@@ -151,10 +151,12 @@ def overview() -> dict:
         "cases": len(_manifest()["cases"]),
         # Which live extractors have a resolvable key (never the key itself).
         "extractors": {
-            "gemini": {"model": "gemini-3.5-flash-lite", "default": True,
+            "gemini": {"model": "gemini-3.5-flash-lite", "default": False,
                        "key": bool(os.environ.get("GEMINI_API_KEY")
                                    or os.environ.get("GEMINI_API_KEY_FILE"))},
-            "nvidia": {"key": bool(os.environ.get("NVIDIA_API_KEY"))},
+            "nvidia": {"model": "nemotron-120b", "default": True,
+                       "key": bool(os.environ.get("NVIDIA_API_KEY")
+                                   or os.environ.get("NVIDIA_API_KEY_FILE"))},
             "openrouter": {"key": bool(os.environ.get("OPENROUTER_API_KEY"))},
         },
     }
@@ -247,9 +249,10 @@ if __name__ == "__main__":
     # Report which live extractors can resolve a key. Never print the key.
     gemini = "present" if (os.environ.get("GEMINI_API_KEY")
                            or os.environ.get("GEMINI_API_KEY_FILE")) else "MISSING"
-    nvidia = "present" if os.environ.get("NVIDIA_API_KEY") else "missing"
+    nvidia = "present" if (os.environ.get("NVIDIA_API_KEY")
+                           or os.environ.get("NVIDIA_API_KEY_FILE")) else "missing"
     openrouter = "present" if os.environ.get("OPENROUTER_API_KEY") else "missing"
-    print(f"extractors: gemini-3.5-flash-lite (UI default) key={gemini} | "
-          f"nvidia key={nvidia} | openrouter key={openrouter} | stub always available",
+    print(f"extractors: nemotron-120b via NVIDIA (UI default) key={nvidia} | "
+          f"gemini-3.5-flash-lite key={gemini} | openrouter key={openrouter} | stub always available",
           flush=True)
     srv.serve_forever()
