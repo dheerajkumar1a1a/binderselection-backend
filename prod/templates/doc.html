@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ v.doc_id }} — provenance</title>
+<style>
+:root{--ink:#1a2332;--mut:#5b6b7f;--line:#dfe6ee;--bg:#f5f8fb;--ok:#157347;--warn:#9a6a00;--card:#fff}
+*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:#0f2a44;color:#fff;padding:22px 24px}
+header h1{margin:0;font-size:20px}header p{margin:4px 0 0;color:#c9d6e4;font-size:13px}
+main{max-width:1000px;margin:0 auto;padding:20px}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin:14px 0}
+h2{margin:0 0 10px;font-size:16px}.mut{color:var(--mut);font-size:13px}
+mark{background:#ffe9a8;border-radius:3px;padding:0 2px;outline:1px solid #e6c26a}
+pre{background:#fbfcfe;border:1px solid var(--line);border-radius:8px;padding:12px;font-size:12.5px;line-height:1.5;overflow-x:auto;white-space:pre-wrap;word-break:break-word}
+.doctext{font-size:13.5px;line-height:1.7;white-space:pre-wrap;background:#fbfcfe;border:1px solid var(--line);border-radius:8px;padding:14px}
+ul{margin:6px 0}li{margin:2px 0;font-size:13px}
+footer{color:var(--mut);font-size:12px;text-align:center;padding:16px}
+a{color:#0f2a44}
+</style></head>
+<body>
+<header><h1>Provenance · {{ v.doc_id }}</h1>
+<p>{{ v.case.case_id }} · evaluation #{{ v.evaluation_id }} · <a style="color:#c9d6e4" href="/case/{{ v.case.case_id }}">← back to case</a></p></header>
+<main>
+
+<section><h2 style="margin-top:0">Facts taken from this document</h2>
+{% if v.found or v.missing or v.structured_facts %}
+<ul>
+{% for m in v.found %}<li><b>{{ m.field }}</b> — highlighted below <span class="mut">(quote: “{{ m.quote }}”)</span></li>{% endfor %}
+{% for m in v.missing %}<li><b>{{ m.field }}</b> — quote taken by the extractor (not located in the parsed text — shown as-is): <span class="mut">“{{ m.quote }}”</span></li>{% endfor %}
+{% for r in v.structured_facts %}<li><b>{{ r.field }}</b> — from the machine-readable submission record, highlighted below</li>{% endfor %}
+</ul>
+{% else %}<p class="mut">The latest evaluation took no facts from this document.</p>{% endif %}
+</section>
+
+{% if v.has_text %}
+<section><h2>Document text (parsed — highlights overlay the text, nothing is edited)</h2>
+<div class="doctext">{{ v.text_html | safe }}</div></section>
+{% endif %}
+
+{% if v.structured_html %}
+<section><h2>Machine-readable submission record (the exact input the stub extractor reads)</h2>
+<pre>{{ v.structured_html | safe }}</pre></section>
+{% endif %}
+
+<section class="mut" style="border-left:4px solid var(--ok)">The extractor only reads this document — it never decides. The record of what was extracted, with confidence and conflicts, lives on the case page.</section>
+
+</main>
+<footer>Binder Selection Agent · production (provenance viewer, phase 2) · click-to-open + text-highlight · no bounding boxes</footer>
+</body></html>

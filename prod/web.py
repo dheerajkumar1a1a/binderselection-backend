@@ -72,6 +72,17 @@ def case_page(request: Request, case_id: str):
     })
 
 
+@app.get("/case/{case_id}/doc/{doc_id}", response_class=HTMLResponse)
+def doc_page(request: Request, case_id: str, doc_id: str):
+    view = service.doc_view(case_id, doc_id)
+    if view is None:
+        raise HTTPException(404, "case not found")
+    if not view["has_text"] and not view["has_structured"]:
+        raise HTTPException(404, "no readable text stored for this document "
+                                 "(re-run the evaluation to record its parsed text)")
+    return tpl.TemplateResponse(request, "doc.html", {"v": view})
+
+
 @app.post("/case/{case_id}/evaluate")
 def case_evaluate(case_id: str, llm: str = Form("")):
     try:

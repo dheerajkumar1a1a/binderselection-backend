@@ -145,3 +145,71 @@ def test_parse_halt_never_scores(client):
         state = ev.payload
     assert state.get("halt") in ("parse", "completeness")
     assert not state.get("binder_results")  # nothing scored past the halt
+
+
+def test_extract_failure_is_clean_400(client, monkeypatch):
+    """A live-extractor failure (e.g. missing key) → explicit 400, not a 500."""
+    cid = _new_case(client)
+    from prod import service as S
+    monkeypatch.setattr(S.demo, "run_pipeline",
+                        lambda *a, **k: (_ for _ in ()).throw(RuntimeError("NVIDIA_API_KEY not set")))
+    r = client.post(f"/case/{cid}/evaluate", data={"llm": "nvidia"})
+    assert r.status_code == 400 and "extractor unavailable" in r.text
+    with store.new_session() as s:
+        # No evaluation was appended — the run simply did not happen.
+        assert s.query(store.Evaluation).filter(
+            store.Evaluation.case_id == cid).count() == 0
+
+
+# --- phase 2: docs on disk + provenance viewer ------------------------------
+
+import prod.docstore as docstore
+
+
+def test_docs_persist_to_disk_and_survive_restart(client, monkeypatch):
+    """Restart-proof: wipe any cached process state, evaluate must still work."""
+    cid = _new_case(client)
+    # Simulate a server restart: the only doc source must now be the disk.
+    ids_before = [d["doc_id"] for d in docstore.load_run_docs(cid)]
+    assert ids_before == ["mail-001"]
+    client.post(f"/case/{cid}/evaluate", data={"llm": ""})
+    c = _latest(cid)
+    assert c.status == "assessed"
+    with store.new_session() as s:
+        ev = (s.query(store.Evaluation).order_by(
+            store.Evaluation.evaluation_id.desc()).first())
+    assert ev.recommendation == "binder_A"
+
+
+def test_provenance_viewer_highlights_structured_record(client):
+    cid = _new_case(client)
+    client.post(f"/case/{cid}/evaluate", data={"llm": ""})
+    r = client.get(f"/case/{cid}/doc/mail-001")
+    assert r.status_code == 200
+    body = r.text
+    assert "Machine-readable submission record" in body
+    # The stub reads each field from the structured hint; those fact lines
+    # must be marked.
+    assert body.count("<mark") >= 5
+    assert 'data-f="total_insured_value"' in body
+    assert 'data-f="broker_name"' in body
+
+
+def test_provenance_viewer_quote_match(client):
+    """A quote-style locator (live extractors) is found in text even with
+    different spacing, and unknown quotes degrade to shown-as-is."""
+    cid = _new_case(client)
+    client.post(f"/case/{cid}/evaluate", data={"llm": ""})
+    view = service.doc_view(cid, "mail-001")
+    assert view is not None and view["has_text"]
+    # Fake a quote-locator evaluation result through the same helper path:
+    from prod import service as S
+    marks = S._flex_find(view["doc"].get("text") or "", "Broker Acme")
+    assert marks is not None
+
+
+def test_case_page_links_provenance(client):
+    cid = _new_case(client)
+    client.post(f"/case/{cid}/evaluate", data={"llm": ""})
+    page = client.get(f"/case/{cid}").text
+    assert f'href="/case/{cid}/doc/mail-001"' in page

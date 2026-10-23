@@ -42,7 +42,7 @@ a{color:#0f2a44}
 <select name="llm"><option value="">stub — deterministic, keyless (reads sample structured hints)</option><option value="nvidia">nemotron-120b — live NVIDIA extraction</option><option value="gemini">gemini — live fallback</option><option value="openrouter">openrouter — live free fallback</option></select>
 <button>Run evaluation ▶</button>
 </form>
-{% if case.source == 'upload' %}<p class="mut">Phase 1 holds uploaded documents in memory only — after a server restart, recreate the case. The persisted evaluation payload is the durable record.</p>{% endif %}
+{% if case.source == 'upload' %}<p class="mut">Uploaded documents are stored on disk under this case — the case survives server restarts.</p>{% endif %}
 </section>
 
 {% if latest %}
@@ -58,10 +58,10 @@ a{color:#0f2a44}
 {% endif %}
 </section>
 
-<section><h2 style="margin-top:0">Extracted facts (provenance on every fact)</h2>
+<section><h2 style="margin-top:0">Extracted facts (provenance on every fact — click the source to open it)</h2>
 <table><tr><th>Fact</th><th>Value</th><th>Confidence</th><th>Source document</th><th>Locator</th></tr>
 {% for f, v in extracted.items() %}{% set m = (payload.get('extracted_meta') or {}).get(f) or {} %}
-<tr><td>{{ f }}</td><td>{{ v }}</td><td>{{ m.get('confidence', '—') }}</td><td>{{ m.get('source_document_id', '—') }}{% if m.get('contested') %} <span class="chip ref">contested</span>{% endif %}</td><td>{{ m.get('source_locator', '—') }}</td></tr>
+<tr><td>{{ f }}</td><td>{{ v }}</td><td>{{ m.get('confidence', '—') }}</td><td>{% if m.get('source_document_id') %}<a href="/case/{{ case.case_id }}/doc/{{ m.get('source_document_id') }}">{{ m.get('source_document_id') }}</a>{% else %}<span class="mut">—</span>{% endif %}{% if m.get('contested') %} <span class="chip ref">contested</span>{% endif %}</td><td>{% if m.get('source_locator') and m.get('source_locator') != 'structured_hint' %}“{{ m.get('source_locator') }}”{% else %}{{ m.get('source_locator', '—') }}{% endif %}</td></tr>
 {% endfor %}</table>
 {% if not extracted %}<p class="mut">No facts extracted.</p>{% endif %}
 </section>
@@ -118,5 +118,5 @@ a{color:#0f2a44}
 {% endif %}
 
 </main>
-<footer>Binder Selection Agent · production phase 1 · append-only evaluations &amp; decisions · SQLite (swap to Postgres via DATABASE_URL) · engine vocabulary: Pass / Decline / Cannot assess — shown here as Pass / Decline / Needs information</footer>
+<footer>Binder Selection Agent · production · append-only evaluations &amp; decisions · SQLite (swap to Postgres via DATABASE_URL) · engine vocabulary: Pass / Decline / Cannot assess — shown here as Pass / Decline / Needs information</footer>
 </body></html>

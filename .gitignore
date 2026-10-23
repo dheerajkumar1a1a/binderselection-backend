@@ -11,6 +11,8 @@ ui/last-run.json
 audit/
 .langgraph/
 data/
+*.key
+openrouter_key.txt
 .pytest_cache/
 
 prod_run_report.json

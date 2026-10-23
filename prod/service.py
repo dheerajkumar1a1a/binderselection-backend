@@ -9,8 +9,9 @@ import base64
 import json
 import os
 import uuid
+import urllib.error as _urllib
 
-from . import store
+from . import docstore, store
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
@@ -54,15 +55,11 @@ def create_case(broker_firm: str, underwriter: str, sample_case_id: str | None,
                        status="new", source=source, created_at=store.now())
         s.add(c)
         s.commit()
-    # Documents are stored in-memory only for this phase 1; the evaluation
-    # persists the full run state, so nothing is needed on disk between runs.
-    _CASE_DOCS[case_id] = docs
+    # Documents live on disk under data/cases/<case_id>/ from intake onward
+    # (phase 2): the case survives server restarts, and the provenance viewer
+    # opens the very bytes that were received.
+    docstore.save_docs(case_id, docs)
     return {"case_id": case_id}
-
-
-# Document payloads live only long enough to run an evaluation; the persisted
-# Evaluation payload is the durable record (phase 2 moves docs into storage).
-_CASE_DOCS: dict[str, list[dict]] = {}
 
 
 # --- evaluation -------------------------------------------------------------
@@ -73,12 +70,14 @@ def evaluate_case(case_id: str, llm: str | None = None) -> dict:
         case = s.get(store.Case, case_id)
         if case is None:
             raise LookupError("case not found")
-        docs = _CASE_DOCS.get(case_id)
-        if docs is None:
-            raise ValueError("documents no longer in memory — recreate the case "
-                             "(phase 1 keeps uploaded documents in memory only)")
-        state = demo.run_pipeline([dict(d) for d in docs],
-                                  case.submission_reference, llm=llm)
+        docs = docstore.load_run_docs(case_id)
+        try:
+            state = demo.run_pipeline([dict(d) for d in docs],
+                                      case.submission_reference, llm=llm)
+        except (RuntimeError, _urllib.URLError) as e:
+            # Missing/invalid extractor credentials or provider failure: a
+            # clean 400, never a 500 — the evaluation simply did not run.
+            raise ValueError(f"extractor unavailable: {e}")
         if "halt" in state and state.get("halt") == "parse":
             outcome, reco = "halt", None
         else:
@@ -182,3 +181,106 @@ def case_detail(case_id: str) -> dict | None:
                       .filter(store.Decision.case_id == case_id)
                       .order_by(store.Decision.decision_id.desc()).all())
         return {"case": c, "evaluations": evals, "decisions": decisions}
+
+
+# --- provenance viewer (phase 2) --------------------------------------------
+
+import html as _html
+import re as _re
+
+
+def _flex_find(text: str, quote: str) -> tuple[int, int] | None:
+    """Find a quote in text tolerating case + whitespace differences."""
+    if not text or not quote:
+        return None
+    parts = [_re.escape(p) for p in quote.split()]
+    if not parts:
+        return None
+    pat = r"\s+".join(parts)
+    m = _re.search(pat, text, _re.IGNORECASE)
+    if m:
+        return m.start(), m.end()
+    return None
+
+
+def _hl(s: str) -> str:
+    return _html.escape(s)
+
+
+def doc_view(case_id: str, doc_id: str) -> dict | None:
+    """One document + every fact the latest evaluation took from it.
+
+    Highlights are computed over stored text (display only, never stored):
+    live extractors carry a quote in source_locator; the stub extractor's
+    structured_hint locator is rendered as the machine-readable record with
+    the fact's field value marked. Nothing is inferred here — no text, no
+    truth, just the mapping back to the document.
+    """
+    detail = case_detail(case_id)
+    if detail is None:
+        return None
+    evals = detail["evaluations"]
+    latest = evals[0] if evals else None
+    payload = latest.payload if latest else {}
+    docs = {d.get("doc_id"): d for d in (payload.get("documents") or [])}
+    doc = docs.get(doc_id)
+    text = (doc or {}).get("text") or ""
+    meta = payload.get("extracted_meta") or {}
+    todos = [(f, m) for f, m in meta.items()
+             if m.get("source_document_id") == doc_id and m.get("present")]
+
+    marks: list[dict] = []   # highlights inside the document text
+    recs: list[dict] = []    # highlights inside the structured record
+    for field, m in todos:
+        locator = (m.get("source_locator") or "").strip()
+        if locator == "structured_hint" or not locator:
+            recs.append({"field": field, "value": _hl(json.dumps(m.get("value")))})
+            continue
+        span = _flex_find(text, locator)
+        if span:
+            marks.append({"field": field, "start": span[0], "end": span[1],
+                          "quote": locator})
+        else:
+            marks.append({"field": field, "start": None, "end": None,
+                          "quote": locator})  # quote not located — shown as-is
+
+    # Render text with non-overlapping marks (first match wins, engine-facts stay plain).
+    marks_text = [m for m in marks if m["start"] is not None]
+    marks_text.sort(key=lambda x: x["start"])
+    out, pos = [], 0
+    for m in marks_text:
+        if m["start"] < pos:
+            continue
+        out.append(_hl(text[pos:m["start"]]))
+        out.append(f'<mark data-f="{_hl(m["field"])}" title="{_hl(m["field"])}">')
+        out.append(_hl(text[m["start"]:m["end"]]))
+        out.append("</mark>")
+        pos = m["end"]
+    out.append(_hl(text[pos:]))
+    text_html = "".join(out)
+
+    # Structured record: deterministic pretty-print of the exact hint the stub
+    # reads, with one <mark> per fact this evaluation took from it.
+    hint = (doc or {}).get("structured_hint")
+    rec_html = None
+    if hint is not None:
+        take = {r["field"]: m.get("value") for r in recs for m in [meta[r["field"]]]}
+        lines = ["{"]
+        keys = list(hint.keys())
+        for i, k in enumerate(keys):
+            inline = _hl(json.dumps(hint[k], default=str))
+            comma = "," if i < len(keys) - 1 else ""
+            if k in take:
+                lines.append(f'  <mark data-f="{_hl(k)}" title="{_hl(k)}">"{_hl(k)}": {inline}{comma}</mark>')
+            else:
+                lines.append(f'  "{_hl(k)}": {inline}{comma}')
+        lines.append("}")
+        rec_html = "\n".join(lines)
+
+    return {"case": detail["case"], "doc_id": doc_id,
+            "doc": doc or {}, "evaluation_id": latest.evaluation_id if latest else None,
+            "text_html": text_html, "has_text": bool(text),
+            "has_structured": hint is not None, "structured_html": rec_html,
+            "found": [m for m in marks if m["start"] is not None],
+            "missing": [m for m in marks if m["start"] is None],
+            "structured_facts": recs}

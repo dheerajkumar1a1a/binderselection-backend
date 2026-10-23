@@ -216,8 +216,9 @@ def gemini_extract(documents: list[dict], api_key: str | None = None,
         if f not in extracted:
             extracted[f] = None
             meta[f] = {"present": False, "confidence": 0.0, "reason": "absent"}
-    # Default source_document_id if the model omitted it.
+    # Default source_document_id if the model omitted it (None counts as
+    # omitted - the key existing is not enough).
     for m in meta.values():
         if not m.get("source_document_id") and documents:
-            m.setdefault("source_document_id", (documents[0].get("doc_id")))
+            m["source_document_id"] = documents[0].get("doc_id")
     return extracted, meta
