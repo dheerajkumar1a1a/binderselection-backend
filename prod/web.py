@@ -158,6 +158,7 @@ def case_page(request: Request, case_id: str):
         "halt": payload.get("halt"),
         "sla": store.sla_state(case),
         "rounds": rounds, "gaps": gaps, "delta": delta,
+        "reference_facts": payload.get("reference_facts") or [],
         "user": u, "has_open": has_open,
     })
 
@@ -381,6 +382,25 @@ async def portal_round_submit(request: Request, case_id: str, round_id: int,
     except ValueError as e:
         raise HTTPException(400, str(e))
     return RedirectResponse(f"/portal/case/{case_id}", status_code=303)
+
+
+# --- reference data (phase 5) ------------------------------------------------
+
+@app.get("/admin/reference", response_class=HTMLResponse)
+def reference_page(request: Request):
+    _staff(request)
+    from prod import reference as ref_mod
+    return tpl.TemplateResponse(request, "reference.html",
+                                {"feeds": ref_mod.list_feeds(),
+                                 "msg": request.query_params.get("msg", "")})
+
+
+@app.post("/admin/reference/refresh")
+def reference_refresh(request: Request):
+    _staff(request)
+    from prod import reference as ref_mod
+    n = ref_mod.refresh_from_dir()
+    return RedirectResponse(f"/admin/reference?msg={n}+feeds+loaded", 303)
 
 
 # --- rules console (phase 4) -------------------------------------------------

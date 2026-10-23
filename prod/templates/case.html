@@ -139,7 +139,13 @@ a{color:#0f2a44}
 {% endif %}
 </section>
 
-<section><h2 style="margin-top:0">Request rounds (one active round per case — the broker answers and the 10-business-day clock runs)</h2>
+<section><h2 style="margin-top:0">Reference data (third-party facts — data, never a decision)</h2>
+{% if not reference_facts %}<p class="mut">No reference feed attached, or no matching records for this submission's territories. Drop a feed into data/reference/ and re-run the evaluation.</p>
+{% else %}
+<table><tr><th>Location</th><th>Field</th><th>Value</th><th>Feed</th><th>Licence</th><th>Fetched at</th></tr>
+{% for rf in reference_facts %}<tr><td>{{ rf.territory }} (location {{ rf.location_index + 1 }})</td><td>{{ rf.field }}</td><td>{{ rf.value }}</td><td>{{ rf.feed }}</td><td>{{ rf.licence }}</td><td>{{ rf.fetched_at }}</td></tr>{% endfor %}</table>
+{% endif %}
+</section>
 {% if not rounds %}<p class="mut">No rounds issued yet.</p>{% endif %}
 {% for r in rounds %}
 <div class="card"><b>Round {{ r['round'].number }}</b> · status {{ r['round'].status }} · issued {{ r['round'].issued_at }} by {{ r['round'].issued_by or '—' }}

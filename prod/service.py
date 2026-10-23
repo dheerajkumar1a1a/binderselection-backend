@@ -86,6 +86,13 @@ def evaluate_case(case_id: str, llm: str | None = None) -> dict:
                 outcome = reco
             else:
                 outcome = "no-eligible"
+        # Phase 5: attach third-party reference facts to the payload (frozen into
+        # the append-only evaluation). Data, never a decision - provenance carried.
+        try:
+            from . import reference as ref_mod
+            ref_mod.attach(state)
+        except Exception:
+            state["reference_facts"] = []
         ev = store.Evaluation(case_id=case_id, created_at=store.now(), llm=llm,
                               model=((state.get("model_versions") or {})
                                      .get("extraction", "")),
