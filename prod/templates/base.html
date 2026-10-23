@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="en" x-data="{toast:null, toastMsg:'', showToast(m){this.toastMsg=m;this.toast=true;setTimeout(()=>this.toast=false,3500)}}" >
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Binder Selection Agent{% endblock %}</title>
+<script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+<style>
+:root{
+  --ink:#0f172a;--ink-soft:#334155;--mut:#64748b;--line:#e2e8f0;--bg:#f1f5f9;--card:#ffffff;
+  --accent:#2563eb;--accent-soft:#dbeafe;--ok:#16a34a;--ok-soft:#dcfce7;
+  --warn:#d97706;--warn-soft:#fef3c7;--bad:#dc2626;--bad-soft:#fee2e2;
+  --radius:12px;--shadow:0 1px 3px rgba(15,23,42,.06),0 4px 12px rgba(15,23,42,.04);
+  --shadow-lg:0 8px 24px rgba(15,23,42,.08);
+  --space:16px;--space-lg:24px;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
+header.topbar{background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);color:#fff;padding:18px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;box-shadow:var(--shadow)}
+header.topbar h1{margin:0;font-size:19px;font-weight:600;letter-spacing:-.01em}
+header.topbar .meta{color:#94a3b8;font-size:13px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+header.topbar .meta a{color:#cbd5e1}
+main{max-width:1240px;margin:0 auto;padding:24px 20px}
+section.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px;margin:16px 0;box-shadow:var(--shadow);transition:box-shadow .15s}
+section.card:hover{box-shadow:var(--shadow-lg)}
+h2{margin:0 0 12px;font-size:17px;font-weight:600;letter-spacing:-.01em}
+h3{margin:14px 0 8px;font-size:14px;font-weight:600;color:var(--ink-soft)}
+.mut{color:var(--mut);font-size:13px}
+.label{font-size:12px;color:var(--mut);display:block;margin:10px 0 4px;font-weight:500}
+input,select,textarea{padding:9px 12px;border:1px solid var(--line);border-radius:8px;font-size:14px;background:#fff;width:100%;transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+button, .btn{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:9px 16px;font-size:14px;font-weight:500;cursor:pointer;transition:background .15s,transform .05s;display:inline-flex;align-items:center;gap:6px}
+button:hover,.btn:hover{background:#1d4ed8}
+button:active,.btn:active{transform:scale(.98)}
+button.secondary{background:#e2e8f0;color:var(--ink)}button.secondary:hover{background:#cbd5e1}
+button.ghost{background:transparent;color:var(--accent)}button.ghost:hover{background:var(--accent-soft)}
+.chip{display:inline-flex;align-items:center;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:600;border:1px solid;white-space:nowrap}
+.chip.pass,.chip.ok{color:var(--ok);border-color:var(--ok);background:var(--ok-soft)}
+.chip.dec,.chip.bad{color:var(--bad);border-color:var(--bad);background:var(--bad-soft)}
+.chip.ref,.chip.warn{color:var(--warn);border-color:var(--warn);background:var(--warn-soft)}
+.chip.neutral{color:var(--mut);border-color:var(--line);background:#f1f5f9}
+table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;margin-top:8px;border:1px solid var(--line);border-radius:8px;overflow:hidden}
+th,td{padding:10px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
+th{background:#f8fafc;font-weight:600;color:var(--ink-soft);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
+tr:last-child td{border-bottom:0}
+tr:hover td{background:#f8fafc}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
+@media(max-width:860px){.grid2,.grid3{grid-template-columns:1fr}}
+@media(max-width:720px){table{display:block;overflow-x:auto}}
+.card-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:14px 0}
+.stat-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow)}
+.stat-card .num{font-size:22px;font-weight:700;letter-spacing:-.02em}
+.stat-card .lbl{font-size:12px;color:var(--mut);margin-top:2px}
+.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.htmx-request .spinner{display:inline-block}
+.toast{position:fixed;bottom:24px;right:24px;background:var(--ink);color:#fff;padding:12px 18px;border-radius:10px;box-shadow:var(--shadow-lg);font-size:14px;z-index:9999;transform:translateY(20px);opacity:0;transition:all .25s}
+.toast.show{transform:translateY(0);opacity:1}
+details{margin:8px 0}summary{cursor:pointer;font-size:13px;color:var(--mut);padding:6px 0}
+footer{color:var(--mut);font-size:12px;text-align:center;padding:24px;margin-top:24px}
+.empty{padding:32px;text-align:center;color:var(--mut);border:2px dashed var(--line);border-radius:var(--radius)}
+</style>
+{% block head %}{% endblock %}
+</head>
+<body>
+<header class="topbar">
+  <h1>{% block header_title %}Binder Selection Agent{% endblock %}</h1>
+  <div class="meta">
+    {% block header_meta %}{% endblock %}
+    <a href="/logout">sign out</a>
+  </div>
+</header>
+{% macro chip(cls, text) %}<span class="chip {{ cls }}">{{ text }}</span>{% endmacro %}
+<main>
+{% block content %}{% endblock %}
+</main>
+</main>
+<footer>Binder Selection Agent · production · append-only evaluations &amp; decisions · SQLite (swap to Postgres via DATABASE_URL)</footer>
+
+<!-- toast -->
+<div class="toast" :class="{show: toast}" x-text="toastMsg" x-show="toast" x-transition></div>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>
