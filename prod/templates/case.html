@@ -1,0 +1,122 @@
+{% macro chip(cls, text) %}<span class="chip {{ cls }}">{{ text }}</span>{% endmacro %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{{ case.case_id }} — Case</title>
+<style>
+:root{--ink:#1a2332;--mut:#5b6b7f;--line:#dfe6ee;--bg:#f5f8fb;--ok:#157347;--warn:#9a6a00;--bad:#b02a37;--card:#fff}
+*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:#0f2a44;color:#fff;padding:22px 24px}
+header h1{margin:0;font-size:20px}header p{margin:4px 0 0;color:#c9d6e4;font-size:13px}
+main{max-width:1100px;margin:0 auto;padding:20px}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin:14px 0}
+h2{margin:16px 0 10px;font-size:16px}.mut{color:var(--mut);font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#eef3f8}
+label{font-size:12px;color:var(--mut);display:block;margin:8px 0 4px}
+input,select{padding:7px;border:1px solid var(--line);border-radius:6px;font-size:14px}
+button{background:#0f2a44;color:#fff;border:0;border-radius:6px;padding:9px 15px;font-size:14px;cursor:pointer;margin-top:10px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:800px){.grid2{grid-template-columns:1fr}}
+.chip{display:inline-block;border-radius:12px;padding:1px 9px;font-size:11px;border:1px solid}
+.pass{color:var(--ok);border-color:var(--ok);background:#e9f6ee}
+.dec{color:var(--bad);border-color:var(--bad);background:#fbeaec}
+.ref{color:var(--warn);border-color:var(--warn);background:#fff6dd}
+.verdict{border:1px solid var(--line);border-left:6px solid var(--ok);border-radius:8px;padding:12px 16px;background:#e9f6ee;margin:10px 0}
+.verdict b{font-size:18px}
+.badV{border-left-color:var(--bad);background:#fbeaec}
+details{margin:8px 0}summary{cursor:pointer;font-size:13px;color:var(--mut)}
+footer{color:var(--mut);font-size:12px;text-align:center;padding:16px}
+a{color:#0f2a44}
+</style></head>
+<body>
+<header><h1>{{ case.case_id }} · {{ case.broker_firm or 'no broker set' }}</h1>
+<p>{{ case.submission_reference }} · status <b>{{ case.status }}</b> · assessor {{ case.underwriter or '—' }} · created {{ case.created_at }} · <a style="color:#c9d6e4" href="/">← workboard</a></p></header>
+<main>
+
+<section><h2 style="margin-top:0">Run evaluation</h2>
+<form method="post" action="/case/{{ case.case_id }}/evaluate">
+<label>Extractor (the LLM only extracts facts — it never decides)</label>
+<select name="llm"><option value="">stub — deterministic, keyless (reads sample structured hints)</option><option value="nvidia">nemotron-120b — live NVIDIA extraction</option><option value="gemini">gemini — live fallback</option><option value="openrouter">openrouter — live free fallback</option></select>
+<button>Run evaluation ▶</button>
+</form>
+{% if case.source == 'upload' %}<p class="mut">Phase 1 holds uploaded documents in memory only — after a server restart, recreate the case. The persisted evaluation payload is the durable record.</p>{% endif %}
+</section>
+
+{% if latest %}
+{% set reco = payload.get('recommendation') %}
+{% set scores = payload.get('scores') or {} %}
+<section class="{{ 'badV verdict' if halt or not reco or reco.startswith('no eligible') else 'verdict' }}">
+{% if halt %}<b>✖ Halt — {{ halt }} failure</b>
+  <div class="mut">The pipeline stopped: no binder was scored and nothing was invented. The named gaps become information requests for the broker.</div>
+{% elif reco and not reco.startswith('no eligible') %}
+  <b>✓ Recommended: {{ reco }}</b>{% if scores.get(reco) is not none %} — score {{ scores[reco] }}{% endif %}
+{% else %}<b>✖ No eligible binder</b>
+  <div class="mut">Every binder declined, was screened out, or needs information — nothing was invented.</div>
+{% endif %}
+</section>
+
+<section><h2 style="margin-top:0">Extracted facts (provenance on every fact)</h2>
+<table><tr><th>Fact</th><th>Value</th><th>Confidence</th><th>Source document</th><th>Locator</th></tr>
+{% for f, v in extracted.items() %}{% set m = (payload.get('extracted_meta') or {}).get(f) or {} %}
+<tr><td>{{ f }}</td><td>{{ v }}</td><td>{{ m.get('confidence', '—') }}</td><td>{{ m.get('source_document_id', '—') }}{% if m.get('contested') %} <span class="chip ref">contested</span>{% endif %}</td><td>{{ m.get('source_locator', '—') }}</td></tr>
+{% endfor %}</table>
+{% if not extracted %}<p class="mut">No facts extracted.</p>{% endif %}
+</section>
+
+<section><h2 style="margin-top:0">Per-binder results — evaluation #{{ latest.evaluation_id }} · {{ latest.model or 'stub' }}</h2>
+{% for b in binders %}
+<details {% if loop.first %}open{% endif %}><summary><b>{{ b.get('binder_id') }}</b>
+  {% set bo = b.get('outcome') %}{% if bo == 'Accept' %}{{ chip('pass', 'Accept') }}{% elif bo == 'Decline' %}{{ chip('dec', 'Decline') }}{% elif bo == 'Refer' %}{{ chip('ref', 'Needs information') }}{% else %}{{ chip('ref', bo) }}{% endif %}
+  {% if b.get('ruleset_version') %} · ruleset v{{ b['ruleset_version'] }}{% endif %}{% set cap = b.get('capacity_snapshot') or {} %}{% if cap %} · capacity snapshot: reserved {{ cap.get('reserved') or 0 }}{% if cap.get('available_capacity') is not none %}, available {{ '{:,.0f}'.format(cap['available_capacity']) }}{% endif %}{% endif %}</summary>
+<table><tr><th>Rule</th><th>Outcome</th><th>Value</th></tr>
+{% for o in b.get('rule_outcomes') or [] %}
+<tr><td>{{ o.get('rule_id') }}</td>
+<td>{% if o.get('outcome') == 'Pass' %}{{ chip('pass', 'Pass') }}{% elif o.get('outcome') == 'Decline' %}{{ chip('dec', 'Decline') }}{% elif o.get('outcome') == 'Cannot assess' %}{{ chip('ref', 'Needs information') }}{% else %}{{ chip('ref', o.get('outcome')) }}{% endif %}</td>
+<td>{% set val = o.get('value') %}{% if val is string %}{{ val }}{% elif val is iterable %}{{ val | join(', ') }}{% else %}{{ val }}{% endif %}{% if o.get('members') %} <span class="mut">(group: {{ o['members'] | join(', ') }})</span>{% endif %}</td></tr>
+{% endfor %}</table>
+{% if not b.get('rule_outcomes') %}<p class="mut">No appetite rules ran ({{ b.get('reason', 'screened out before rules') }}).</p>{% endif %}
+</details>
+{% endfor %}
+{% if payload.get('narrative') %}<p style="margin-top:10px"><b>Engine summary:</b> {{ payload['narrative'] }}</p>{% endif %}
+</section>
+
+<section><h2 style="margin-top:0">Underwriter decision — the human decides</h2>
+<form method="post" action="/case/{{ case.case_id }}/decide">
+<div class="grid2"><div>
+<label>Underwriter (recorded — audit for 7 years)</label><input type="text" name="underwriter" value="{{ case.underwriter or '' }}" required>
+<label>Action</label><select name="action">
+<option value="accept" {% if reco and not reco.startswith('no eligible') and not halt %}selected="selected"{% endif %}>Accept recommendation</option>
+<option value="override">Override — place with a different binder</option>
+<option value="refer_back" {% if not reco or reco.startswith('no eligible') or halt %}selected="selected"{% endif %}>Refer back for information</option>
+</select>
+</div><div>
+<label>Selected binder (override only)</label><select name="selected_binder"><option value="">—</option>{% for b in binders %}<option>{{ b.get('binder_id') }}</option>{% endfor %}</select>
+<label>Reason code (override only, kept on the record)</label><select name="reason_code"><option value="">—</option><option>PRIOR_RELATIONSHIP</option><option>CAPACITY_PREFERENCE</option><option>TERMS_NEGOTIATED</option><option>BROKER_REQUEST</option><option>OTHER</option></select>
+</div></div>
+<button>Record decision</button>
+<p class="mut">Accept/override reserves capacity before the letter goes out. Refer back closes this round — a fresh submission opens a successor case in a later phase.</p>
+</form>
+{% if decisions %}
+<h2>Decision history</h2>
+<table><tr><th>When (UTC)</th><th>By</th><th>Action → binder</th><th>Reservation</th><th>Audit id</th></tr>
+{% for d in decisions %}<tr><td>{{ d.created_at }}</td><td>{{ d.underwriter }}</td><td>{{ d.action }} → {{ d.selected_binder or '—' }}{% if d.reason_code %} <span class="chip ref">{{ d.reason_code }}</span>{% endif %}</td><td>{{ d.outcome }}</td><td>{{ (d.detail or {}).get('audit_id') or '—' }}</td></tr>{% endfor %}</table>
+{% endif %}
+</section>
+
+<section><h2 style="margin-top:0">Evaluation lineage (append-only — successors)</h2>
+{% if evals | length <= 1 %}<p class="mut">Single evaluation so far. Every re-submission chains a new evaluation here; nothing is ever overwritten.</p>{% else %}
+<table><tr><th>#</th><th>Run (UTC)</th><th>Extractor</th><th>Model</th><th>Outcome</th></tr>
+{% for ev in evals %}<tr><td>{{ ev.evaluation_id }}</td><td>{{ ev.created_at }}</td><td>{{ ev.llm or 'stub' }}</td><td>{{ ev.model or '—' }}</td><td>{{ ev.outcome }}</td></tr>{% endfor %}</table>
+{% endif %}
+</section>
+
+{% else %}
+<section><p class="mut">No evaluation yet — run one above. The case stays in <b>new</b> and its assessment SLA clock keeps ticking.</p></section>
+{% endif %}
+
+</main>
+<footer>Binder Selection Agent · production phase 1 · append-only evaluations &amp; decisions · SQLite (swap to Postgres via DATABASE_URL) · engine vocabulary: Pass / Decline / Cannot assess — shown here as Pass / Decline / Needs information</footer>
+</body></html>

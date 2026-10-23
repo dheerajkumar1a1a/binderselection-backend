@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Binder Selection Agent — Workboard</title>
+<style>
+:root{--ink:#1a2332;--mut:#5b6b7f;--line:#dfe6ee;--bg:#f5f8fb;--ok:#157347;--warn:#9a6a00;--bad:#b02a37;--card:#fff}
+*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:#0f2a44;color:#fff;padding:22px 24px}
+header h1{margin:0;font-size:22px}header p{margin:4px 0 0;color:#c9d6e4;font-size:13px}
+main{max-width:1100px;margin:0 auto;padding:20px}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin:14px 0}
+h2{margin:0 0 10px;font-size:17px}.mut{color:var(--mut);font-size:13px}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
+th{background:#eef3f8}
+label{font-size:12px;color:var(--mut);display:block;margin:8px 0 4px}
+input,select{padding:7px;border:1px solid var(--line);border-radius:6px;font-size:14px}
+input[type=text],select{width:100%}
+button{background:#0f2a44;color:#fff;border:0;border-radius:6px;padding:9px 15px;font-size:14px;cursor:pointer;margin-top:10px}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:10px}@media(max-width:800px){.grid3{grid-template-columns:1fr}}
+.chip{display:inline-block;border-radius:12px;padding:1px 9px;font-size:11px;border:1px solid}
+.s-new{color:var(--mut);border-color:#999;background:#eee}
+.s-assessed{color:var(--ok);border-color:var(--ok);background:#e9f6ee}
+.s-decided{color:#555;border-color:#999;background:#eef}
+.sla-due{color:var(--warn);border-color:var(--warn);background:#fff6dd}
+.sla-breached{color:var(--bad);border-color:var(--bad);background:#fbeaec}
+.o-acc{color:var(--ok);border-color:var(--ok);background:#e9f6ee}
+.o-ref{color:var(--warn);border-color:var(--warn);background:#fff6dd}
+.o-bad{color:var(--bad);border-color:var(--bad);background:#fbeaec}
+footer{color:var(--mut);font-size:12px;text-align:center;padding:16px}
+</style></head>
+<body>
+<header><h1>Binder Selection Agent — Workboard</h1>
+<p>Production phase 1 · persistent cases · local-first · a named underwriter always decides — the system never binds (it reserves; expiry windows come with the live capacity desk).</p></header>
+<main>
+<section><h2>New case</h2>
+<form method="post" action="/case/new">
+<div class="grid3">
+<div><label>Broker firm (prov. — local accounts phase 3)</label><input type="text" name="broker_firm" placeholder="e.g. Acme Marine Ltd"></div>
+<div><label>Assessor (underwriter)</label><input type="text" name="underwriter" value="demo-underwriter"></div>
+<div><label>Source</label><select name="sample_case_id">{% for sid, label in samples %}<option value="{{ sid }}">{{ label }}</option>{% endfor %}<option value="">(upload files — paste JSON below)</option></select></div>
+</div>
+<label>Or upload documents (optional JSON: [{"filename": "...", "content_b64": "..."}] — base64 of file bytes)</label>
+<input type="text" name="documents_json" placeholder='[{"filename":"submission.pdf","content_b64":"JVBER..."}]'>
+<button>Open case</button>
+</form>
+</section>
+
+<section><h2>Workboard — {{ cases|length }} case{{ 's' if cases|length != 1 }}</h2>
+{% if not cases %}<p class="mut">No cases yet. Open one above.</p>{% else %}
+<table><tr><th>Case</th><th>Broker</th><th>Status</th><th>Latest outcome</th><th>Assessor</th><th>Created</th><th>Assessment SLA</th><th></th></tr>
+{% for c in cases %}
+<tr>
+<td><b>{{ c.case_id }}</b><br><span class="mut">{{ c.submission_reference }} · {{ c.source }}</span></td>
+<td>{{ c.broker_firm or '—' }}</td>
+<td><span class="chip s-{{ c.status }}">{{ c.status }}</span></td>
+<td>{% if c.latest %}{% if c.latest.outcome == 'no-eligible' %}<span class="chip o-bad">no eligible</span>{% elif c.latest.outcome == 'halt' %}<span class="chip o-bad">halt</span>{% else %}<span class="chip o-acc">{{ c.latest.outcome }}</span>{% endif %}{% else %}<span class="mut">not run</span>{% endif %}</td>
+<td>{{ c.underwriter or '—' }}</td>
+<td>{{ c.created_at }}</td>
+<td>{% if c.sla == 'due' %}<span class="chip sla-due">due</span>{% elif c.sla == 'breached' %}<span class="chip sla-breached">breached</span>{% else %}<span class="mut">n/a</span>{% endif %}</td>
+<td><a href="/case/{{ c.case_id }}">open →</a></td>
+</tr>
+{% endfor %}</table>
+{% endif %}
+</section>
+</main>
+<footer>Binder Selection Agent · production phase 1 (workboard + persistent cases) · deterministic engine · engine JSON vocabulary: Pass / Decline / Cannot assess</footer>
+</body></html>
