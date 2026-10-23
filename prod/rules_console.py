@@ -14,8 +14,6 @@ import os
 import uuid
 from datetime import date, datetime
 
-from . import auth
-from .. import rules as _rules_pkg  # noqa: F401
 import sys as _sys
 _sys.path.insert(0, str(__import__("pathlib").Path(__file__).resolve().parent.parent))
 from rules import store as rules_store
@@ -60,6 +58,18 @@ def list_binders() -> list[dict]:
 
 def _current_ruleset(binder_id: str) -> dict:
     return rules_store.load_effective(binder_id)
+    _ensure_dir()
+    out = []
+    for fn in sorted(os.listdir(PROPOSALS_DIR)):
+        if not fn.endswith(".json"):
+            continue
+        d = json.load(open(os.path.join(PROPOSALS_DIR, fn), encoding="utf-8"))
+        d["_file"] = fn
+        out.append(d)
+    return out
+
+
+def list_proposals() -> list[dict]:
     _ensure_dir()
     out = []
     for fn in sorted(os.listdir(PROPOSALS_DIR)):
