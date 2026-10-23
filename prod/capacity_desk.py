@@ -23,9 +23,13 @@ def _binder_lines() -> dict[str, float]:
     try:
         data = json.load(open(os.path.join(ROOT, "rules", "capacity.json"),
                               encoding="utf-8"))
+        binders = data.get("binders", {})
+        if isinstance(binders, dict):
+            return {bid: float((v or {}).get("authorised_line", 15_000_000))
+                    for bid, v in binders.items()}
         return {b["binder_id"]: float(b.get("authorised_line", 15_000_000))
-                for b in data.get("binders", [])}
-    except (FileNotFoundError, json.JSONDecodeError, KeyError):
+                for b in binders}
+    except (FileNotFoundError, json.JSONDecodeError, KeyError, TypeError):
         return {}
 
 
