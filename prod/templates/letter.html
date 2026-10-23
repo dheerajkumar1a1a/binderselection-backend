@@ -1,0 +1,18 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>{{ letter.title }} — {{ (v.case.reference if v and v.case else (case.reference if case else 'Letter')) }}</title>
+<style>:root{--ink:#1a2332;--mut:#5b6b7f;--line:#dfe6ee;--bg:#f5f8fb;--card:#fff}
+*{box-sizing:border-box}body{margin:0;font-family:Georgia,serif;background:var(--bg);color:var(--ink)}
+.sheet{background:var(--card);border:1px solid var(--line);border-radius:8px;max-width:760px;margin:30px auto;padding:34px 40px}
+h1{font-size:19px;margin:0 0 2px}.mut{color:var(--mut);font-size:12px;margin-bottom:22px}
+pre{white-space:pre-wrap;font:15px/1.55 Georgia,serif;margin:0}
+footer{color:var(--mut);font-size:12px;text-align:center;padding:16px;font-family:Segoe UI,Arial,sans-serif}
+</style></head>
+<body>
+<div class="sheet">
+<h1>{{ letter.title }}</h1>
+<p class="mut">Outcome letter · generated {{ letter.created_at }} · deterministically from the recorded decision</p>
+<pre>{{ letter.body }}</pre>
+</div>
+<footer>{% if staff %}<a href="/case/{{ case.case_id }}">← case</a> · <a href="/">workboard</a>{% else %}<a href="/portal/case/{{ v.case.case_id }}">← case</a> · <a href="/portal">portal</a>{% endif %}</footer>
+</body></html>

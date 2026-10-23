@@ -132,13 +132,51 @@ def decide_case(case_id: str, action: str, underwriter: str,
                            outcome=settlement.get("action", "none"),
                            detail={"settlement": settlement,
                                    "audit_id": out.get("audit_id")})
+        # refer_back opens `awaiting-broker` and auto-issues a Request round
+        # from the engine-named gaps (Q7/Q2) — the letter then carries the
+        # ask list (Q10). Bound decisions get their letter the same way.
+        letter_input = {"action": action, "selected_binder":
+                        decision.get("selected_binder"), "underwriter_id": underwriter}
+        letter, round_issued = None, False
+        if action == "refer_back":
+            if open_round(case_id) is None:
+                try:
+                    rnd = create_round(s, case, ev.payload, [], {}, underwriter)
+                    round_issued = True
+                    rnd_meta = {"number": rnd.number,
+                                "due": rnd.due_at.strftime("%Y-%m-%d")}
+                    items_pub = [{"question": it.question}
+                                 for it in s.query(store.RequestItem)
+                                 .filter(store.RequestItem.round_id == rnd.round_id,
+                                         store.RequestItem.suppressed.is_(False))
+                                 .order_by(store.RequestItem.item_id).all()]
+                    letter = build_letter(case, letter_input, ev.payload,
+                                          items_pub, rnd_meta)
+                    case.status = "awaiting-broker"
+                except ValueError:  # no engine-named gaps to ask
+                    letter = build_letter(case, letter_input, ev.payload, None, None)
+            else:
+                letter = build_letter(case, letter_input, ev.payload, None, None)
+        else:
+            letter = build_letter(case, letter_input, ev.payload, None, None)
+        d.detail["letter"] = letter
         s.add(d)
-        case.status = "decided"
         case.underwriter = underwriter
         case.decided_at = store.now()
+        # A refer_back with an open round leaves the case awaiting-broker
+        # (Q7); every other decision closes it as decided (bound = terminal).
+        case.status = "awaiting-broker" if (action == "refer_back" and round_issued) \
+            else "decided"
         s.commit()
+        # Broker notification: bound letters say what was placed; referred
+        # letters carry the ask list (Q10, Q13).
+        from . import mail
+        mail.send(mail.broker_recipient(case.broker_firm),
+                  f"{case.submission_reference} — outcome: {letter['title']}",
+                  letter["body"])
         return {"valid": True, "outcome_letters": _outcome_word(action),
-                "settlement": settlement, "audit_id": out.get("audit_id")}
+                "settlement": settlement, "audit_id": out.get("audit_id"),
+                "letter": letter}
 
 
 def _outcome_word(action: str) -> str:
@@ -160,12 +198,19 @@ def list_cases() -> list[dict]:
             if ev is not None:
                 latest = {"outcome": ev.outcome, "llm": ev.llm,
                           "recommendation": ev.recommendation}
+            rnd = (s.query(store.RequestRound)
+                   .filter(store.RequestRound.case_id == c.case_id,
+                           store.RequestRound.status == "open").first())
             out.append({"case_id": c.case_id,
                         "submission_reference": c.submission_reference,
                         "broker_firm": c.broker_firm, "underwriter": c.underwriter,
                         "status": c.status, "source": c.source,
                         "created_at": c.created_at.isoformat(sep=" ", timespec="minutes"),
-                        "sla": store.sla_state(c), "latest": latest})
+                        "sla": store.sla_state(c), "latest": latest,
+                        "round": ({"number": rnd.number,
+                                   "sla": store.round_sla_state(rnd),
+                                   "due": rnd.due_at.strftime("%Y-%m-%d")}
+                                  if rnd else None)})
         return out
 
 
@@ -284,3 +329,392 @@ def doc_view(case_id: str, doc_id: str) -> dict | None:
             "found": [m for m in marks if m["start"] is not None],
             "missing": [m for m in marks if m["start"] is None],
             "structured_facts": recs}
+
+
+# --- phase 3: Request rounds, letters, delta, portal -------------------------
+#
+# Settled decisions this section implements (phase-3 grill, ADR 0001):
+# - One active Request round per Case (Q2); issued from engine gaps only (Q4).
+# - Broker answers: typed portal text AND/OR documents, marked per item (Q3, Q15);
+#   typed answers enter the engine as a machine-readable answer sheet the broker
+#   portal produced — data from the broker, provenance-marked, never invented.
+# - Submission locks the round and runs the successor evaluation synchronously
+#   (Q14); the Case never forks (Q1), refer_back opens `awaiting-broker` (Q7).
+# - Letters: bound names the selected binder; referred letters carry the ask
+#   list; brokers never see other binders, scores, rules or lineage (Q10).
+# - Round SLA is 10 business days, visual breach signage only (Q11).
+# - Notifications: round issued -> broker; broker answered -> staff (Q13).
+# - Any underwriter may act on any case (Q12); no per-case assignment v1.
+
+DEFAULT_EVAL_LLM = os.environ.get("APP_DEFAULT_LLM", "") or None  # stub if unset
+
+
+def _staff_emails():  # thin alias for clarity at call sites
+    from . import mail
+    return mail.staff_recipients()
+
+
+def open_round(case_id: str):
+    with store.new_session() as s:
+        return (s.query(store.RequestRound)
+                .filter(store.RequestRound.case_id == case_id,
+                        store.RequestRound.status == "open").first())
+
+
+def rounds_for_case(case_id: str) -> list[dict]:
+    with store.new_session() as s:
+        rows = (s.query(store.RequestRound)
+                .filter(store.RequestRound.case_id == case_id)
+                .order_by(store.RequestRound.number.desc()).all())
+        ids = [r.round_id for r in rows]
+        items = (s.query(store.RequestItem)
+                 .filter(store.RequestItem.round_id.in_(ids or [0])).all()
+                 if ids else [])
+        by_round: dict[int, list] = {}
+        for it in sorted(items, key=lambda x: x.item_id):
+            by_round.setdefault(it.round_id, []).append(it)
+        out = []
+        for r in rows:
+            out.append({"round": r, "items": by_round.get(r.round_id, []),
+                        "sla": store.round_sla_state(r)})
+        return out
+
+
+def latest_gaps(case_id: str) -> list[dict]:
+    """Named engine gaps from the freshest evaluation (the only source of ask
+    items — the engine names them, humans never invent requests)."""
+    with store.new_session() as s:
+        ev = (s.query(store.Evaluation)
+              .filter(store.Evaluation.case_id == case_id)
+              .order_by(store.Evaluation.evaluation_id.desc()).first())
+    if ev is None or ev.payload.get("halt") == "parse":
+        return []
+    from . import gaps as gaps_mod
+    return gaps_mod.cannot_assess(ev.payload)
+
+
+def create_round(s, case, payload: dict, selected_fields: list[str],
+                 notes: dict[str, str], issued_by: str) -> store.RequestRound:
+    """Create the round + items on the given session (shared by the manual
+    issue route and the refer_back auto-issue; commit belongs to the caller)."""
+    from . import gaps as gaps_mod
+    all_gaps = gaps_mod.cannot_assess(payload or {})
+    chosen = [g for g in all_gaps if g["field"] in (selected_fields or
+                                                    [g["field"] for g in all_gaps])]
+    if not chosen:
+        raise ValueError("no engine-named gaps to issue (nothing to ask)")
+    number = (s.query(store.RequestRound)
+              .filter(store.RequestRound.case_id == case.case_id).count() + 1)
+    rnd = store.RequestRound(case_id=case.case_id, number=number, status="open",
+                             issued_at=store.now(),
+                             due_at=store._bd_deadline(store.now(), store.SLA_ROUND_DAYS),
+                             issued_by=issued_by,
+                             items=[{"field": g["field"], "question": g["question"],
+                                     "raised_by": g["raised_by"]} for g in chosen])
+    s.add(rnd)
+    s.flush()
+    selected = selected_fields if selected_fields else [g["field"] for g in chosen]
+    for g in chosen:
+        s.add(store.RequestItem(round_id=rnd.round_id, field=g["field"],
+                                question=g["question"], raised_by=g["raised_by"],
+                                suppressed=g["field"] not in selected,
+                                note=(notes or {}).get(g["field"], "")))
+    # autoflush=False: push the pending items now so same-session queries
+    # (e.g. the letter's ask-list snapshot) see them.
+    s.flush()
+    return rnd
+
+
+def issue_round(case_id: str, selected_fields: list[str], notes: dict[str, str],
+                issued_by: str) -> dict:
+    """The underwriter issues one round from engine-named gaps (Q4)."""
+    with store.new_session() as s:
+        case = s.get(store.Case, case_id)
+        if case is None:
+            raise LookupError("case not found")
+        if open_round(case_id) is not None:
+            raise ValueError("an active Request round already exists on this case")
+        ev = (s.query(store.Evaluation)
+              .filter(store.Evaluation.case_id == case_id)
+              .order_by(store.Evaluation.evaluation_id.desc()).first())
+        if ev is None:
+            raise ValueError("run an evaluation first")
+        rnd = create_round(s, case, ev.payload, selected_fields, notes, issued_by)
+        case.status = "awaiting-broker"
+        s.commit()
+        n, due = rnd.number, rnd.due_at
+        ref, firm = case.submission_reference, case.broker_firm
+        public = (len(selected_fields) if selected_fields
+                  else len(rnd.items or []))
+    # Round-issued notification to the broker (Q13) — after commit.
+    from . import mail
+    body = (f"Information request round {n} was issued on case {ref} ({firm}).\n"
+            f"Due: {due:%Y-%m-%d} (10 business days).\n\n")
+    for r in rounds_for_case(case_id):
+        if r["round"].round_id == rnd.round_id:
+            for it in r["items"]:
+                if not it.suppressed:
+                    body += f"- {it.question}\n"
+    mail.send(mail.broker_recipient(firm),
+              f"{ref} — information request round {n}", body)
+    return {"round_id": rnd.round_id, "number": n, "items_sent": public}
+
+
+def save_draft(case_id: str, round_id: int, answers: dict[int, tuple[str, str]]) -> dict:
+    """Broker draft edit (Q15): typed text + optional doc marking, until lock."""
+    with store.new_session() as s:
+        r = s.get(store.RequestRound, round_id)
+        if r is None or r.case_id != case_id or r.status != "open":
+            raise ValueError("round is not open for drafting")
+        for it in (s.query(store.RequestItem)
+                   .filter(store.RequestItem.round_id == round_id,
+                           store.RequestItem.suppressed.is_(False)).all()):
+            if it.item_id in answers:
+                text, doc_id = answers[it.item_id]
+                it.answer_text = text
+                it.answer_doc_id = doc_id or None
+        s.commit()
+    return {"saved": True}
+
+
+def _answer_sheet(case, rnd, items: list) -> dict:
+    """Build the broker's machine-readable answer sheet document.
+
+    It is a document like any other (provenance marks it source=portal round
+    N): a text sheet for humans and live extractors, plus a structured record
+    the keyless stub can read — its content is exactly the broker's typed
+    answers and doc markings, never the engine's inventions.
+    """
+    hint: dict = {}
+    lines = [f"Broker answer sheet — round {rnd.number} — case "
+             f"{case.submission_reference} — firm {case.broker_firm}"]
+    for it in items:
+        if it.suppressed:
+            continue
+        val = (it.answer_text or "").strip()
+        doc = it.answer_doc_id
+        if not val and not doc:
+            continue
+        if val and (it.field not in hint) and _flat(it.field):
+            from . import gaps as gaps_mod
+            hint[it.field] = gaps_mod.coerce(it.field, val)
+        shown = val if val else f"[answer provided in document: {doc}]"
+        lines.append(f"{it.field}: {shown}")
+    return {"doc_id": f"round-{rnd.number}-answers",
+            "filename": f"round-{rnd.number}-answers.txt",
+            "text": "\n".join(lines), "structured_hint": hint}
+
+
+def _flat(field: str) -> bool:
+    return "." not in (field or "")
+
+
+def attach_broker_docs(case_id: str, uploads: list[tuple[str, bytes]]) -> list[str]:
+    """Store documents a broker attached (draft or submit) under the case."""
+    doc_ids: list[str] = []
+    for filename, data in (uploads or []):
+        fname = os.path.basename(filename or "upload.bin")
+        doc_ids.extend(docstore.add_docs(
+            case_id, [{"doc_id": fname, "filename": fname,
+                       "content_bytes": data}]))
+    return doc_ids
+
+
+def submit_round(case_id: str, round_id: int,
+                 uploads: list[tuple[str, bytes]] | None = None) -> dict:
+    """Lock the round (Q15), file the broker's documents, run the successor
+    evaluation synchronously on the same Case (Q14, ADR 0001), notify staff."""
+    with store.new_session() as s:
+        r = s.get(store.RequestRound, round_id)
+        if r is None or r.case_id != case_id or r.status != "open":
+            raise ValueError("round is not open for submission")
+        case = s.get(store.Case, case_id)
+        items = (s.query(store.RequestItem)
+                 .filter(store.RequestItem.round_id == round_id)
+                 .order_by(store.RequestItem.item_id).all())
+        r.status = "locked"
+        r.submitted_at = store.now()
+        s.commit()
+
+    # Broker documents -> disk (append to the manifest; nothing overwritten).
+    doc_ids = attach_broker_docs(case_id, uploads)
+
+    # Answer sheet document joins the case's document set for the re-run.
+    with store.new_session() as s:
+        case = s.get(store.Case, case_id)
+        rnd = s.get(store.RequestRound, round_id)
+        items = (s.query(store.RequestItem)
+                 .filter(store.RequestItem.round_id == round_id)
+                 .order_by(store.RequestItem.item_id).all())
+        sheet = _answer_sheet(case, rnd, items)
+        docstore.add_docs(case_id, [sheet])
+        s.commit()
+
+    # Successor evaluation — synchronous (Q14). Append-only; the Case is
+    # unchanged institutionally (a new evaluation is chained, ADR 0001).
+    out = evaluate_case(case_id, llm=DEFAULT_EVAL_LLM)
+    with store.new_session() as s:
+        r = s.get(store.RequestRound, round_id)
+        r.answered_evaluation_id = out.get("evaluation_id")
+        s.commit()
+    # Staff notification (Q13).
+    from . import mail
+    mail.send(", ".join(_staff_emails()),
+              f"{case.submission_reference} — broker answered round {rnd.number}",
+              f"Round {rnd.number} on case {case.submission_reference} "
+              f"({case.broker_firm}) was submitted and re-evaluated: "
+              f"evaluation #{out.get('evaluation_id')} ({out.get('outcome')}).\n"
+              f"Answer sheet: {sheet['doc_id']}; broker documents: "
+              f"{', '.join(doc_ids) or 'none'}.\n"
+              f"Open the case to review and decide.")
+    out.update({"round_locked": True, "uploaded_doc_ids": doc_ids,
+                "answer_sheet": sheet["doc_id"]})
+    return out
+
+
+# --- letters (Q10) -----------------------------------------------------------
+
+LETTER_TERMS_FIELDS = ("total_insured_value", "coverage_type",
+                       "valuation_basis", "requested_inception_date")
+
+
+def build_letter(case, decision, payload: dict, round_items: list[dict] | None,
+                 round_meta: dict | None) -> dict:
+    """Deterministic letter text at decision time; stored on the Decision."""
+    action = decision.get("action")
+    binder = decision.get("selected_binder")
+    facts = payload.get("extracted") or {}
+    terms = "\n".join(f"- {f}: {facts.get(f)}" for f in LETTER_TERMS_FIELDS
+                      if facts.get(f) is not None)
+    if action in ("accept", "override"):
+        kind, title = "bound", f"Bound with {binder}"
+        body = (f"Dear {case.broker_firm},\n\n"
+                f"Case {case.submission_reference} is bound with {binder} "
+                f"by {decision.get('underwriter_id')}.\n")
+        if terms:
+            body += f"\nKey details on the record:\n{terms}\n"
+        body += ("\nThis letter is the engine view that crosses to you; "
+                 "placements, scores and internal rules are not shared.\n")
+    else:  # refer_back
+        kind, title = "referred", "Referred back for information"
+        body = (f"Dear {case.broker_firm},\n\n"
+                f"Case {case.submission_reference} could not be placed on the "
+                f"information provided.\n")
+        if round_items:
+            body += (f"Request round {round_meta.get('number')} was issued "
+                     f"(due {round_meta.get('due')} — 10 business days):\n\n")
+            for i, it in enumerate(round_items, 1):
+                body += f"{i}. {it['question']}\n"
+        else:
+            body += "No binder is eligible on the provided data; nothing was invented.\n"
+    return {"kind": kind, "title": title, "body": body,
+            "created_at": store.now().isoformat(sep=" ", timespec="seconds")}
+
+
+# --- delta view (Q9) ----------------------------------------------------------
+
+def delta_view(prev_payload: dict, curr_payload: dict) -> dict:
+    """What changed between two successive evaluations: facts, per-binder
+    outcomes, rule flips, recommendation. Unchanged things are not listed."""
+    fp, fc = prev_payload.get("extracted") or {}, curr_payload.get("extracted") or {}
+    mp, mc = prev_payload.get("extracted_meta") or {}, curr_payload.get("extracted_meta") or {}
+    facts = []
+    for f in sorted(set(fp) | set(fc)):
+        if fp.get(f) != fc.get(f):
+            facts.append({"field": f, "prev": fp.get(f), "curr": fc.get(f),
+                          "conf": (mc.get(f) or {}).get("confidence")})
+    bprev = {b.get("binder_id"): b for b in (prev_payload.get("binder_results") or [])}
+    bcurr = {b.get("binder_id"): b for b in (curr_payload.get("binder_results") or [])}
+    binders = []
+    for bid in sorted(set(bprev) | set(bcurr)):
+        po, co = (bprev.get(bid) or {}).get("outcome"), (bcurr.get(bid) or {}).get("outcome")
+        flips = []
+        rp = {o.get("rule_id"): o.get("outcome")
+              for o in (bprev.get(bid) or {}).get("rule_outcomes") or []}
+        rc = {o.get("rule_id"): o.get("outcome")
+              for o in (bcurr.get(bid) or {}).get("rule_outcomes") or []}
+        for rid in sorted(set(rp) | set(rc)):
+            if rp.get(rid) != rc.get(rid):
+                flips.append({"rule_id": rid, "prev": rp.get(rid), "curr": rc.get(rid)})
+        if po != co or flips:
+            binders.append({"binder_id": bid, "prev": po, "curr": co, "flips": flips})
+    prev_reco = prev_payload.get("recommendation")
+    curr_reco = curr_payload.get("recommendation")
+    sprev = (prev_payload.get("scores") or {}).get(prev_reco) if prev_reco else None
+    scurr = (curr_payload.get("scores") or {}).get(curr_reco) if curr_reco else None
+    return {"facts": facts, "binders": binders,
+            "reco": {"prev": prev_reco, "prev_score": sprev,
+                     "curr": curr_reco, "curr_score": scurr}}
+
+
+# --- portal reads -------------------------------------------------------------
+
+def check_breach_notices() -> int:
+    """Answer-SLA breaches get signage everywhere (Q11) and ONE staff email
+    per round (Q13) — the notice flag makes the email idempotent."""
+    from . import mail as mail_mod
+    with store.new_session() as s:
+        rows = (s.query(store.RequestRound)
+                .filter(store.RequestRound.status == "open",
+                        store.RequestRound.breach_notified_at.is_(None)).all())
+        n = 0
+        for r in rows:
+            if store.round_sla_state(r) != "breached":
+                continue
+            case = s.get(store.Case, r.case_id)
+            mail_mod.send(", ".join(_staff_emails()),
+                          f"{case.submission_reference} — round {r.number} breached",
+                          f"Request round {r.number} on case {case.submission_reference} "
+                          f"({case.broker_firm}) passed its 10-business-day clock and "
+                          f"the broker has not answered.\n"
+                          f"(Signage only — no auto-escalation in this release.)")
+            r.breach_notified_at = store.now()
+            n += 1
+        s.commit()
+    return n
+
+
+def portal_cases(user) -> list[dict]:
+    with store.new_session() as s:
+        cases = (s.query(store.Case)
+                 .filter(store.Case.broker_firm == (getattr(user, "broker_firm", "")))
+                 .order_by(store.Case.created_at.desc()).all())
+        out = []
+        for c in cases:
+            rnd = open_round(c.case_id)
+            out.append({"case_id": c.case_id, "reference": c.submission_reference,
+                        "status": c.status, "created": c.created_at,
+                        "open_round": (rnd.number if rnd else None),
+                        "open_round_due": (rnd.due_at if rnd else None)})
+        return out
+
+
+def portal_case(user, case_id: str):
+    """Broker view of one case: rounds (no suppressed items), letters, the
+    broker's own documents. Never evaluation lineage, scores or other binders."""
+    with store.new_session() as s:
+        c = s.get(store.Case, case_id)
+        if c is None or c.broker_firm != getattr(user, "broker_firm", ""):
+            return None
+        decs = (s.query(store.Decision)
+                .filter(store.Decision.case_id == case_id)
+                .order_by(store.Decision.decision_id.desc()).all())
+        letters = [{"decision_id": d.decision_id, "created": d.created_at,
+                    **((d.detail or {}).get("letter") or {})}
+                   for d in decs if ((d.detail or {}).get("letter"))]
+        rounds = []
+        for r in (s.query(store.RequestRound)
+                  .filter(store.RequestRound.case_id == case_id)
+                  .order_by(store.RequestRound.number.desc()).all()):
+            items = (s.query(store.RequestItem)
+                     .filter(store.RequestItem.round_id == r.round_id,
+                             store.RequestItem.suppressed.is_(False))
+                     .order_by(store.RequestItem.item_id).all())
+            rounds.append({"round": r, "items": items, "sla": store.round_sla_state(r)})
+        return {"case": {"case_id": c.case_id, "reference": c.submission_reference,
+                         "broker_firm": c.broker_firm, "status": c.status,
+                         "created_at": c.created_at},
+                "rounds": rounds, "letters": letters,
+                "documents": sorted(v["doc_id"] for v in
+                                    docstore.manifest_text(case_id).values())}
+

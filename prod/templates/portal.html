@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Portal — {{ user.display_name or user.username }}</title>
+<style>
+:root{--ink:#1a2332;--mut:#5b6b7f;--line:#dfe6ee;--bg:#f5f8fb;--warn:#9a6a00;--warnbg:#fff6dd;--bad:#b02a37;--card:#fff}
+*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:#0f2a44;color:#fff;padding:22px 24px}
+header h1{margin:0;font-size:20px}header p{margin:4px 0 0;color:#c9d6e4;font-size:13px}
+main{max-width:900px;margin:0 auto;padding:20px}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin:14px 0}
+table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+th,td{border:1px solid var(--line);padding:6px 8px;text-align:left}
+th{background:#eef3f8}.mut{color:var(--mut);font-size:12px}
+.chip{display:inline-block;border-radius:12px;padding:1px 9px;font-size:11px;border:1px solid}
+.s-open{color:var(--warn);border-color:var(--warn);background:var(--warnbg)}
+.s-breached{color:var(--bad);border-color:var(--bad);background:#fbeaec}
+footer{color:var(--mut);font-size:12px;text-align:center;padding:16px}
+</style></head>
+<body>
+<header><h1>Broker portal</h1>
+<p>{{ user.display_name or user.username }} · role broker — you see your own cases only: ask-lists, your documents and outcome letters. Scores, internal rules and placement comparisons are never shown.</p></header>
+<main>
+<section><h2 style="margin-top:0">Your cases</h2>
+{% if not cases %}<p class="mut">No cases for your firm yet.</p>{% else %}
+<table><tr><th>Reference</th><th>Status</th><th>Open request</th><th></th></tr>
+{% for c in cases %}<tr>
+<td><b>{{ c.reference }}</b></td>
+<td>{{ c.status }}</td>
+<td>{% if c.open_round %}<span class="chip s-open">round {{ c.open_round }} · due {{ c.open_round_due.strftime('%Y-%m-%d') }}</span>{% else %}<span class="mut">—</span>{% endif %}</td>
+<td><a href="/portal/case/{{ c.case_id }}">open →</a></td>
+</tr>{% endfor %}</table>{% endif %}
+</section>
+</main>
+<footer><a href="/logout">sign out</a></footer>
+</body></html>

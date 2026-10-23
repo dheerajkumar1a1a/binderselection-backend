@@ -69,3 +69,35 @@ def manifest_text(case_id: str) -> dict[str, dict]:
             return {d["doc_id"]: d for d in json.load(f)["documents"]}
     except (FileNotFoundError, json.JSONDecodeError):
         return {}
+
+
+def add_docs(case_id: str, docs: list[dict]) -> list[str]:
+    """Append later documents (broker answers/round uploads, phase 3) to the
+    manifest without touching the original entries. Returns new doc_ids;
+    a colliding doc_id gets a -2, -3... suffix so bytes never overwrite."""
+    d = case_dir(case_id)
+    os.makedirs(os.path.join(d, "docs"), exist_ok=True)
+    with open(os.path.join(d, "manifest.json"), encoding="utf-8") as f:
+        man = json.load(f)
+    existing = {e["doc_id"] for e in man["documents"]}
+    out = []
+    for doc in docs:
+        doc_id = doc.get("doc_id") or "doc"
+        base, n = doc_id, 1
+        while doc_id in existing:
+            n += 1
+            doc_id = f"{base}-{n}"
+        entry = {k: v for k, v in doc.items() if k != "content_bytes"}
+        entry["doc_id"] = doc_id
+        data = doc.get("content_bytes")
+        if data:
+            name = f"{_safe_doc_id(doc_id)}__{doc.get('filename') or 'file'}"
+            with open(os.path.join(d, "docs", name), "wb") as f:
+                f.write(data)
+            entry["stored_file"] = name
+        man["documents"].append(entry)
+        existing.add(doc_id)
+        out.append(doc_id)
+    with open(os.path.join(d, "manifest.json"), "w", encoding="utf-8") as f:
+        json.dump(man, f, indent=2)
+    return out

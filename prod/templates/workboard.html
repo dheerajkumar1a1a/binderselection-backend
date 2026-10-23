@@ -23,6 +23,7 @@ button{background:#0f2a44;color:#fff;border:0;border-radius:6px;padding:9px 15px
 .chip{display:inline-block;border-radius:12px;padding:1px 9px;font-size:11px;border:1px solid}
 .s-new{color:var(--mut);border-color:#999;background:#eee}
 .s-assessed{color:var(--ok);border-color:var(--ok);background:#e9f6ee}
+.s-awaiting-broker{color:var(--warn);border-color:var(--warn);background:#fff6dd}
 .s-decided{color:#555;border-color:#999;background:#eef}
 .sla-due{color:var(--warn);border-color:var(--warn);background:#fff6dd}
 .sla-breached{color:var(--bad);border-color:var(--bad);background:#fbeaec}
@@ -33,13 +34,13 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:16px}
 </style></head>
 <body>
 <header><h1>Binder Selection Agent — Workboard</h1>
-<p>Production phase 1 · persistent cases · local-first · a named underwriter always decides — the system never binds (it reserves; expiry windows come with the live capacity desk).</p></header>
+<p>Production phase 3 · persistent cases · Request rounds and the broker portal · deterministic engine · signed in as <b>{{ user.display_name or user.username }}</b> ({{ user.role }}){% if user.role == 'admin' %} · <a style="color:#c9d6e4" href="/admin/users">accounts</a>{% endif %} · <a style="color:#c9d6e4" href="/logout">sign out</a></p></header>
 <main>
 <section><h2>New case</h2>
 <form method="post" action="/case/new">
 <div class="grid3">
-<div><label>Broker firm (prov. — local accounts phase 3)</label><input type="text" name="broker_firm" placeholder="e.g. Acme Marine Ltd"></div>
-<div><label>Assessor (underwriter)</label><input type="text" name="underwriter" value="demo-underwriter"></div>
+<div><label>Broker firm (must equal a broker account's firm for portal access)</label><input type="text" name="broker_firm" placeholder="e.g. Harbourline Logistics"></div>
+<div><label>Assessor (underwriter)</label><input type="text" name="underwriter" value="{{ user.display_name or user.username }}"></div>
 <div><label>Source</label><select name="sample_case_id">{% for sid, label in samples %}<option value="{{ sid }}">{{ label }}</option>{% endfor %}<option value="">(upload files — paste JSON below)</option></select></div>
 </div>
 <label>Or upload documents (optional JSON: [{"filename": "...", "content_b64": "..."}] — base64 of file bytes)</label>
@@ -50,13 +51,14 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:16px}
 
 <section><h2>Workboard — {{ cases|length }} case{{ 's' if cases|length != 1 }}</h2>
 {% if not cases %}<p class="mut">No cases yet. Open one above.</p>{% else %}
-<table><tr><th>Case</th><th>Broker</th><th>Status</th><th>Latest outcome</th><th>Assessor</th><th>Created</th><th>Assessment SLA</th><th></th></tr>
+<table><tr><th>Case</th><th>Broker</th><th>Status</th><th>Latest outcome</th><th>Open round</th><th>Assessor</th><th>Created</th><th>Assessment SLA</th><th></th></tr>
 {% for c in cases %}
 <tr>
 <td><b>{{ c.case_id }}</b><br><span class="mut">{{ c.submission_reference }} · {{ c.source }}</span></td>
 <td>{{ c.broker_firm or '—' }}</td>
 <td><span class="chip s-{{ c.status }}">{{ c.status }}</span></td>
 <td>{% if c.latest %}{% if c.latest.outcome == 'no-eligible' %}<span class="chip o-bad">no eligible</span>{% elif c.latest.outcome == 'halt' %}<span class="chip o-bad">halt</span>{% else %}<span class="chip o-acc">{{ c.latest.outcome }}</span>{% endif %}{% else %}<span class="mut">not run</span>{% endif %}</td>
+<td>{% if c.round %}{% if c.round.sla == 'breached' %}<span class="chip sla-breached">round {{ c.round.number }} breached</span>{% else %}<span class="chip sla-due">round {{ c.round.number }} · due {{ c.round.due }}</span>{% endif %}{% else %}<span class="mut">—</span>{% endif %}</td>
 <td>{{ c.underwriter or '—' }}</td>
 <td>{{ c.created_at }}</td>
 <td>{% if c.sla == 'due' %}<span class="chip sla-due">due</span>{% elif c.sla == 'breached' %}<span class="chip sla-breached">breached</span>{% else %}<span class="mut">n/a</span>{% endif %}</td>
@@ -66,5 +68,5 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:16px}
 {% endif %}
 </section>
 </main>
-<footer>Binder Selection Agent · production phase 1 (workboard + persistent cases) · deterministic engine · engine JSON vocabulary: Pass / Decline / Cannot assess</footer>
+<footer>Binder Selection Agent · production phase 3 (Request rounds + broker portal) · deterministic engine · engine JSON vocabulary: Pass / Decline / Cannot assess</footer>
 </body></html>

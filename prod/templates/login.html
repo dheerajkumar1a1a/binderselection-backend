@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Sign in — Binder Selection Agent</title>
+<style>
+:root{--ink:#1a2332;--mut:#5b6b7f;--line:#dfe6ee;--bg:#f5f8fb;--card:#fff}
+*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink);display:flex;align-items:center;justify-content:center;min-height:100vh}
+.card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:28px;width:340px}
+h1{font-size:18px;margin:0 0 4px}.mut{color:var(--mut);font-size:12px;margin-bottom:14px}
+label{font-size:12px;color:var(--mut);display:block;margin:10px 0 4px}
+input{width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;font-size:14px}
+button{background:#0f2a44;color:#fff;border:0;border-radius:6px;padding:9px 15px;font-size:14px;cursor:pointer;margin-top:14px;width:100%}
+.err{color:#b02a37;font-size:13px;background:#fbeaec;border:1px solid #b02a37;border-radius:6px;padding:8px;margin-bottom:10px}
+.note{font-size:11px;color:var(--mut);margin-top:14px;border-top:1px solid var(--line);padding-top:8px}
+</style></head>
+<body><div class="card">
+<h1>Binder Selection Agent</h1>
+<p class="mut">Local-first production — sign in (roles: admin / underwriter / broker)</p>
+{% if error %}<div class="err">{{ error }}</div>{% endif %}
+<form method="post" action="/login">
+<label>Username</label><input name="username" required autofocus>
+<label>Password</label><input name="password" type="password" required>
+<button>Sign in</button>
+</form>
+<p class="note">Accounts are provisioned by the admin (/admin/users). First-run seeds:
+<b>admin</b>, <b>uw</b>, <b>broker</b> with <i>change-me-…</i> passwords — change them before anything leaves this machine.</p>
+</div></body></html>

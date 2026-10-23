@@ -20,10 +20,14 @@ label{font-size:12px;color:var(--mut);display:block;margin:8px 0 4px}
 input,select{padding:7px;border:1px solid var(--line);border-radius:6px;font-size:14px}
 button{background:#0f2a44;color:#fff;border:0;border-radius:6px;padding:9px 15px;font-size:14px;cursor:pointer;margin-top:10px}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}@media(max-width:800px){.grid2{grid-template-columns:1fr}}
+.card{border:1px solid var(--line);border-radius:8px;padding:10px 12px;margin:8px 0}
+.mut-chip{color:var(--mut);border-color:#999;background:#eee}
+.note-in{width:55%;margin-left:10px}
 .chip{display:inline-block;border-radius:12px;padding:1px 9px;font-size:11px;border:1px solid}
 .pass{color:var(--ok);border-color:var(--ok);background:#e9f6ee}
 .dec{color:var(--bad);border-color:var(--bad);background:#fbeaec}
 .ref{color:var(--warn);border-color:var(--warn);background:#fff6dd}
+.breach{color:var(--bad);border-color:var(--bad);background:#fbeaec}
 .verdict{border:1px solid var(--line);border-left:6px solid var(--ok);border-radius:8px;padding:12px 16px;background:#e9f6ee;margin:10px 0}
 .verdict b{font-size:18px}
 .badV{border-left-color:var(--bad);background:#fbeaec}
@@ -86,7 +90,8 @@ a{color:#0f2a44}
 <section><h2 style="margin-top:0">Underwriter decision — the human decides</h2>
 <form method="post" action="/case/{{ case.case_id }}/decide">
 <div class="grid2"><div>
-<label>Underwriter (recorded — audit for 7 years)</label><input type="text" name="underwriter" value="{{ case.underwriter or '' }}" required>
+<label>Underwriter (recorded from your sign-in — audit for 7 years)</label>
+<input type="text" name="underwriter" value="{{ user.display_name or user.username }}" required>
 <label>Action</label><select name="action">
 <option value="accept" {% if reco and not reco.startswith('no eligible') and not halt %}selected="selected"{% endif %}>Accept recommendation</option>
 <option value="override">Override — place with a different binder</option>
@@ -97,19 +102,70 @@ a{color:#0f2a44}
 <label>Reason code (override only, kept on the record)</label><select name="reason_code"><option value="">—</option><option>PRIOR_RELATIONSHIP</option><option>CAPACITY_PREFERENCE</option><option>TERMS_NEGOTIATED</option><option>BROKER_REQUEST</option><option>OTHER</option></select>
 </div></div>
 <button>Record decision</button>
-<p class="mut">Accept/override reserves capacity before the letter goes out. Refer back closes this round — a fresh submission opens a successor case in a later phase.</p>
+<p class="mut">Accept/override reserves capacity before the letter goes out and notifies the broker. Refer back opens <b>awaiting-broker</b> and issues a Request round from the engine-named gaps automatically (the letter carries the ask list). Bound is terminal for this release — corrections still travel through successor evaluations, never by rewriting history.</p>
 </form>
 {% if decisions %}
 <h2>Decision history</h2>
-<table><tr><th>When (UTC)</th><th>By</th><th>Action → binder</th><th>Reservation</th><th>Audit id</th></tr>
-{% for d in decisions %}<tr><td>{{ d.created_at }}</td><td>{{ d.underwriter }}</td><td>{{ d.action }} → {{ d.selected_binder or '—' }}{% if d.reason_code %} <span class="chip ref">{{ d.reason_code }}</span>{% endif %}</td><td>{{ d.outcome }}</td><td>{{ (d.detail or {}).get('audit_id') or '—' }}</td></tr>{% endfor %}</table>
+<table><tr><th>When (UTC)</th><th>By</th><th>Action → binder</th><th>Reservation</th><th>Letter</th><th>Audit id</th></tr>
+{% for d in decisions %}<tr><td>{{ d.created_at }}</td><td>{{ d.underwriter }}</td><td>{{ d.action }} → {{ d.selected_binder or '—' }}{% if d.reason_code %} <span class="chip ref">{{ d.reason_code }}</span>{% endif %}</td><td>{{ d.outcome }}</td><td>{% if (d.detail or {}).get('letter') %}<a href="/case/{{ case.case_id }}/letter/{{ d.decision_id }}">{{ (d.detail)['letter'].title }}</a>{% else %}—{% endif %}</td><td>{{ (d.detail or {}).get('audit_id') or '—' }}</td></tr>{% endfor %}</table>
 {% endif %}
 </section>
 
-<section><h2 style="margin-top:0">Evaluation lineage (append-only — successors)</h2>
-{% if evals | length <= 1 %}<p class="mut">Single evaluation so far. Every re-submission chains a new evaluation here; nothing is ever overwritten.</p>{% else %}
+<section><h2 style="margin-top:0">Evaluation lineage (append-only — a Case never forks)</h2>
+{% if evals | length <= 1 %}<p class="mut">Single evaluation so far. Every re-submission (broker answers, corrections) chains a new evaluation here; nothing is ever overwritten.</p>{% else %}
 <table><tr><th>#</th><th>Run (UTC)</th><th>Extractor</th><th>Model</th><th>Outcome</th></tr>
 {% for ev in evals %}<tr><td>{{ ev.evaluation_id }}</td><td>{{ ev.created_at }}</td><td>{{ ev.llm or 'stub' }}</td><td>{{ ev.model or '—' }}</td><td>{{ ev.outcome }}</td></tr>{% endfor %}</table>
+{% if delta %}
+<h2>Delta — evaluation #{{ evals[1].evaluation_id }} → #{{ evals[0].evaluation_id }} (what the new information changed)</h2>
+<p class="mut">Only changes are listed. What did not move stays off the page.</p>
+<h2 style="font-size:13px;color:var(--mut);margin-top:12px">Facts</h2>
+{% if delta.facts %}
+<table><tr><th>Fact</th><th>Before</th><th>After</th><th>Confidence</th></tr>
+{% for f in delta.facts %}<tr><td>{{ f.field }}</td><td>{{ f.prev }}</td><td>{{ f.curr }}</td><td>{{ f.conf if f.conf is not none else '—' }}</td></tr>{% endfor %}</table>
+{% else %}<p class="mut">No extracted facts changed.</p>{% endif %}
+<h2 style="font-size:13px;color:var(--mut);margin-top:12px">Per-binder outcomes</h2>
+{% if delta.binders %}
+{% for b in delta.binders %}
+<div class="card">
+<b>{{ b.binder_id }}</b>: {{ b.prev or '—' }} → {{ b.curr or '—' }}
+{% if b.flips %}<table><tr><th>Rule</th><th>Before</th><th>After</th></tr>
+{% for f in b.flips %}<tr><td>{{ f.rule_id }}</td><td>{{ f.prev or '—' }}</td><td>{{ f.curr or '—' }}</td></tr>{% endfor %}</table>{% endif %}
+</div>
+{% endfor %}
+{% else %}<p class="mut">No binder outcome changed.</p>{% endif %}
+<h2 style="font-size:13px;color:var(--mut);margin-top:12px">Recommendation</h2>
+<p>{{ delta.reco.prev or '—' }}{% if delta.reco.prev_score is not none %} (score {{ delta.reco.prev_score }}){% endif %} → <b>{{ delta.reco.curr or '—' }}</b>{% if delta.reco.curr_score is not none %} (score {{ delta.reco.curr_score }}){% endif %}</p>
+{% endif %}
+{% endif %}
+</section>
+
+<section><h2 style="margin-top:0">Request rounds (one active round per case — the broker answers and the 10-business-day clock runs)</h2>
+{% if not rounds %}<p class="mut">No rounds issued yet.</p>{% endif %}
+{% for r in rounds %}
+<div class="card"><b>Round {{ r['round'].number }}</b> · status {{ r['round'].status }} · issued {{ r['round'].issued_at }} by {{ r['round'].issued_by or '—' }}
+{% if r['round'].status == 'open' %}{% if r['sla'] == 'breached' %}<span class="chip breach">SLA breached</span>{% else %}<span class="chip ref">due {{ r['round'].due_at.strftime('%Y-%m-%d') }}</span>{% endif %}{% else %}<span class="chip pass">submitted {{ r['round'].submitted_at }}</span>{% endif %}
+<table><tr><th>Field</th><th>Asked as</th><th>From (engine gap)</th><th>Answer draft</th><th>Doc marked</th></tr>
+{% for it in r['items'] %}
+<tr><td>{{ it.field }}{% if it.suppressed %} <span class="chip mut-chip">suppressed</span>{% endif %}</td>
+<td><b>{{ it.question }}</b>{% if it.note %}<br><span class="mut">Note (human): {{ it.note }}</span>{% endif %}</td>
+<td>{% for rb in it.raised_by %}{{ rb[0] }} · {{ rb[1] }}<br>{% endfor %}</td>
+<td>{{ it.answer_text or '—' }}</td>
+<td>{{ it.answer_doc_id or '—' }}</td></tr>
+{% endfor %}</table></div>
+{% endfor %}
+{% if gaps %}
+<h2>Issue the next Request round (from the engine's named gaps — items you untick stay on record as suppressed, never asked)</h2>
+<form method="post" action="/case/{{ case.case_id }}/round/issue">
+{% for g in gaps %}
+<div style="margin:6px 0"><label style="display:inline"><input type="checkbox" name="field_{{ loop.index0 }}" value="{{ g.field }}" checked> <b>{{ g.field }}</b></label>
+<input type="text" class="note-in" name="note_{{ loop.index0 }}" placeholder="optional human note (shown to the broker as underwriter text)">
+<p class="mut" style="margin:2px 0 6px">{{ g.question }}</p></div>
+{% endfor %}
+<button>Issue round to broker</button>
+</form>
+<p class="mut">Issuing notifies the broker by email (SMTP if configured, otherwise the outbox in data/outbox/). One round stays active at a time; a new one may issue after the current is answered and gaps remain.</p>
+{% elif not has_open %}
+<p class="mut">No unassessable gaps in the latest evaluation{%- if latest %} (evaluation #{{ latest.evaluation_id }}){% endif %} — nothing to ask.</p>
 {% endif %}
 </section>
 
@@ -118,5 +174,5 @@ a{color:#0f2a44}
 {% endif %}
 
 </main>
-<footer>Binder Selection Agent · production · append-only evaluations &amp; decisions · SQLite (swap to Postgres via DATABASE_URL) · engine vocabulary: Pass / Decline / Cannot assess — shown here as Pass / Decline / Needs information</footer>
+<footer>Binder Selection Agent · production phase 3 (Request rounds + broker portal + letters + delta) · append-only evaluations &amp; decisions · SQLite (swap to Postgres via DATABASE_URL) · engine vocabulary: Pass / Decline / Cannot assess — shown here as Pass / Decline / Needs information</footer>
 </body></html>

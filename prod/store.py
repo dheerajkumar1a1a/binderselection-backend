@@ -13,7 +13,7 @@ Doctrine honoured here:
 import os
 from datetime import datetime, timezone
 
-from sqlalchemy import (JSON, Column, DateTime, Float, Integer, String,
+from sqlalchemy import (JSON, Boolean, Column, DateTime, Float, Integer, String,
                         Text, create_engine)
 from sqlalchemy.orm import Session, declarative_base, sessionmaker
 
@@ -90,16 +90,78 @@ def new_session() -> Session:
 
 
 SLA_ASSESSMENT_DAYS = 3  # business days (Q16a)
+SLA_ROUND_DAYS = 10      # business days for a broker Request round (phase 3)
 
 
 def sla_state(case: Case) -> str:
     """Assessment SLA: 3 business days from creation. due|breached|n/a."""
     if case.status not in ("new",):
         return "n/a"
-    d = case.created_at
-    days, cur = 0, d
-    while days < SLA_ASSESSMENT_DAYS:
+    return ("breached" if now() > _bd_deadline(case.created_at, SLA_ASSESSMENT_DAYS)
+            else "due")
+
+
+def _bd_deadline(start: datetime, days: int) -> datetime:
+    """Deadline `days` business days after start (Mon-Fri)."""
+    cur, left = start, days
+    while left > 0:
         cur = cur + __import__("datetime").timedelta(days=1)
-        if cur.weekday() < 5:  # Mon-Fri
-            days += 1
-    return "breached" if datetime.now(timezone.utc).replace(tzinfo=None) > cur else "due"
+        if cur.weekday() < 5:
+            left -= 1
+    return cur
+
+
+def round_sla_state(round_: "RequestRound") -> str:
+    """Answer SLA for a Request round: n/a | due | breached (visual only)."""
+    if round_.status != "open" or round_.due_at is None:
+        return "n/a"
+    return "breached" if now() > round_.due_at else "due"
+
+
+class User(Base):
+    """One identity model for every role (Q5, phase 3): admin / underwriter /
+    broker. Phase 4's maker-checker reuses the same table — a design choice
+    made now so nobody re-plumbs identity later."""
+    __tablename__ = "users"
+    username = Column(String(64), primary_key=True)
+    password_hash = Column(String(256), nullable=False)
+    role = Column(String(16), nullable=False)  # admin | underwriter | broker
+    display_name = Column(String(120), default="")
+    email = Column(String(160), default="")    # notifications (Q13)
+    broker_firm = Column(String(120), default="")  # broker accounts only
+    created_at = Column(DateTime, nullable=False)
+
+
+class RequestRound(Base):
+    """A named batch of information requests issued to the broker at once;
+    one active round per Case (ADR 0001). Append-only once issued; the
+    broker's draft answers are editable until submission locks the round."""
+    __tablename__ = "request_rounds"
+    round_id = Column(Integer, primary_key=True, autoincrement=True)
+    case_id = Column(String(64), nullable=False, index=True)
+    number = Column(Integer, nullable=False)   # 1-based, per Case
+    status = Column(String(16), nullable=False, default="open")  # open|locked
+    issued_at = Column(DateTime, nullable=False)
+    due_at = Column(DateTime, nullable=True)   # SLA_ROUND_DAYS business days
+    issued_by = Column(String(120), default="")
+    submitted_at = Column(DateTime, nullable=True)
+    answered_evaluation_id = Column(Integer, nullable=True)  # successor run
+    breach_notified_at = Column(DateTime, nullable=True)  # email sent once
+    items = Column(JSON, nullable=False, default=list)  # frozen issued snapshot
+
+
+class RequestItem(Base):
+    """One named information request: traces to the rule(s) that could not
+    assess and the missing field. Engine derives it; the underwriter may
+    suppress it or attach a human note (Q4) — never a free-standing ask."""
+    __tablename__ = "request_items"
+    item_id = Column(Integer, primary_key=True, autoincrement=True)
+    round_id = Column(Integer, nullable=False, index=True)
+    field = Column(String(160), nullable=False)   # e.g. 'largest_single_claim_amount'
+    question = Column(Text, nullable=False)       # deterministic phrasing
+    raised_by = Column(JSON, nullable=False, default=list)  # [[binder_id, rule_id]]
+    suppressed = Column(Boolean, default=False)
+    note = Column(Text, default="")               # underwriter note (marked human)
+    # Broker draft (editable until the round locks):
+    answer_text = Column(Text, default="")
+    answer_doc_id = Column(String(160), nullable=True)  # doc marked as answering

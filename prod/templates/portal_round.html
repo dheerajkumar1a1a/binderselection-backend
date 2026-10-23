@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="en">
+<head><meta charset="utf-8"><title>Round {{ r['round'].number }} — Broker portal</title>
+<style>:root{--ink:#1a2332;--mut:#5b6b7f;--line:#dfe6ee;--bg:#f5f8fb;--card:#fff}
+*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+header{background:#0f2a44;color:#fff;padding:22px 24px}
+header h1{margin:0;font-size:20px}header p{margin:4px 0 0;color:#c9d6e4;font-size:13px}
+main{max-width:900px;margin:0 auto;padding:20px}
+section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin:14px 0}
+h2{margin:0 0 10px;font-size:16px}.mut{color:var(--mut);font-size:13px}
+label{font-size:12px;color:var(--mut);display:block;margin:10px 0 4px}
+textarea,input,select{width:100%;padding:7px;border:1px solid var(--line);border-radius:6px;font-size:14px;box-sizing:border-box}
+button{background:#0f2a44;color:#fff;border:0;border-radius:6px;padding:9px 15px;font-size:14px;cursor:pointer;margin-top:10px}
+.chip{display:inline-block;border-radius:12px;padding:1px 9px;font-size:11px;border:1px solid;color:var(--warn);border-color:var(--warn);background:var(--warnbg)}
+footer{color:var(--mut);font-size:12px;text-align:center;padding:16px}
+.item{border:1px solid var(--line);border-radius:8px;padding:12px;margin:10px 0}
+</style></head>
+<body>
+<header><h1>Answer round {{ r['round'].number }} — {{ v.case.reference }}</h1>
+<p>due {{ r['round'].due_at.strftime('%Y-%m-%d') }} (10 business days) · <a style="color:#c9d6e4" href="/portal/case/{{ v.case.case_id }}">← case</a></p></header>
+<main>
+{% if report %}<section><p>{{ report }}</p></section>{% endif %}
+<section>
+<form method="post" action="/portal/case/{{ v.case.case_id }}/round/{{ r['round'].round_id }}/submit" enctype="multipart/form-data">
+{% for it in r['items'] %}
+<div class="item">
+<label style="font-size:13px;color:var(--ink)"><b>{{ loop.index }}. {{ it.question }}</b></label>
+{% if it.note %}<p class="mut">Note from the underwriter: {{ it.note }}</p>{% endif %}
+<label>Your typed answer</label>
+<textarea name="answer_{{ it.item_id }}" rows="2" placeholder="e.g. largest_single_claim_amount: 250000">{{ it.answer_text }}</textarea>
+<label>Or mark a document as answering this (attach below, save draft, pick it here)</label>
+<select name="doc_{{ it.item_id }}"><option value="">—</option>
+{% for d in v.documents %}{% if not d.endswith('-answers') %}<option value="{{ d }}" {% if it.answer_doc_id == d %}selected{% endif %}>{{ d }}</option>{% endif %}{% endfor %}
+</select>
+</div>
+{% endfor %}
+<label>Attach documents (stored under the case on saving the draft)</label>
+<input type="file" name="files" multiple>
+<button>Save and submit round</button>
+<p class="mut">Submitting locks the round — the draft can no longer be edited and the engine re-evaluates immediately. Any items left unanswered stay missing and may trigger a new request round.</p>
+</form>
+</section>
+<form method="post" action="/portal/case/{{ v.case.case_id }}/round/{{ r['round'].round_id }}/draft" enctype="multipart/form-data">
+{% for it in r['items'] %}<input type="hidden" name="answer_{{ it.item_id }}" value="{{ it.answer_text }}"><input type="hidden" name="doc_{{ it.item_id }}" value="{{ it.answer_doc_id or '' }}">{% endfor %}
+<button style="background:#5b6b7f">Save draft only</button>
+</form>
+</main>
+<footer><a href="/logout">sign out</a></footer>
+</body></html>
