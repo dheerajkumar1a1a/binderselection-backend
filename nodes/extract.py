@@ -54,6 +54,9 @@ def stub_extract(documents: list[dict]) -> tuple[dict, dict]:
         if len(distinct) > 1:
             meta[field]["contested"] = True
             meta[field]["conflict"] = sightings
+        # Multi-document provenance: every doc that contributed this field.
+        meta[field]["sources"] = [{"source_document_id": s["source_document_id"],
+                                   "value": s["value"]} for s in sightings]
     # Ensure mandatory fields are present or marked absent.
     for field in ("total_insured_value", "broker_name", "locations", "commodities"):
         if field not in extracted:

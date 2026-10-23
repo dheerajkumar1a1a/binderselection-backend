@@ -11,7 +11,7 @@
 {% block content %}
 <section class="card">
   <h2>New case</h2>
-  <form method="post" action="/case/new" enctype="multipart/form-data">
+  <form method="post" action="/case/new" enctype="multipart/form-data" x-data="{fileNames:[]}">
     <div class="grid3">
       <div><label class="label">Broker firm (must equal a broker account's firm for portal access)</label>
         <input type="text" name="broker_firm" placeholder="e.g. Harbourline Logistics"></div>
@@ -24,7 +24,8 @@
         </select></div>
     </div>
     <label class="label">Upload documents (multiple files)</label>
-    <input type="file" name="files" multiple>
+    <input type="file" name="files" multiple x-ref="fileInput" @change="fileNames = Array.from($refs.fileInput.files).map(f=>f.name)">
+    <div class="mut" x-show="fileNames.length" x-text="'Selected: ' + fileNames.join(', ')"></div>
     <label class="label">Or paste documents as JSON (advanced)</label>
     <input type="text" name="documents_json" placeholder='[{"filename":"submission.pdf","content_b64":"JVBER..."}]'>
     <button type="submit" hx-indicator="#newcase-spin">

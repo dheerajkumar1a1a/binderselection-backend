@@ -46,10 +46,10 @@ details{margin:8px 0}summary{cursor:pointer;font-size:13px;color:var(--mut)}
 
 <section class="card">
   <h2 style="margin-top:0">Extracted facts (provenance on every fact — click the source to open it)</h2>
-  <table><tr><th>Fact</th><th>Value</th><th>Confidence</th><th>Source document</th><th>Locator</th></tr>
+  <table><tr><th>Fact</th><th>Value</th><th>Confidence</th><th>Source documents</th><th>Locator</th></tr>
   {% for f, v in extracted.items() %}{% set m = (payload.get('extracted_meta') or {}).get(f) or {} %}
   <tr><td>{{ f }}</td><td>{{ v }}</td><td>{{ m.get('confidence', '—') }}</td>
-  <td>{% if m.get('source_document_id') %}<a href="/case/{{ case.case_id }}/doc/{{ m.get('source_document_id') }}">{{ m.get('source_document_id') }}</a>{% else %}<span class="mut">—</span>{% endif %}{% if m.get('contested') %} <span class="chip warn">contested</span>{% endif %}</td>
+  <td>{% for s in (m.get('sources') or []) %}{% if s.get('source_document_id') %}<a href="/case/{{ case.case_id }}/doc/{{ s.get('source_document_id') }}">{{ s.get('source_document_id') }}</a>{% if not loop.last %}, {% endif %}{% endif %}{% else %}<span class="mut">—</span>{% endfor %}{% if m.get('contested') %} <span class="chip warn">contested</span>{% endif %}</td>
   <td>{% if m.get('source_locator') and m.get('source_locator') != 'structured_hint' %}“{{ m.get('source_locator') }}”{% else %}{{ m.get('source_locator', '—') }}{% endif %}</td></tr>
   {% endfor %}</table>
   {% if not extracted %}<p class="mut">No facts extracted.</p>{% endif %}

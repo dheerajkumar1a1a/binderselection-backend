@@ -274,7 +274,21 @@ def _hl(s: str) -> str:
     return _html.escape(s)
 
 
-def doc_view(case_id: str, doc_id: str) -> dict | None:
+def all_doc_views(case_id: str) -> list[dict]:
+    """Every document viewer for a case (multi-doc provenance, v1.15+)."""
+    detail = case_detail(case_id)
+    if detail is None:
+        return []
+    payload = detail["evaluations"][0].payload if detail["evaluations"] else {}
+    ids = [d.get("doc_id") for d in (payload.get("documents") or []) if d.get("doc_id")]
+    if not ids:
+        ids = list(docstore.manifest_text(case_id).keys())
+    out = []
+    for did in ids:
+        v = doc_view(case_id, did)
+        if v is not None:
+            out.append(v)
+    return out
     """One document + every fact the latest evaluation took from it.
 
     Highlights are computed over stored text (display only, never stored):
@@ -740,3 +754,98 @@ def portal_case(user, case_id: str):
                 "documents": sorted(v["doc_id"] for v in
                                     docstore.manifest_text(case_id).values())}
 
+
+def doc_view(case_id: str, doc_id: str) -> dict | None:
+    """One document + every fact the latest evaluation took from it.
+
+    Multi-source aware: a fact is shown if this doc is its source_document_id
+    OR appears in its `sources` list (phase: multi-doc provenance).
+    """
+    detail = case_detail(case_id)
+    if detail is None:
+        return None
+    evals = detail["evaluations"]
+    latest = evals[0] if evals else None
+    payload = latest.payload if latest else {}
+    docs = {d.get("doc_id"): d for d in (payload.get("documents") or [])}
+    doc = docs.get(doc_id)
+    text = (doc or {}).get("text") or ""
+    meta = payload.get("extracted_meta") or {}
+    todos = []
+    for f, m in meta.items():
+        if not m.get("present"):
+            continue
+        sid = m.get("source_document_id")
+        srcs = [s.get("source_document_id") for s in (m.get("sources") or [])]
+        if doc_id == sid or doc_id in srcs:
+            todos.append((f, m))
+
+    marks: list[dict] = []
+    recs: list[dict] = []
+    for field, m in todos:
+        locator = (m.get("source_locator") or "").strip()
+        if locator == "structured_hint" or not locator:
+            recs.append({"field": field, "value": _hl(json.dumps(m.get("value")))})
+            continue
+        span = _flex_find(text, locator)
+        if span:
+            marks.append({"field": field, "start": span[0], "end": span[1],
+                          "quote": locator})
+        else:
+            marks.append({"field": field, "start": None, "end": None,
+                          "quote": locator})
+
+    marks_text = [m for m in marks if m["start"] is not None]
+    marks_text.sort(key=lambda x: x["start"])
+    out, pos = [], 0
+    for m in marks_text:
+        if m["start"] < pos:
+            continue
+        out.append(_hl(text[pos:m["start"]]))
+        out.append(f'<mark data-f="{_hl(m["field"])}" title="{_hl(m["field"])}">')
+        out.append(_hl(text[m["start"]:m["end"]]))
+        out.append("</mark>")
+        pos = m["end"]
+    out.append(_hl(text[pos:]))
+    text_html = "".join(out)
+
+    hint = (doc or {}).get("structured_hint")
+    rec_html = None
+    if hint is not None:
+        take = {r["field"]: m.get("value") for r in recs for m in [meta[r["field"]]]}
+        lines = ["{"]
+        keys = list(hint.keys())
+        for i, k in enumerate(keys):
+            inline = _hl(json.dumps(hint[k], default=str))
+            comma = "," if i < len(keys) - 1 else ""
+            if k in take:
+                lines.append(f'  <mark data-f="{_hl(k)}" title="{_hl(k)}">"{_hl(k)}": {inline}{comma}</mark>')
+            else:
+                lines.append(f'  "{_hl(k)}": {inline}{comma}')
+        lines.append("}")
+        rec_html = "\n".join(lines)
+
+    return {"case": detail["case"], "doc_id": doc_id,
+            "doc": doc or {}, "evaluation_id": latest.evaluation_id if latest else None,
+            "text_html": text_html, "has_text": bool(text),
+            "has_structured": hint is not None, "structured_html": rec_html,
+            "found": [m for m in marks if m["start"] is not None],
+            "missing": [m for m in marks if m["start"] is None],
+            "structured_facts": recs}
+
+
+def all_doc_views(case_id: str) -> list[dict]:
+    """Every document viewer for a case (multi-doc provenance)."""
+    detail = case_detail(case_id)
+    if detail is None:
+        return []
+    payload = detail["evaluations"][0].payload if detail["evaluations"] else {}
+    ids = [d.get("doc_id") for d in (payload.get("documents") or []) if d.get("doc_id")]
+    if not ids:
+        ids = list(docstore.manifest_text(case_id).keys())
+    out = []
+    for did in ids:
+        v = doc_view(case_id, did)
+        if v is not None:
+            out.append(v)
+    return out

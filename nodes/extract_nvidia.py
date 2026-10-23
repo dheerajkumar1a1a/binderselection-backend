@@ -178,4 +178,7 @@ def nvidia_extract(documents: list[dict], api_key: str | None = None,
     for m in meta.values():
         if not m.get("source_document_id") and documents:
             m["source_document_id"] = documents[0].get("doc_id")
+        if "sources" not in m:
+            m["sources"] = [{"source_document_id": m.get("source_document_id"),
+                            "value": m.get("value")}] if m.get("present") else []
     return extracted, meta
