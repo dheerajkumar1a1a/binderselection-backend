@@ -46,12 +46,17 @@ details{margin:8px 0}summary{cursor:pointer;font-size:13px;color:var(--mut)}
 
 <section class="card">
   <h2 style="margin-top:0">Extracted facts (provenance on every fact — click the source to open it)</h2>
-  <table><tr><th>Fact</th><th>Value</th><th>Confidence</th><th>Source documents</th><th>Locator</th></tr>
+  <form method="post" action="/case/{{ case.case_id }}/correct">
+  <table><tr><th>Fact</th><th>Value</th><th>Confidence</th><th>Source documents</th><th>Locator</th><th>Correct</th></tr>
   {% for f, v in extracted.items() %}{% set m = (payload.get('extracted_meta') or {}).get(f) or {} %}
-  <tr><td>{{ f }}</td><td>{{ v }}</td><td>{{ m.get('confidence', '—') }}</td>
+  <tr><td>{{ f }}{% if m.get('corrected_by') %} <span class="chip warn" title="corrected by {{ m.corrected_by }} at {{ m.corrected_at }} (was: {{ m.get('pre_correction_value') }})">corrected</span>{% endif %}{% if m.get('contested') %} <span class="chip warn">contested</span>{% endif %}</td><td>{{ v }}</td><td>{{ m.get('confidence', '—') }}</td>
   <td>{% for s in (m.get('sources') or []) %}{% if s.get('source_document_id') %}<a href="/case/{{ case.case_id }}/doc/{{ s.get('source_document_id') }}">{{ s.get('source_document_id') }}</a>{% if not loop.last %}, {% endif %}{% endif %}{% else %}<span class="mut">—</span>{% endfor %}{% if m.get('contested') %} <span class="chip warn">contested</span>{% endif %}</td>
-  <td>{% if m.get('source_locator') and m.get('source_locator') != 'structured_hint' %}“{{ m.get('source_locator') }}”{% else %}{{ m.get('source_locator', '—') }}{% endif %}</td></tr>
+  <td>{% if m.get('source_locator') and m.get('source_locator') != 'structured_hint' %}“{{ m.get('source_locator') }}”{% else %}{{ m.get('source_locator', '—') }}{% endif %}</td>
+  <td><input type="text" name="correct_{{ f }}" placeholder="new value" style="padding:4px 8px;font-size:12px;width:120px"></td></tr>
   {% endfor %}</table>
+  <button type="submit" style="margin-top:8px">Save corrections &amp; re-evaluate</button>
+  <p class="mut">Override any fact above. Leave blank to keep. Corrections are recorded with who/when/pre-value, clear the contested flag, and trigger a successor evaluation. The original extraction source is preserved for provenance.</p>
+  </form>
   {% if not extracted %}<p class="mut">No facts extracted.</p>{% endif %}
 </section>
 

@@ -74,7 +74,8 @@ Third-party facts (wildfire score, flood zone, territory) are attached to every 
 ### 4.11 Live capacity desk
 Reservations from accepted decisions are tracked in a ledger. The desk shows per-binder: authorised line, written, reserved (active), available, utilisation %, and alert level (ok/warn/bad at 80%/90%). Alerts fire by email when a reservation crosses a threshold. Reservations expire after 30 days (configurable). Manual release available.
 
-### 4.12 Notifications
+### 4.13 Fact correction (underwriter override)
+The underwriter can override any extracted fact inline on the case page (amber "corrected" badge + tooltip showing who/when/pre-value). Corrections are recorded with `pre_correction_value`, `corrected_by`, `corrected_at` in the metadata, clear the contested flag, preserve the original extraction source for provenance, and trigger a successor evaluation. The provenance viewer shows both the original quote and the corrected value.
 Email-only (Q13). Round issued → broker; broker answered → staff; round breached → staff (once, idempotent). SMTP when configured, otherwise a local outbox (`data/outbox/`) — dev-honest, no external dependency.
 
 ---

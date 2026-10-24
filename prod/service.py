@@ -385,7 +385,91 @@ def all_doc_views(case_id: str) -> list[dict]:
 DEFAULT_EVAL_LLM = os.environ.get("APP_DEFAULT_LLM", "") or None  # stub if unset
 
 
-def _staff_emails():  # thin alias for clarity at call sites
+def _staff_emails():
+    from . import mail as mail_mod
+    return mail_mod.staff_recipients()
+
+
+def correct_case(case_id: str, corrections: dict, underwriter: str) -> dict:
+    """Apply underwriter corrections to the latest evaluation's extracted facts,
+    then re-run the engine (derive → completeness → evaluate → rank →
+    summarize) and append a successor Evaluation. The correction trail
+    (pre-value, who, when) is preserved in the metadata.
+
+    Corrections is {field: new_value}. Only fields present in the latest
+    evaluation's extracted_meta are accepted; unknown fields are ignored.
+    """
+    with store.new_session() as s:
+        case = s.get(store.Case, case_id)
+        if case is None:
+            raise LookupError("case not found")
+        ev = (s.query(store.Evaluation)
+               .filter(store.Evaluation.case_id == case_id)
+               .order_by(store.Evaluation.evaluation_id.desc()).first())
+        if ev is None:
+            raise ValueError("run an evaluation first")
+        payload = dict(ev.payload)
+        # Only accept corrections for known fields.
+        meta = payload.get("extracted_meta") or {}
+        valid = {k: v for k, v in corrections.items() if k in meta}
+        if not valid:
+            raise ValueError("no valid fields to correct")
+        # Apply corrections via the engine's correction module.
+        import nodes.correct as corr_mod
+        corrected = corr_mod.apply(payload, valid, underwriter)
+        payload["extracted"] = corrected["extracted"]
+        payload["extracted_meta"] = corrected["extracted_meta"]
+        # Re-run the engine from derive onward (no re-extraction, no re-parse).
+        try:
+            payload.update(demo.drv.derive(payload))
+            payload.update(demo.comp.check(payload))
+            if not (payload.get("completeness") or {}).get("can_evaluate", True):
+                # Completeness now fails after correction — keep the halt.
+                pass
+            else:
+                payload.update(demo.mb.evaluate_binders(payload))
+                payload.update(demo.mb.rank(payload))
+                payload.update(demo.nar.summarize(payload))
+                payload["halt"] = None
+        except Exception as e:
+            raise ValueError(f"re-evaluation failed: {e}")
+        if "halt" not in payload:
+            payload["halt"] = None
+        # Determine outcome.
+        if payload.get("halt") == "parse":
+            outcome, reco = "halt", None
+        elif payload.get("halt") == "completeness":
+            outcome, reco = "halt", None
+        else:
+            reco = payload.get("recommendation")
+            if reco and not str(reco).startswith("no eligible"):
+                outcome = reco
+            else:
+                outcome = "no-eligible"
+        # Phase 5: re-attach reference facts (they may have changed if
+        # territory was corrected).
+        try:
+            from . import reference as ref_mod
+            ref_mod.attach(payload)
+        except Exception:
+            payload["reference_facts"] = payload.get("reference_facts", [])
+        # Phase 6: overlay live capacity figures.
+        try:
+            from . import capacity_desk as cd_mod
+            cd_mod.augment_payload(payload)
+        except Exception:
+            pass
+        new_ev = store.Evaluation(case_id=case_id, created_at=store.now(),
+                                  llm=ev.llm, model=ev.model,
+                                  outcome=outcome, recommendation=reco,
+                                  payload=payload)
+        s.add(new_ev)
+        if case.status != "decided":
+            case.status = "assessed"
+        case.assessed_at = store.now()
+        s.commit()
+        return {"evaluation_id": new_ev.evaluation_id, "outcome": outcome,
+                "corrected_fields": list(valid.keys())}
     from . import mail
     return mail.staff_recipients()
 

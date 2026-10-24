@@ -77,7 +77,7 @@ def login_post(request: Request, username: str = Form(""), password: str = Form(
         return tpl.TemplateResponse(request, "login.html",
                                     {"error": "wrong username or password"},
                                     status_code=400)
-    r = RedirectResponse("/", status_code=303)
+    r = RedirectResponse("/" if u.role in ("admin", "underwriter") else "/portal", status_code=303)
     r.set_cookie(auth.cookie_name(), auth.make_cookie(u.username),
                  httponly=True, samesite="lax")
     return r
@@ -405,7 +405,26 @@ def capacity_release(request: Request, submission_ref: str = Form(...),
     return RedirectResponse("/admin/capacity", 303)
 
 
-# --- reference data (phase 5) ------------------------------------------------
+@app.post("/case/{case_id}/correct")
+async def case_correct(request: Request, case_id: str):
+    _staff(request)
+    u = auth.session_user(request)
+    form = await request.form()
+    corrections = {}
+    for key in form:
+        if key.startswith("correct_"):
+            field = key[len("correct_"):]
+            val = form.get(key, "").strip()
+            if val:
+                corrections[field] = val
+    try:
+        out = service.correct_case(case_id, corrections,
+                                   u.username if u else "unknown")
+    except LookupError:
+        raise HTTPException(404, "case not found")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return RedirectResponse(f"/case/{case_id}", status_code=303)
 
 @app.get("/admin/reference", response_class=HTMLResponse)
 def reference_page(request: Request):

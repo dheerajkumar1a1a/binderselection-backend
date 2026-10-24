@@ -13,6 +13,8 @@ audit/
 data/
 *.key
 openrouter_key.txt
+demo-video/node_modules/
+demo-screenshots/
 .pytest_cache/
 
 prod_run_report.json
