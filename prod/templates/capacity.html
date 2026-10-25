@@ -38,7 +38,7 @@ button{background:#0f2a44;color:#fff;border:0;border-radius:6px;padding:6px 12px
 <h3 style="font-size:13px;margin:10px 0 4px">{{ d.binder_id }}</h3>
 <table><tr><th>Reservation</th><th>Submission</th><th>Amount</th><th>Expires</th><th></th></tr>
 {% for rid, r in d.reservations.items() %}<tr>
-<td>{{ rid }}</td><td>{{ r.submission_ref }}</td><td>{{ '{:,.0f}'.format(r.amount) }}</td><td>{{ r.expires_at }}</td>
+<td>{{ rid }}</td><td>{{ r.submission_ref }}</td><td>{{ '{:,.0f}'.format(r.amount) }}</td><td>{{ r.expires_at | rd }}</td>
 <td><form method="post" action="/admin/capacity/release" style="margin:0">
 <input type="hidden" name="submission_ref" value="{{ r.submission_ref }}">
 <input type="hidden" name="binder_id" value="{{ d.binder_id }}">
