@@ -84,8 +84,33 @@ def now() -> datetime:
     return datetime.now(timezone.utc).replace(tzinfo=None)  # naive UTC
 
 
+def _sqlite_migrate() -> None:
+    """Add columns that create_all won't add to existing SQLite tables."""
+    import sqlite3
+    if ":memory:" in DATABASE_URL:
+        return
+    db_path = DATABASE_URL[len("sqlite:///"):]
+    if not os.path.exists(db_path):
+        return
+    conn = sqlite3.connect(db_path)
+    cur = conn.cursor()
+    # Case table: tags, note (phase: user-friendly)
+    for col, typ in [("tags", "VARCHAR(240) DEFAULT ''"),
+                     ("note", "TEXT DEFAULT ''")]:
+        try:
+            cur.execute(f"ALTER TABLE cases ADD COLUMN {col} {typ}")
+        except sqlite3.OperationalError:
+            pass  # already exists
+    conn.commit()
+    conn.close()
+
+
 def init_db() -> None:
     Base.metadata.create_all(engine)
+    # Lightweight migration: add columns introduced in later phases to existing
+    # tables (create_all does not alter existing tables).
+    if DATABASE_URL.startswith("sqlite"):
+        _sqlite_migrate()
 
 
 def new_session() -> Session:

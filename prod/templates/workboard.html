@@ -52,7 +52,7 @@
     <!-- Alpine-driven filter; rows rendered server-side below for SEO -->
     </template>
     {% for c in cases %}
-    <tr x-show="(search==='' || (c.case_id+c.broker_firm+c.submission_reference).toLowerCase().includes(search.toLowerCase())) && (filter==='all' || (filter==='awaiting' && c.status==='awaiting-broker') || (filter==='breached' && (c.sla==='breached' || (c.round && c.round.sla==='breached'))))">
+    <tr x-show="(search==='' || ('{{ c.case_id }} {{ c.broker_firm }} {{ c.submission_reference }}').toLowerCase().includes(search.toLowerCase())) && (filter==='all' || (filter==='awaiting' && ({{ c.status|tojson }} === 'awaiting-broker')) || (filter==='breached' && ({{ c.sla|tojson }} === 'breached' || ({{ (c.round.sla if c.round else "")|tojson }} === 'breached'))))">
       <td data-label="Case"><b>{{ c.case_id }}</b><br><span class="mut">{{ c.submission_reference }} · {{ c.source }}</span>{% if c.tags %}<br>{% for t in c.tags %}<span class="chip neutral" style="font-size:10px">{{ t }}</span> {% endfor %}{% endif %}</td>
       <td data-label="Broker">{{ c.broker_firm or '—' }}</td>
       <td data-label="Status"><span class="chip {{ 'ok' if c.status=='assessed' else ('warn' if c.status=='awaiting-broker' else 'neutral') }}">{{ c.status }}</span></td>
