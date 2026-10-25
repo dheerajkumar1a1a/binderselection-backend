@@ -232,7 +232,9 @@ def list_cases() -> list[dict]:
                         "round": ({"number": rnd.number,
                                    "sla": store.round_sla_state(rnd),
                                    "due": rnd.due_at.strftime("%Y-%m-%d")}
-                                  if rnd else None)})
+                                  if rnd else None),
+                        "tags": [t.strip() for t in (c.tags or "").split(",") if t.strip()],
+                        "note": c.note or ""})
         return out
 
 
@@ -933,3 +935,24 @@ def all_doc_views(case_id: str) -> list[dict]:
         if v is not None:
             out.append(v)
     return out
+
+def update_case_tags(case_id: str, tags: str) -> dict:
+    """Set comma-separated tags on a Case (user-friendly feature)."""
+    with store.new_session() as s:
+        c = s.get(store.Case, case_id)
+        if c is None:
+            raise LookupError("case not found")
+        c.tags = tags
+        s.commit()
+    return {"tags": [t.strip() for t in tags.split(",") if t.strip()]}
+
+
+def update_case_note(case_id: str, note: str) -> dict:
+    """Set the underwriter scratchpad note on a Case."""
+    with store.new_session() as s:
+        c = s.get(store.Case, case_id)
+        if c is None:
+            raise LookupError("case not found")
+        c.note = note
+        s.commit()
+    return {"note": note}

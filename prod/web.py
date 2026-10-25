@@ -557,3 +557,26 @@ def portal_letter(request: Request, case_id: str, decision_id: int):
             return tpl.TemplateResponse(request, "letter.html",
                                         {"letter": L, "v": view, "staff": False})
     raise HTTPException(404, "letter not found")
+
+@app.post("/case/{case_id}/tags")
+async def case_tags(request: Request, case_id: str):
+    _staff(request)
+    form = await request.form()
+    tags = form.get("tags", "")
+    try:
+        service.update_case_tags(case_id, tags)
+    except LookupError:
+        raise HTTPException(404, "case not found")
+    return RedirectResponse(f"/case/{case_id}", status_code=303)
+
+
+@app.post("/case/{case_id}/note")
+async def case_note(request: Request, case_id: str):
+    _staff(request)
+    form = await request.form()
+    note = form.get("note", "")
+    try:
+        service.update_case_note(case_id, note)
+    except LookupError:
+        raise HTTPException(404, "case not found")
+    return RedirectResponse(f"/case/{case_id}", status_code=303)

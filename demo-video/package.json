@@ -1,0 +1,24 @@
+{
+  "name": "demo-video",
+  "version": "1.0.0",
+  "description": "",
+  "main": "src/index.tsx",
+  "scripts": {
+    "start": "remotion studio src/index.tsx",
+    "render": "remotion render src/index.tsx DemoVideo out.mp4",
+    "still": "remotion still src/index.tsx DemoVideo out.png"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "@remotion/cli": "^4.0.538",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "remotion": "^4.0.538"
+  },
+  "allowScripts": {
+    "esbuild": true
+  }
+}

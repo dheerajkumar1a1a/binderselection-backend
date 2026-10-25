@@ -47,6 +47,9 @@ class Case(Base):
     created_at = Column(DateTime, nullable=False)
     assessed_at = Column(DateTime, nullable=True)
     decided_at = Column(DateTime, nullable=True)
+    # Phase: user-friendly features
+    tags = Column(String(240), default="")   # comma-separated labels
+    note = Column(Text, default="")          # underwriter scratchpad
 
 
 class Evaluation(Base):

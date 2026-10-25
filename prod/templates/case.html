@@ -20,9 +20,27 @@ details{margin:8px 0}summary{cursor:pointer;font-size:13px;color:var(--mut)}
 </style>
 {% endblock %}
 {% block content %}
+<div class="breadcrumbs">
+  <a href="/">Workboard</a> <span class="sep">›</span>
+  <span>{{ case.case_id }}</span>
+  {% if latest %}<span class="sep">›</span> <span>evaluation #{{ latest.evaluation_id }}</span>{% endif %}
+</div>
 
-<section class="card">
-  <h2 style="margin-top:0">Run evaluation</h2>
+<section class="card" style="padding:12px 22px">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+    <form method="post" action="/case/{{ case.case_id }}/tags" style="display:flex;align-items:center;gap:8px;flex:1;min-width:200px">
+      <label class="label" style="margin:0;white-space:nowrap" data-tip="Comma-separated labels, e.g. urgent, renewal, large TIV">Tags</label>
+      <input type="text" name="tags" value="{{ case.tags or '' }}" placeholder="urgent, renewal, large TIV" style="flex:1">
+      <button type="submit" class="secondary" style="padding:6px 12px;font-size:12px">Save</button>
+    </form>
+    {% if case.tags %}<div style="display:flex;gap:4px;flex-wrap:wrap">{% for t in case.tags.split(',') %}{% if t.strip() %}<span class="chip neutral">{{ t.strip() }}</span>{% endif %}{% endfor %}</div>{% endif %}
+  </div>
+  <form method="post" action="/case/{{ case.case_id }}/note" style="margin-top:8px">
+    <label class="label" data-tip="Internal scratchpad — not shown to the broker">Underwriter note (internal)</label>
+    <textarea name="note" rows="2" style="width:100%;font-size:13px" placeholder="e.g. Broker called, wants expedited review">{{ case.note or '' }}</textarea>
+    <button type="submit" class="secondary" style="padding:6px 12px;font-size:12px;margin-top:4px">Save note</button>
+  </form>
+</section>
   <form method="post" action="/case/{{ case.case_id }}/evaluate">
     <label class="label">Extractor (the LLM only extracts facts — it never decides)</label>
     <select name="llm"><option value="">stub — deterministic, keyless (reads sample structured hints)</option><option value="nvidia">nemotron-120b — live NVIDIA extraction</option><option value="gemini">gemini — live fallback</option><option value="openrouter">openrouter — live free fallback</option></select>
@@ -157,13 +175,23 @@ details{margin:8px 0}summary{cursor:pointer;font-size:13px;color:var(--mut)}
   {% endfor %}
   {% if gaps %}
   <h2>Issue the next Request round (from the engine's named gaps — items you untick stay on record as suppressed, never asked)</h2>
-  <form method="post" action="/case/{{ case.case_id }}/round/issue">
+  <form method="post" action="/case/{{ case.case_id }}/round/issue" x-data="{confirming:false}">
   {% for g in gaps %}
   <div style="margin:6px 0"><label style="display:inline"><input type="checkbox" name="field_{{ loop.index0 }}" value="{{ g.field }}" checked> <b>{{ g.field }}</b></label>
   <input type="text" class="note-in" name="note_{{ loop.index0 }}" placeholder="optional human note (shown to the broker as underwriter text)">
   <p class="mut" style="margin:2px 0 6px">{{ g.question }}</p></div>
   {% endfor %}
-  <button type="submit">Issue round to broker</button>
+  <button type="button" @click="confirming=true">Issue round to broker</button>
+  <div x-show="confirming" class="tour-overlay" style="display:none" :style="confirming && 'display:flex'">
+    <div class="tour-card">
+      <h3>Issue Request Round?</h3>
+      <p>This will notify the broker by email and start the 10-business-day SLA clock. One round stays active at a time.</p>
+      <div class="btns">
+        <button type="button" class="secondary" @click="confirming=false">Cancel</button>
+        <button type="submit" @click="confirming=false">Confirm &amp; Issue</button>
+      </div>
+    </div>
+  </div>
   </form>
   <p class="mut">Issuing notifies the broker by email (SMTP if configured, otherwise the outbox in data/outbox/). One round stays active at a time; a new one may issue after the current is answered and gaps remain.</p>
   {% elif not has_open %}
@@ -172,7 +200,11 @@ details{margin:8px 0}summary{cursor:pointer;font-size:13px;color:var(--mut)}
 </section>
 
 {% else %}
-<section class="card"><p class="mut">No evaluation yet — run one above. The case stays in <b>new</b> and its assessment SLA clock keeps ticking.</p></section>
+<section class="card empty-state">
+  <h3>No evaluation yet</h3>
+  <p>Run an evaluation above to score this case against every binder's appetite rules.</p>
+  <p class="mut">The case stays in <b>new</b> and its assessment SLA clock keeps ticking until you run one.</p>
+</section>
 {% endif %}
 
 {% endblock %}

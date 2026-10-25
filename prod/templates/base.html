@@ -15,13 +15,42 @@
   --shadow-lg:0 8px 24px rgba(15,23,42,.08);
   --space:16px;--space-lg:24px;
 }
+[data-theme="dark"]{
+  --ink:#e2e8f0;--ink-soft:#cbd5e1;--mut:#94a3b8;--line:#334155;--bg:#0f172a;--card:#1e293b;
+  --accent:#3b82f6;--accent-soft:#1e3a5f;--ok:#22c55e;--ok-soft:#14532d;
+  --warn:#fbbf24;--warn-soft:#451a03;--bad:#f87171;--bad-soft:#450a0a;
+  --shadow:0 1px 3px rgba(0,0,0,.3),0 4px 12px rgba(0,0,0,.2);
+  --shadow-lg:0 8px 24px rgba(0,0,0,.4);
+}
 *{box-sizing:border-box}
-body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);line-height:1.5;-webkit-font-smoothing:antialiased;transition:background .2s,color .2s}
 a{color:var(--accent);text-decoration:none}a:hover{text-decoration:underline}
 header.topbar{background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);color:#fff;padding:18px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;box-shadow:var(--shadow)}
 header.topbar h1{margin:0;font-size:19px;font-weight:600;letter-spacing:-.01em}
 header.topbar .meta{color:#94a3b8;font-size:13px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 header.topbar .meta a{color:#cbd5e1}
+header.topbar .toggle{background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.2);color:#fff;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer}
+/* tooltips */
+[data-tip]{position:relative;cursor:help}
+[data-tip]::after{content:attr(data-tip);position:absolute;bottom:125%;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--card);padding:4px 8px;border-radius:6px;font-size:11px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s;z-index:100}
+[data-tip]:hover::after{opacity:1}
+/* breadcrumbs */
+.breadcrumbs{font-size:12px;color:var(--mut);margin-bottom:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.breadcrumbs a{color:var(--mut)} .breadcrumbs .sep{color:var(--line)}
+/* onboarding tour */
+.tour-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9998;display:flex;align-items:center;justify-content:center}
+.tour-card{background:var(--card);border-radius:12px;padding:24px;max-width:400px;box-shadow:var(--shadow-lg)}
+.tour-card h3{margin:0 0 8px;font-size:16px}
+.tour-card p{font-size:13px;color:var(--mut);margin:0 0 16px}
+.tour-card .btns{display:flex;gap:8px;justify-content:flex-end}
+/* print */
+@media print{header.topbar,footer,.toast,.tour-overlay{display:none!important}section.card{box-shadow:none;border:1px solid #ccc;break-inside:avoid}body{background:#fff;color:#000}a{color:#000;text-decoration:underline}}
+/* responsive cards for tables on mobile */
+@media(max-width:640px){table.responsive-card{display:block}table.responsive-card thead{display:none}table.responsive-card tr{display:block;margin-bottom:12px;border:1px solid var(--line);border-radius:8px;padding:8px}table.responsive-card td{display:flex;justify-content:space-between;padding:4px 8px;border:0}table.responsive-card td::before{content:attr(data-label);font-weight:600;color:var(--mut);margin-right:8px}}
+/* empty state */
+.empty-state{padding:40px 20px;text-align:center;color:var(--mut);border:2px dashed var(--line);border-radius:var(--radius)}
+.empty-state h3{color:var(--ink);margin:0 0 8px}
+.empty-state .btn{margin-top:12px}
 main{max-width:1240px;margin:0 auto;padding:24px 20px}
 section.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px;margin:16px 0;box-shadow:var(--shadow);transition:box-shadow .15s}
 section.card:hover{box-shadow:var(--shadow-lg)}
@@ -66,16 +95,18 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:24px;margin-top
 {% block head %}{% endblock %}
 </head>
 <body>
-<header class="topbar">
+{% macro chip(cls, text) %}<span class="chip {{ cls }}">{{ text }}</span>{% endmacro %}
+<header class="topbar" x-data="{dark: localStorage.getItem('theme')==='dark'}" x-init="if(dark) document.documentElement.setAttribute('data-theme','dark')">
   <h1>{% block header_title %}Binder Selection Agent{% endblock %}</h1>
   <div class="meta">
     {% block header_meta %}{% endblock %}
+    <button class="toggle" @click="dark=!dark; document.documentElement.setAttribute('data-theme', dark?'dark':''); localStorage.setItem('theme', dark?'dark':'light')" x-text="dark ? 'Light' : 'Dark'"></button>
     <a href="/logout">sign out</a>
   </div>
 </header>
-{% macro chip(cls, text) %}<span class="chip {{ cls }}">{{ text }}</span>{% endmacro %}
 <main>
-{% block content %}{% endblock %}
+  {% block breadcrumbs %}{% endblock %}
+  {% block content %}{% endblock %}
 </main>
 </main>
 <footer>Binder Selection Agent · production · append-only evaluations &amp; decisions · SQLite (swap to Postgres via DATABASE_URL)</footer>
@@ -83,6 +114,15 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:24px;margin-top
 <!-- toast -->
 <div class="toast" :class="{show: toast}" x-text="toastMsg" x-show="toast" x-transition></div>
 
-{% block scripts %}{% endblock %}
+<div class="tour-overlay" x-data="{show: !localStorage.getItem('tourSeen')}" x-show="show" x-cloak>
+  <div class="tour-card">
+    <h3>Welcome to Binder Selection Agent</h3>
+    <p>This is the underwriter's workboard. Create a case, run an evaluation, and record a decision. The system never decides — you do.</p>
+    <div class="btns">
+      <button type="button" class="secondary" @click="localStorage.setItem('tourSeen','1'); show=false">Skip</button>
+      <button type="button" @click="localStorage.setItem('tourSeen','1'); show=false">Got it</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
