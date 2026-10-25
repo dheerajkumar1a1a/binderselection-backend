@@ -11,7 +11,7 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:16px;font-famil
 <body>
 <div class="sheet">
 <h1>{{ letter.title }}</h1>
-<p class="mut">Outcome letter · generated {{ letter.created_at }} · deterministically from the recorded decision</p>
+<p class="mut">Outcome letter · generated {{ letter.created_at | rd }} · deterministically from the recorded decision</p>
 <pre>{{ letter.body }}</pre>
 </div>
 <footer>{% if staff %}<a href="/case/{{ case.case_id }}">← case</a> · <a href="/">workboard</a>{% else %}<a href="/portal/case/{{ v.case.case_id }}">← case</a> · <a href="/portal">portal</a>{% endif %}</footer>

@@ -59,7 +59,7 @@
       <td data-label="Latest">{% if c.latest %}{% if c.latest.outcome == 'no-eligible' %}<span class="chip bad">no eligible</span>{% elif c.latest.outcome == 'halt' %}<span class="chip bad">halt</span>{% else %}<span class="chip ok">{{ c.latest.outcome }}</span>{% endif %}{% else %}<span class="mut">not run</span>{% endif %}</td>
       <td data-label="Open round">{% if c.round %}{% if c.round.sla == 'breached' %}<span class="chip bad">round {{ c.round.number }} breached</span>{% else %}<span class="chip warn">round {{ c.round.number }} · due {{ c.round.due }}</span>{% endif %}{% else %}<span class="mut">—</span>{% endif %}</td>
       <td data-label="Assessor">{{ c.underwriter or '—' }}</td>
-      <td data-label="Created" class="mut">{{ c.created_at }}</td>
+      <td data-label="Created" class="mut">{{ c.created_at | rd }}</td>
       <td data-label="SLA">{% if c.sla == 'due' %}<span class="chip warn">due</span>{% elif c.sla == 'breached' %}<span class="chip bad">breached</span>{% else %}<span class="mut">n/a</span>{% endif %}</td>
       <td><a href="/case/{{ c.case_id }}" class="btn secondary" style="padding:4px 10px;font-size:12px">open →</a></td>
     </tr>

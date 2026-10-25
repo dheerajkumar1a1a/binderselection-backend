@@ -19,12 +19,12 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:16px}
 </style></head>
 <body>
 <header><h1>{{ v.case.reference }}</h1>
-<p>status {{ v.case.status }} · opened {{ v.case.created_at }} · <a style="color:#c9d6e4" href="/portal">← portal</a></p></header>
+<p>status {{ v.case.status }} · opened {{ v.case.created_at | rd }} · <a style="color:#c9d6e4" href="/portal">← portal</a></p></header>
 <main>
 
 {% for r in v.rounds %}
 <section><h2 style="margin-top:0">Request round {{ r['round'].number }}
-{% if r['round'].status == 'open' and r['sla'] == 'due' %}<span class="chip s-open">open · due {{ r['round'].due_at.strftime('%Y-%m-%d') }}</span>
+{% if r['round'].status == 'open' and r['sla'] == 'due' %}<span class="chip s-open">open · due {{ r['round'].due_at | rd }}</span>
 {% elif r['round'].status == 'open' %}<span class="chip s-breached">open · past due</span>
 {% else %}<span class="chip s-locked">submitted</span>{% endif %}</h2>
 <table><tr><th>#</th><th>Information requested</th><th>Underwriter note (human text)</th><th>Your answer (draft)</th><th>Document answering it</th></tr>
@@ -35,8 +35,8 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:16px}
 <td>{% if it.answer_doc_id %}{{ it.answer_doc_id }}{% else %}<span class="mut">—</span>{% endif %}</td>
 </tr>{% endfor %}</table>
 {% if r['round'].status == 'open' %}<p style="margin-top:8px"><a href="/portal/case/{{ v.case.case_id }}/round/{{ r['round'].round_id }}"><button>Answer this round →</button></a></p>
-<p class="mut">Submit when done — submitting locks the round and triggers re-evaluation immediately (10-business-day clock from {{ r['round'].issued_at.strftime('%Y-%m-%d') }}).</p>
-{% else %}<p class="mut">Submitted {{ r['round'].submitted_at }} — re-evaluation #{% if r['round'].answered_evaluation_id %}{{ r['round'].answered_evaluation_id }}{% else %}—{% endif %}. The outcome arrives as a letter below.</p>{% endif %}
+<p class="mut">Submit when done — submitting locks the round and triggers re-evaluation immediately (10-business-day clock from {{ r['round'].issued_at | rd }}).</p>
+{% else %}<p class="mut">Submitted {{ r['round'].submitted_at | rd }} — re-evaluation #{% if r['round'].answered_evaluation_id %}{{ r['round'].answered_evaluation_id }}{% else %}—{% endif %}. The outcome arrives as a letter below.</p>{% endif %}
 </section>
 {% endfor %}
 

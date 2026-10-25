@@ -17,7 +17,7 @@ pre{background:#eef3f8;border:1px solid var(--line);border-radius:6px;padding:10
 <p>status <b>{{ proposal.status }}</b> · author {{ proposal.author }} · approver {{ proposal.approver or '—' }} · effective from {{ proposal.effective_from }} · <a style="color:#c9d6e4" href="/admin/rules">← rules console</a></p></header>
 <main>
 <section>
-<p class="mut">Summary: {{ proposal.summary or '—' }} · created {{ proposal.created_at }}{% if proposal.approved_at %} · approved {{ proposal.approved_at }} (version v{{ proposal.approved_version }}){% endif %}</p>
+<p class="mut">Summary: {{ proposal.summary or '—' }} · created {{ proposal.created_at | rd }}{% if proposal.approved_at %} · approved {{ proposal.approved_at | rd }} (version v{{ proposal.approved_version }}){% endif %}</p>
 {% if proposal.status == 'draft' and (user.username if user else '') != proposal.author %}
 <form method="post" action="/admin/rules/proposal/{{ proposal.proposal_id }}/approve">
 <button>Approve (four-eyes)</button>

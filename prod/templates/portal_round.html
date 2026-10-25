@@ -17,7 +17,7 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:16px}
 </style></head>
 <body>
 <header><h1>Answer round {{ r['round'].number }} — {{ v.case.reference }}</h1>
-<p>due {{ r['round'].due_at.strftime('%Y-%m-%d') }} (10 business days) · <a style="color:#c9d6e4" href="/portal/case/{{ v.case.case_id }}">← case</a></p></header>
+<p>due {{ r['round'].due_at | rd }} (10 business days) · <a style="color:#c9d6e4" href="/portal/case/{{ v.case.case_id }}">← case</a></p></header>
 <main>
 {% if report %}<section><p>{{ report }}</p></section>{% endif %}
 <section>

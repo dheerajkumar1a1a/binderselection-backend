@@ -20,6 +20,21 @@ from . import auth, service, store
 app = FastAPI(title="Binder Selection Agent — Production (phase 3)")
 TPL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
 tpl = Jinja2Templates(directory=TPL_DIR)
+
+from datetime import datetime as _dt
+def _readable_date(value):
+    if value is None:
+        return "—"
+    if isinstance(value, str):
+        try:
+            value = _dt.fromisoformat(value.replace(" ", "T"))
+        except ValueError:
+            return value
+    try:
+        return value.strftime("%d %b %Y, %H:%M")
+    except (AttributeError, ValueError):
+        return str(value)
+tpl.env.filters["rd"] = _readable_date
 store.init_db()
 _seeded = auth.ensure_seeded()
 for _u in _seeded:  # first-run provisioning notice (local dev comfort)

@@ -37,7 +37,7 @@ button{background:#0f2a44;color:#fff;border:0;border-radius:6px;padding:9px 15px
 <section><h2 style="margin-top:0">Accounts</h2>
 {% if msg %}{% endif %}
 <table><tr><th>Username</th><th>Role</th><th>Display</th><th>Email</th><th>Firm</th><th>Created</th><th></th></tr>
-{% for u in users %}<tr><td>{{ u.username }}</td><td>{{ u.role }}</td><td>{{ u.display_name or '—' }}</td><td>{{ u.email or '—' }}</td><td>{{ u.broker_firm or '—' }}</td><td>{{ u.created_at }}</td>
+{% for u in users %}<tr><td>{{ u.username }}</td><td>{{ u.role }}</td><td>{{ u.display_name or '—' }}</td><td>{{ u.email or '—' }}</td><td>{{ u.broker_firm or '—' }}</td><td>{{ u.created_at | rd }}</td>
 <td><form method="post" action="/admin/users/password" style="display:flex;gap:6px;margin:0">
 <input type="hidden" name="username" value="{{ u.username }}">
 <input style="width:110px" type="password" name="password" placeholder="new password" required>

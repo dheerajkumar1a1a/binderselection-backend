@@ -2,7 +2,7 @@
 {% block title %}{{ case.case_id }} — Case{% endblock %}
 {% block header_title %}{{ case.case_id }} · {{ case.broker_firm or 'no broker set' }}{% endblock %}
 {% block header_meta %}
-  <span>{{ case.submission_reference }} · status <b>{{ case.status }}</b> · assessor {{ case.underwriter or '—' }} · created {{ case.created_at }}</span>
+  <span>{{ case.submission_reference }} · status <b>{{ case.status }}</b> · assessor {{ case.underwriter or '—' }} · created {{ case.created_at | rd }}</span>
   <a href="/">← workboard</a>
 {% endblock %}
 {% block head %}
@@ -126,7 +126,7 @@ details{margin:8px 0}summary{cursor:pointer;font-size:13px;color:var(--mut)}
   {% if decisions %}
   <h2>Decision history</h2>
   <table><tr><th>When (UTC)</th><th>By</th><th>Action → binder</th><th>Reservation</th><th>Letter</th><th>Audit id</th></tr>
-  {% for d in decisions %}<tr><td>{{ d.created_at }}</td><td>{{ d.underwriter }}</td><td>{{ d.action }} → {{ d.selected_binder or '—' }}{% if d.reason_code %} <span class="chip warn">{{ d.reason_code }}</span>{% endif %}</td><td>{{ d.outcome }}</td><td>{% if (d.detail or {}).get('letter') %}<a href="/case/{{ case.case_id }}/letter/{{ d.decision_id }}">{{ (d.detail)['letter'].title }}</a>{% else %}—{% endif %}</td><td>{{ (d.detail or {}).get('audit_id') or '—' }}</td></tr>{% endfor %}</table>
+  {% for d in decisions %}<tr><td>{{ d.created_at | rd }}</td><td>{{ d.underwriter }}</td><td>{{ d.action }} → {{ d.selected_binder or '—' }}{% if d.reason_code %} <span class="chip warn">{{ d.reason_code }}</span>{% endif %}</td><td>{{ d.outcome }}</td><td>{% if (d.detail or {}).get('letter') %}<a href="/case/{{ case.case_id }}/letter/{{ d.decision_id }}">{{ (d.detail)['letter'].title }}</a>{% else %}—{% endif %}</td><td>{{ (d.detail or {}).get('audit_id') or '—' }}</td></tr>{% endfor %}</table>
   {% endif %}
 </section>
 
@@ -134,7 +134,7 @@ details{margin:8px 0}summary{cursor:pointer;font-size:13px;color:var(--mut)}
   <h2 style="margin-top:0">Evaluation lineage (append-only — a Case never forks)</h2>
   {% if evals | length <= 1 %}<p class="mut">Single evaluation so far. Every re-submission (broker answers, corrections) chains a new evaluation here; nothing is ever overwritten.</p>{% else %}
   <table><tr><th>#</th><th>Run (UTC)</th><th>Extractor</th><th>Model</th><th>Outcome</th></tr>
-  {% for ev in evals %}<tr><td>{{ ev.evaluation_id }}</td><td>{{ ev.created_at }}</td><td>{{ ev.llm or 'stub' }}</td><td>{{ ev.model or '—' }}</td><td>{{ ev.outcome }}</td></tr>{% endfor %}</table>
+  {% for ev in evals %}<tr><td>{{ ev.evaluation_id }}</td><td>{{ ev.created_at | rd }}</td><td>{{ ev.llm or 'stub' }}</td><td>{{ ev.model or '—' }}</td><td>{{ ev.outcome }}</td></tr>{% endfor %}</table>
   {% if delta %}
   <h3>Delta — evaluation #{{ evals[1].evaluation_id }} → #{{ evals[0].evaluation_id }} (what the new information changed)</h3>
   <p class="mut">Only changes are listed. What did not move stays off the page.</p>
@@ -162,8 +162,8 @@ details{margin:8px 0}summary{cursor:pointer;font-size:13px;color:var(--mut)}
   <h2 style="margin-top:0">Request rounds (one active round per case — the broker answers and the 10-business-day clock runs)</h2>
   {% if not rounds %}<p class="mut">No rounds issued yet.</p>{% endif %}
   {% for r in rounds %}
-  <div class="card-box"><b>Round {{ r['round'].number }}</b> · status {{ r['round'].status }} · issued {{ r['round'].issued_at }} by {{ r['round'].issued_by or '—' }}
-  {% if r['round'].status == 'open' %}{% if r['sla'] == 'breached' %}<span class="chip bad">SLA breached</span>{% else %}<span class="chip warn">due {{ r['round'].due_at.strftime('%Y-%m-%d') }}</span>{% endif %}{% else %}<span class="chip ok">submitted {{ r['round'].submitted_at }}</span>{% endif %}
+  <div class="card-box"><b>Round {{ r['round'].number }}</b> · status {{ r['round'].status }} · issued {{ r['round'].issued_at | rd }} by {{ r['round'].issued_by or '—' }}
+  {% if r['round'].status == 'open' %}{% if r['sla'] == 'breached' %}<span class="chip bad">SLA breached</span>{% else %}<span class="chip warn">due {{ r['round'].due_at | rd }}</span>{% endif %}{% else %}<span class="chip ok">submitted {{ r['round'].submitted_at | rd }}</span>{% endif %}
   <table><tr><th>Field</th><th>Asked as</th><th>From (engine gap)</th><th>Answer draft</th><th>Doc marked</th></tr>
   {% for it in r['items'] %}
   <tr><td>{{ it.field }}{% if it.suppressed %} <span class="chip neutral">suppressed</span>{% endif %}</td>

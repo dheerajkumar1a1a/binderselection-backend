@@ -26,7 +26,7 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:16px}
 {% for c in cases %}<tr>
 <td><b>{{ c.reference }}</b></td>
 <td>{{ c.status }}</td>
-<td>{% if c.open_round %}<span class="chip s-open">round {{ c.open_round }} · due {{ c.open_round_due.strftime('%Y-%m-%d') }}</span>{% else %}<span class="mut">—</span>{% endif %}</td>
+<td>{% if c.open_round %}<span class="chip s-open">round {{ c.open_round }} · due {{ c.open_round_due | rd }}</span>{% else %}<span class="mut">—</span>{% endif %}</td>
 <td><a href="/portal/case/{{ c.case_id }}">open →</a></td>
 </tr>{% endfor %}</table>{% endif %}
 </section>
