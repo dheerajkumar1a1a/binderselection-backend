@@ -88,6 +88,9 @@ RULE_TEMPLATES = {
                        "operator": "lte", "threshold_value": 5000000, "threshold_unit": "currency",
                        "severity": "refer", "business_description": "Capacity-based TIV limit"},
 }
+
+
+def list_proposals() -> list[dict]:
     _ensure_dir()
     out = []
     for fn in sorted(os.listdir(PROPOSALS_DIR)):
