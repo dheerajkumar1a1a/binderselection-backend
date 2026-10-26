@@ -9,11 +9,34 @@
   <a href="/admin/reference">reference</a>
 {% endblock %}
 {% block content %}
+<!-- Pipeline visual -->
+{% set n_new = cases|selectattr('status','equalto','new')|list|length %}
+{% set n_assessed = cases|selectattr('status','equalto','assessed')|list|length %}
+{% set n_awaiting = cases|selectattr('status','equalto','awaiting-broker')|list|length %}
+{% set n_decided = cases|selectattr('status','equalto','decided')|list|length %}
+<div class="pipeline">
+  <div class="pipeline-stage" style="background:var(--neutral-soft);border:1px solid var(--line)">
+    <span class="count">{{ n_new }}</span>New
+  </div>
+  <span class="pipeline-arrow">→</span>
+  <div class="pipeline-stage" style="background:var(--ok-soft);border:1px solid var(--ok)">
+    <span class="count" style="color:var(--ok)">{{ n_assessed }}</span>Assessed
+  </div>
+  <span class="pipeline-arrow">→</span>
+  <div class="pipeline-stage" style="background:var(--warn-soft);border:1px solid var(--warn)">
+    <span class="count" style="color:var(--warn)">{{ n_awaiting }}</span>Awaiting broker
+  </div>
+  <span class="pipeline-arrow">→</span>
+  <div class="pipeline-stage" style="background:var(--neutral-soft);border:1px solid var(--line)">
+    <span class="count">{{ n_decided }}</span>Bound
+  </div>
+</div>
+
 <section class="card">
   <h2>New case</h2>
   <form method="post" action="/case/new" enctype="multipart/form-data" x-data="{fileNames:[], draft: JSON.parse(localStorage.getItem('caseDraft')||'{}')}" x-init="if(draft.broker_firm) $refs.bf.value=draft.broker_firm; if(draft.underwriter) $refs.uw.value=draft.underwriter" @input="localStorage.setItem('caseDraft', JSON.stringify({broker_firm:$refs.bf.value, underwriter:$refs.uw.value}))">
     <div class="grid3">
-      <div><label class="label">Broker firm (must equal a broker account's firm for portal access)</label>
+      <div><label class="label" data-tip="Must match a broker account's firm for portal access">Broker firm</label>
         <input type="text" name="broker_firm" x-ref="bf" placeholder="e.g. Harbourline Logistics"></div>
       <div><label class="label">Assessor (underwriter)</label>
         <input type="text" name="underwriter" x-ref="uw" value="{{ user.display_name or user.username }}"></div>
@@ -34,8 +57,9 @@
   </form>
 </section>
 
-<section class="card" x-data="{search:'', filter:'all'}">
-  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+<section class="card">
+  <h2>Workboard — {{ cases|length }} case{{ 's' if cases|length != 1 }}</h2>
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px" x-data="{search:'', filter:'all'}">
     <input type="text" x-model="search" placeholder="Search cases by ID, broker, reference..." style="flex:1;min-width:200px">
     <div style="display:flex;gap:6px">
       <button type="button" :class="filter==='all' ? '' : 'secondary'" @click="filter='all'" style="padding:6px 12px;font-size:12px">All</button>
@@ -48,19 +72,16 @@
   {% else %}
   <table class="responsive-card">
     <tr><th>Case</th><th>Broker</th><th>Status</th><th>Latest outcome</th><th>Open round</th><th>Assessor</th><th>Created</th><th>SLA</th><th></th></tr>
-    <template x-for="c in filteredCases" :key="c.case_id">
-    <!-- Alpine-driven filter; rows rendered server-side below for SEO -->
-    </template>
     {% for c in cases %}
-    <tr x-show="(search==='' || ('{{ c.case_id }} {{ c.broker_firm }} {{ c.submission_reference }}').toLowerCase().includes(search.toLowerCase())) && (filter==='all' || (filter==='awaiting' && ({{ c.status|tojson }} === 'awaiting-broker')) || (filter==='breached' && ({{ c.sla|tojson }} === 'breached' || ({{ (c.round.sla if c.round else "")|tojson }} === 'breached'))))">
+    <tr x-show="(search==='' || ('{{ c.case_id }} {{ c.broker_firm }} {{ c.submission_reference }}').toLowerCase().includes(search.toLowerCase())) && (filter==='all' || (filter==='awaiting' && ({{ c.status|tojson }} === 'awaiting-broker')) || (filter==='breached' && ({{ c.sla|tojson }} === 'breached' || ({{ (c.round.sla if c.round else '')|tojson }} === 'breached'))))">
       <td data-label="Case"><b>{{ c.case_id }}</b><br><span class="mut">{{ c.submission_reference }} · {{ c.source }}</span>{% if c.tags %}<br>{% for t in c.tags %}<span class="chip neutral" style="font-size:10px">{{ t }}</span> {% endfor %}{% endif %}</td>
       <td data-label="Broker">{{ c.broker_firm or '—' }}</td>
-      <td data-label="Status"><span class="chip {{ 'ok' if c.status=='assessed' else ('warn' if c.status=='awaiting-broker' else 'neutral') }}">{{ c.status }}</span></td>
-      <td data-label="Latest">{% if c.latest %}{% if c.latest.outcome == 'no-eligible' %}<span class="chip bad">no eligible</span>{% elif c.latest.outcome == 'halt' %}<span class="chip bad">halt</span>{% else %}<span class="chip ok">{{ c.latest.outcome }}</span>{% endif %}{% else %}<span class="mut">not run</span>{% endif %}</td>
-      <td data-label="Open round">{% if c.round %}{% if c.round.sla == 'breached' %}<span class="chip bad">round {{ c.round.number }} breached</span>{% else %}<span class="chip warn">round {{ c.round.number }} · due {{ c.round.due }}</span>{% endif %}{% else %}<span class="mut">—</span>{% endif %}</td>
+      <td data-label="Status"><span class="chip {{ 'ok' if c.status=='assessed' else ('warn' if c.status=='awaiting-broker' else 'neutral') }}" data-tip="{{ 'Assessed — awaiting decision' if c.status=='assessed' else ('Awaiting broker answers' if c.status=='awaiting-broker' else 'New — not evaluated') }}">{{ c.status }}</span></td>
+      <td data-label="Latest">{% if c.latest %}{% if c.latest.outcome == 'no-eligible' %}<span class="chip bad" data-tip="No binder eligible on the provided data">no eligible</span>{% elif c.latest.outcome == 'halt' %}<span class="chip bad" data-tip="Pipeline halted — missing data">halt</span>{% else %}<span class="chip ok" data-tip="Recommended binder">{{ c.latest.outcome }}</span>{% endif %}{% else %}<span class="mut" data-tip="Run an evaluation first">not run</span>{% endif %}</td>
+      <td data-label="Open round">{% if c.round %}{% if c.round.sla == 'breached' %}<span class="chip bad">round {{ c.round.number }} breached</span>{% else %}<span class="chip warn">round {{ c.round.number }} · due {{ c.round.due | rd }}</span>{% endif %}{% else %}<span class="mut">—</span>{% endif %}</td>
       <td data-label="Assessor">{{ c.underwriter or '—' }}</td>
       <td data-label="Created" class="mut">{{ c.created_at | rd }}</td>
-      <td data-label="SLA">{% if c.sla == 'due' %}<span class="chip warn">due</span>{% elif c.sla == 'breached' %}<span class="chip bad">breached</span>{% else %}<span class="mut">n/a</span>{% endif %}</td>
+      <td data-label="SLA">{% if c.sla == 'due' %}<span class="chip warn" data-tip="Assessment due within 3 business days">due</span>{% elif c.sla == 'breached' %}<span class="chip bad" data-tip="Assessment SLA breached">breached</span>{% else %}<span class="mut" data-tip="Not applicable">n/a</span>{% endif %}</td>
       <td><a href="/case/{{ c.case_id }}" class="btn secondary" style="padding:4px 10px;font-size:12px">open →</a></td>
     </tr>
     {% endfor %}
