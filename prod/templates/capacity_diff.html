@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ binder_id }} — capacity diff{% endblock %}
+{% block header_title %}{{ binder_id }} — capacity diff{% endblock %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="/">Workboard</a> <span class="sep">›</span> <a href="/admin/capacity">Capacity</a> <span class="sep">›</span> <a href="/admin/capacity/binder/{{ binder_id }}">{{ binder_id }}</a> <span class="sep">›</span> <span>Diff</span></div>{% endblock %}
+{% block content %}
+<section class="card">
+  <h2 style="margin-top:0">v{{ diff.v1 }} → v{{ diff.v2 }}</h2>
+  <div class="grid2">
+    <div class="stat-card">
+      <div class="mut">v{{ diff.v1 }}</div>
+      <div style="font-size:22px">{{ '{:,.0f}'.format(diff.before) }}</div>
+      <div class="mut">effective {{ diff.effective_from.v1 | rd }}</div>
+    </div>
+    <div class="stat-card">
+      <div class="mut">v{{ diff.v2 }}</div>
+      <div style="font-size:22px">{{ '{:,.0f}'.format(diff.after) }}</div>
+      <div class="mut">effective {{ diff.effective_from.v2 | rd }}</div>
+    </div>
+  </div>
+  {% if diff.before and diff.after %}
+  <p class="mut" style="margin-top:10px">
+    Change: <b>{{ '{:+,.0f}'.format(diff.after - diff.before) }}</b>
+    ({{ '{:+.1f}'.format((diff.after - diff.before) / diff.before * 100) }}%)
+  </p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2 style="margin-top:0">Field-level changes</h2>
+  {% if diff.changed %}
+  <table><tr><th>Field</th><th>Before</th><th>After</th></tr>
+    {% for c in diff.changed %}<tr>
+      <td>{{ c.field }}</td>
+      <td style="color:var(--bad)">{{ c.before }}</td>
+      <td style="color:var(--ok)">{{ c.after }}</td>
+    </tr>{% endfor %}
+  </table>
+  {% else %}
+  <p class="mut">No field differences between these versions.</p>
+  {% endif %}
+</section>
+{% endblock %}

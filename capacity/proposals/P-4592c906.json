@@ -1,0 +1,15 @@
+{
+  "proposal_id": "P-4592c906",
+  "binder_id": "binder_D",
+  "status": "approved",
+  "author": "admin",
+  "approver": "uw",
+  "effective_from": "2026-10-27",
+  "summary": "D panel extension",
+  "created_at": "2026-10-27T01:23:08",
+  "capacity": {
+    "authorised_line": 30000000.0
+  },
+  "approved_version": 2,
+  "approved_at": "2026-10-27T01:23:28"
+}

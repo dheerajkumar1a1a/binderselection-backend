@@ -1,14 +1,13 @@
 """Capacity desk (phase 6): ledger-aware screening + alerts + MI.
 
-The demo engine still screens against static capacity.json (engine logic,
-unchanged). Production augments the resulting payload with the live ledger's
-reserved/written/available figures so the workboard and case page reflect real
-reservations. Alerts (80%/90%) fire at the moment a reservation crosses the
-threshold (settled grill answer), emailed to the placing underwriter + admins.
+Eligibility comes from the versioned authorised line (capacity/store.py,
+ADR-0002); the live ledger contributes written business and reservations.
+The desk overlays ledger figures onto the engine's payload so the workboard and
+case page reflect real reservations. Alerts (80%/90%) fire at the moment a
+reservation crosses the threshold, emailed to the placing underwriter + admins.
 """
 from __future__ import annotations
 
-import json
 import os
 import sys
 
@@ -18,19 +17,14 @@ from capacity import ledger as L
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
 
-def _binder_lines() -> dict[str, float]:
-    """Authorised lines from the static capacity.json (the demo's source)."""
+def _line_for(binder_id: str, fallback: float = 15_000_000.0) -> float:
+    """Authorised line in force, from the versioned capacity store (ADR-0002)."""
     try:
-        data = json.load(open(os.path.join(ROOT, "rules", "capacity.json"),
-                              encoding="utf-8"))
-        binders = data.get("binders", {})
-        if isinstance(binders, dict):
-            return {bid: float((v or {}).get("authorised_line", 15_000_000))
-                    for bid, v in binders.items()}
-        return {b["binder_id"]: float(b.get("authorised_line", 15_000_000))
-                for b in binders}
-    except (FileNotFoundError, json.JSONDecodeError, KeyError, TypeError):
-        return {}
+        sys.path.insert(0, ROOT)
+        from capacity import store as capstore
+        return capstore.line_for(binder_id)
+    except (KeyError, FileNotFoundError, ValueError):
+        return fallback
 
 
 def augment_payload(state: dict) -> None:
@@ -40,39 +34,52 @@ def augment_payload(state: dict) -> None:
         if not bid:
             continue
         try:
+            line = _line_for(bid)
             ledger = L.load()
             if bid not in ledger.get("binders", {}):
-                line = _binder_lines().get(bid, 15_000_000.0)
-                ledger["binders"][bid] = L._empty_binder(line)
+                ledger["binders"][bid] = L._empty_binder()
                 L._save(ledger)
             avail = L.available(bid)
             bb = ledger["binders"][bid]
             snap = b.setdefault("capacity_snapshot", {})
-            snap["authorised_line"] = bb.get("authorised_line")
+            snap["authorised_line"] = line
             snap["written_to_date"] = bb.get("written_to_date")
-            snap["reserved"] = round(bb.get("authorised_line", 0) -
-                                    bb.get("written_to_date", 0) - avail, 2)
+            snap["reserved"] = round(line - bb.get("written_to_date", 0) - avail, 2)
             snap["available_capacity"] = avail
         except Exception:
             pass
 
 
 def desk() -> list[dict]:
-    """Per-binder capacity desk summary."""
+    """Per-binder capacity desk summary, including binders with no ledger row yet."""
     ledger = L.load()
-    lines = _binder_lines()
+    known = set(ledger.get("binders", {}))
+    try:
+        sys.path.insert(0, ROOT)
+        from capacity import store as capstore
+        known |= {b["binder_id"] for b in capstore._binders() if b.get("binder_id")}
+    except Exception:
+        pass
     out = []
-    for bid, bb in ledger.get("binders", {}).items():
-        line = bb.get("authorised_line", lines.get(bid, 0.0))
+    for bid in sorted(known):
+        bb = ledger.get("binders", {}).get(bid) or L._empty_binder()
+        line = _line_for(bid)
         written = bb.get("written_to_date", 0.0)
         reserved = L._active_reserved(bb)
         avail = line - written - reserved
         pct = (written + reserved) / line if line else 0.0
+        try:
+            sys.path.insert(0, ROOT)
+            from capacity import store as capstore
+            version = capstore.current(bid)
+        except Exception:
+            version = None
         out.append({"binder_id": bid, "authorised_line": line,
                     "written_to_date": written, "reserved": reserved,
                     "available": avail, "utilisation": round(pct * 100, 1),
                     "alert": "breached" if pct >= 0.9 else ("warn" if pct >= 0.8 else "ok"),
-                    "reservations": bb.get("reservations", {})})
+                    "reservations": bb.get("reservations", {}),
+                    "version": version})
     return sorted(out, key=lambda x: x["binder_id"])
 
 

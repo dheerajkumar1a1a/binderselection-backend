@@ -29,12 +29,22 @@ def active_binders(as_at: str | None = None) -> list[dict]:
             if is_active(b["binder_id"], as_at)]
 
 
-# capacity_for: fetch capacity config for a binder (raises if missing).
-def capacity_for(binder_id: str) -> dict:
-    caps = _load_json("capacity.json")["binders"]
-    if binder_id not in caps:
-        raise KeyError(f"no capacity record for {binder_id} (BFR-CAP-012)")
-    return caps[binder_id]
+# capacity_for: capacity inputs for a binder — effective authorised line from the
+# versioned store (ADR-0002), with written/reserved still the seed's static
+# figures so eligibility moves only when a human approves a new line.
+def capacity_for(binder_id: str, as_at: str | None = None) -> dict:
+    import sys
+    sys.path.insert(0, str(BASE))
+    from capacity import store as capstore
+    line = capstore.line_for(binder_id, as_at)
+    try:
+        caps = _load_json("capacity.json")["binders"]
+        entry = caps.get(binder_id) or {}
+    except (FileNotFoundError, json.JSONDecodeError, KeyError):
+        entry = {}
+    return {"authorised_line": line,
+            "written_to_date": float(entry.get("written_to_date") or 0.0),
+            "reserved": float(entry.get("reserved") or 0.0)}
 
 
 # evaluate_binders: evaluate all active binders independently.
@@ -53,7 +63,7 @@ def evaluate_binders(state: dict, binder_ids: list[str] | None = None,
     rulesets = {}
     for bid in binder_ids:
         try:
-            cap_cfg = capacity_for(bid)
+            cap_cfg = capacity_for(bid, as_at)
             cout = cap.screen_safe({"extracted": extracted},
                                    cap_cfg["authorised_line"],
                                    cap_cfg["written_to_date"],

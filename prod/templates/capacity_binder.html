@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% block title %}{{ binder_id }} — capacity history{% endblock %}
+{% block header_title %}{{ binder_id }} — capacity history{% endblock %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="/">Workboard</a> <span class="sep">›</span> <a href="/admin/capacity">Capacity</a> <span class="sep">›</span> <span>{{ binder_id }}</span></div>{% endblock %}
+{% block content %}
+{% set cur = detail.current.version if detail.current else none %}
+<section class="card">
+  <h2 style="margin-top:0">Version timeline</h2>
+  <div style="display:flex;align-items:center;gap:0;overflow-x:auto;padding:12px 0">
+    {% for v in detail.versions %}
+    <div style="display:flex;align-items:center;gap:0">
+      <div style="text-align:center;min-width:96px">
+        <div style="width:32px;height:32px;border-radius:50%;margin:0 auto 4px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;
+          {% if v.version == cur %}background:var(--ok);color:#fff;{% elif detail.current and v.effective_from > detail.current.effective_from %}background:var(--warn);color:#fff;{% else %}background:var(--mut);color:#fff;{% endif %}">
+          v{{ v.version }}
+        </div>
+        <div style="font-size:10px;color:var(--mut)">{{ v.effective_from }}</div>
+        <div style="font-size:10px">{{ '{:,.0f}'.format(v.authorised_line) }}</div>
+      </div>
+      {% if not loop.last %}<div style="width:40px;height:2px;background:var(--line);margin-bottom:26px"></div>{% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  <p class="mut">Green = in force now. Grey = superseded. Amber = future effective date.</p>
+</section>
+
+<section class="card">
+  <h2 style="margin-top:0">Versions</h2>
+  <table><tr><th>Version</th><th>Authorised line</th><th>Effective from</th><th>Effective to</th><th>Author</th><th>Approver</th><th>Actions</th></tr>
+  {% for v in detail.versions %}<tr>
+    <td><b>v{{ v.version }}</b>{% if v.version == cur %} <span class="chip ok">in force</span>{% elif detail.current and v.effective_from > detail.current.effective_from %} <span class="chip warn">future</span>{% else %} <span class="chip neutral">superseded</span>{% endif %}</td>
+    <td>{{ '{:,.0f}'.format(v.authorised_line) }}</td>
+    <td>{{ v.effective_from | rd }}</td><td>{{ v.effective_to or '—' }}</td>
+    <td>{{ v.author or '—' }}</td><td>{{ v.approver or '—' }}</td>
+    <td style="white-space:nowrap">
+      <a href="/admin/capacity/propose/{{ binder_id }}?rollback={{ v.version }}" class="btn secondary" style="padding:3px 8px;font-size:11px">revert →</a>
+      {% if not loop.last %}<a href="/admin/capacity/binder/{{ binder_id }}/diff?v1={{ v.version }}&v2={{ detail.versions[-1].version }}" class="btn ghost" style="padding:3px 8px;font-size:11px">diff →</a>{% endif %}
+    </td>
+  </tr>{% endfor %}</table>
+</section>
+
+<section class="card">
+  <h2 style="margin-top:0">Actions</h2>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <a href="/admin/capacity/propose/{{ binder_id }}" class="btn">Propose new change →</a>
+    <a href="/admin/capacity/binder/{{ binder_id }}/diff" class="btn secondary">Diff versions →</a>
+  </div>
+</section>
+{% endblock %}

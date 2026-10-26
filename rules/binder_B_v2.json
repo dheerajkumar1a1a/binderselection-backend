@@ -1,0 +1,169 @@
+{
+  "binder_id": "binder_B",
+  "rules": [
+    {
+      "rule_id": "B-001a-TERRITORY",
+      "category": "Location Geography",
+      "scope": "location",
+      "field_reference": "locations.territory",
+      "operator": "not_in",
+      "threshold_value": [
+        "PR"
+      ],
+      "threshold_unit": "code",
+      "severity": "refer",
+      "business_description": "If any insured location is in Puerto Rico (part 1 of 3)"
+    },
+    {
+      "rule_id": "B-001b-WILDFIRE",
+      "category": "Location Geography",
+      "scope": "location",
+      "field_reference": "locations.wildfire_risk_score",
+      "operator": "lte",
+      "threshold_value": 80,
+      "threshold_unit": "score",
+      "severity": "refer",
+      "business_description": "If any location has a Wildfire Risk Score above 80 (part 2 of 3)"
+    },
+    {
+      "rule_id": "B-001c-FEMA",
+      "category": "Location Geography",
+      "scope": "location",
+      "field_reference": "locations.fema_flood_zone",
+      "operator": "not_in",
+      "threshold_value": [
+        "A",
+        "D",
+        "V"
+      ],
+      "threshold_unit": "code",
+      "severity": "refer",
+      "business_description": "If any location is in FEMA Flood Zones A, D, or V (part 3 of 3)"
+    },
+    {
+      "rule_id": "B-002a-CANCELLED",
+      "category": "Loss History",
+      "scope": "submission",
+      "field_reference": "prior_coverage_cancelled",
+      "operator": "is_false",
+      "threshold_value": false,
+      "threshold_unit": "boolean",
+      "severity": "refer",
+      "business_description": "If prior coverage was cancelled (part 1 of 2)"
+    },
+    {
+      "rule_id": "B-002b-NONRENEWED",
+      "category": "Loss History",
+      "scope": "submission",
+      "field_reference": "prior_coverage_non_renewed",
+      "operator": "is_false",
+      "threshold_value": false,
+      "threshold_unit": "boolean",
+      "severity": "refer",
+      "business_description": "If prior coverage was non-renewed (part 2 of 2)"
+    },
+    {
+      "rule_id": "B-003a-FRAME",
+      "category": "Construction / COPE",
+      "scope": "location",
+      "field_reference": "locations.construction_type",
+      "operator": "not_in",
+      "threshold_value": [
+        "FRAME"
+      ],
+      "threshold_unit": "code",
+      "severity": "refer",
+      "logic_group": "B-003-FRAME-ALARM",
+      "logic": "AND",
+      "business_description": "Frame construction without alarm: frame element"
+    },
+    {
+      "rule_id": "B-003a-NOALARM",
+      "category": "Construction / COPE",
+      "scope": "location",
+      "field_reference": "locations.alarm_present",
+      "operator": "is_true",
+      "threshold_value": true,
+      "threshold_unit": "boolean",
+      "severity": "refer",
+      "logic_group": "B-003-FRAME-ALARM",
+      "logic": "AND",
+      "business_description": "Frame construction without alarm: alarm element"
+    },
+    {
+      "rule_id": "B-003b-AGE",
+      "category": "Construction / COPE",
+      "scope": "location",
+      "field_reference": "locations.year_built",
+      "operator": "gte",
+      "threshold_value": 1950,
+      "threshold_unit": "year",
+      "severity": "refer",
+      "business_description": "If any warehouse was built before 1950"
+    },
+    {
+      "rule_id": "B-004-VALUATION",
+      "category": "Valuation Method",
+      "scope": "submission",
+      "field_reference": "valuation_basis",
+      "operator": "neq",
+      "threshold_value": "SELLING_PRICE",
+      "threshold_unit": "code",
+      "severity": "refer",
+      "business_description": "If the valuation is listed as Selling Price"
+    },
+    {
+      "rule_id": "B-005a-PROFIT-SHARE",
+      "category": "Submission Quality",
+      "scope": "submission",
+      "field_reference": "profit_share_requested",
+      "operator": "is_false",
+      "threshold_value": false,
+      "threshold_unit": "boolean",
+      "severity": "refer",
+      "business_description": "If the insured requests profit sharing (part 1 of 2)"
+    },
+    {
+      "rule_id": "B-005b-NCB",
+      "category": "Submission Quality",
+      "scope": "submission",
+      "field_reference": "no_claims_bonus_requested",
+      "operator": "is_false",
+      "threshold_value": false,
+      "threshold_unit": "boolean",
+      "severity": "refer",
+      "business_description": "If the insured requests a no-claims bonus (part 2 of 2)"
+    },
+    {
+      "rule_id": "B-006-VENTURE",
+      "category": "Location Count / Setup",
+      "scope": "submission",
+      "field_reference": "years_trading",
+      "operator": "gte",
+      "threshold_value": 1,
+      "threshold_unit": "years",
+      "severity": "refer",
+      "business_description": "If the insured is a new venture with less than 1 year of business history"
+    },
+    {
+      "rule_id": "B-007-LIVESTOCK",
+      "category": "Commodity Rule",
+      "scope": "submission",
+      "field_reference": "commodities.commodity_type",
+      "operator": "not_in",
+      "threshold_value": [
+        "LIVESTOCK",
+        "LIVE_ANIMALS"
+      ],
+      "threshold_unit": "code",
+      "severity": "refer",
+      "business_description": "If the commodity includes Livestock or Live Animals"
+    }
+  ],
+  "version": 2,
+  "effective_from": "2026-10-26",
+  "effective_to": null,
+  "supersedes": 1,
+  "author": "admin",
+  "approver": "uw"
+}

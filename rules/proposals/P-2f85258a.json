@@ -1,9 +1,9 @@
 {
   "proposal_id": "P-2f85258a",
   "binder_id": "binder_A",
-  "status": "draft",
+  "status": "approved",
   "author": "uw",
-  "approver": null,
+  "approver": "admin",
   "effective_from": "2026-10-26",
   "summary": "",
   "created_at": "2026-10-26T17:12:18",
@@ -138,5 +138,7 @@
       }
     ]
   },
-  "approved_version": null
+  "approved_version": 3,
+  "_file": "P-2f85258a.json",
+  "approved_at": "2026-10-26T18:19:10"
 }

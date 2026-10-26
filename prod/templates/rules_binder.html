@@ -3,6 +3,7 @@
 {% block header_title %}{{ binder_id }} — version history{% endblock %}
 {% block breadcrumbs %}<div class="breadcrumbs"><a href="/">Workboard</a> <span class="sep">›</span> <a href="/admin/rules">Rules</a> <span class="sep">›</span> <span>{{ binder_id }}</span></div>{% endblock %}
 {% block content %}
+{% set cur = detail.current.version if detail.current else none %}
 <!-- Version timeline -->
 <section class="card">
   <h2 style="margin-top:0">Version timeline</h2>
@@ -11,7 +12,7 @@
     <div style="display:flex;align-items:center;gap:0">
       <div style="text-align:center;min-width:80px">
         <div style="width:32px;height:32px;border-radius:50%;margin:0 auto 4px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;
-          {% if v.effective_to is none %}background:var(--ok);color:#fff;{% elif v.effective_from <= (detail.versions[-1].effective_from if detail.versions else '') %}background:var(--mut);color:#fff;{% else %}background:var(--warn);color:#fff;{% endif %}">
+          {% if v.version == cur %}background:var(--ok);color:#fff;{% elif detail.current and v.effective_from > detail.current.effective_from %}background:var(--warn);color:#fff;{% else %}background:var(--mut);color:#fff;{% endif %}">
           v{{ v.version }}
         </div>
         <div style="font-size:10px;color:var(--mut)">{{ v.effective_from }}</div>
@@ -20,14 +21,14 @@
     </div>
     {% endfor %}
   </div>
-  <p class="mut">Green = current (no effective_to). Grey = past. Amber = future.</p>
+  <p class="mut">Green = in force now. Grey = superseded. Amber = future effective date.</p>
 </section>
 
 <section class="card">
   <h2 style="margin-top:0">Versions</h2>
   <table><tr><th>Version</th><th>Effective from</th><th>Effective to</th><th>Author</th><th>Approver</th><th>Rules</th><th>Actions</th></tr>
   {% for v in detail.versions %}<tr>
-    <td><b>v{{ v.version }}</b>{% if v.effective_to is none %} <span class="chip ok">current</span>{% endif %}</td>
+    <td><b>v{{ v.version }}</b>{% if v.version == cur %} <span class="chip ok">in force</span>{% elif detail.current and v.effective_from > detail.current.effective_from %} <span class="chip warn">future</span>{% else %} <span class="chip neutral">superseded</span>{% endif %}</td>
     <td>{{ v.effective_from | rd }}</td><td>{{ v.effective_to or '—' }}</td>
     <td>{{ v.author or '—' }}</td><td>{{ v.approver or '—' }}</td><td>{{ v.rules }}</td>
     <td style="white-space:nowrap">

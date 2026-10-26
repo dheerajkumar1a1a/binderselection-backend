@@ -3,8 +3,10 @@
 File-backed for the slice (JSON with temp-rename writes). Production needs a
 transactional store with row locks - see note in reserve().
 Ledger shape per binder:
-  {authorised_line, written_to_date, reservations: {res_id: {submission_ref, amount, expires_at}}}
-Available = line - written - sum(active reservations).
+  {written_to_date, reservations: {res_id: {submission_ref, amount, expires_at}}}
+Available = authorised_line - written - sum(active reservations), where the
+authorised line comes from the versioned capacity store (ADR-0002) and is never
+duplicated into the ledger.
 Idempotency: key = submission_ref + binder. Repeat calls return the original
 reservation; binds record processed keys so retries never double-write.
 """
@@ -12,6 +14,8 @@ reservation; binds record processed keys so retries never double-write.
 import json
 # os: env var for ledger path.
 import os
+# sys: import the repo's capacity store without relying on sys.path.
+import sys
 # uuid: reservation ids.
 import uuid
 # datetime: expiry timestamps.
@@ -27,26 +31,43 @@ LEDGER_PATH = Path(os.environ.get("BINDER_LEDGER", str(BASE / "ledger.json")))
 RESERVATION_TTL_HOURS = int(os.environ.get("BINDER_RES_TTL_HOURS", "24"))
 
 
+# _line_for: the authorised line in force, from the versioned store.
+def _line_for(binder_id: str) -> float:
+    sys.path.insert(0, str(BASE.parent))
+    from capacity import store as capstore
+    return capstore.line_for(binder_id)
+
+
+
 # _now: current UTC time.
 def _now() -> datetime:
     return datetime.now(timezone(timedelta(hours=5, minutes=30)))
 
 
-# _empty_binder: default binder ledger entry.
-def _empty_binder(line: float = 15_000_000.0) -> dict:
-    return {"authorised_line": line, "written_to_date": 0.0,
+# _empty_binder: default binder ledger entry. The authorised line is not stored
+# here — it is read from the versioned capacity store (ADR-0002).
+def _empty_binder() -> dict:
+    return {"written_to_date": 0.0,
             "reservations": {}, "processed_binds": []}
 
 
-# load: read ledger from disk (or empty default).
+# load: read ledger from disk (or empty default). A legacy `authorised_line`
+# left in an old file is dropped on read: the line lives only in the versioned
+# store (ADR-0002), and a stale copy must never be reachable by a caller.
 def load() -> dict:
     if not LEDGER_PATH.exists():
         return {"binders": {"binder_A": _empty_binder()}}
-    return json.loads(LEDGER_PATH.read_text())
+    ledger = json.loads(LEDGER_PATH.read_text())
+    for b in ledger.get("binders", {}).values():
+        b.pop("authorised_line", None)
+    return ledger
 
 
-# _save: atomic write via temp rename.
+# _save: atomic write via temp rename. Drops the legacy authorised_line copy so
+# an old ledger file migrates itself on first write.
 def _save(ledger: dict) -> None:
+    for b in ledger.get("binders", {}).values():
+        b.pop("authorised_line", None)
     tmp = LEDGER_PATH.with_suffix(".tmp")
     tmp.write_text(json.dumps(ledger, indent=2))
     tmp.replace(LEDGER_PATH)
@@ -68,7 +89,7 @@ def available(binder_id: str, ledger: dict | None = None) -> float:
     b = ledger["binders"].get(binder_id)
     if b is None:
         raise KeyError(f"unknown binder {binder_id}")
-    return b["authorised_line"] - b["written_to_date"] - _active_reserved(b)
+    return _line_for(binder_id) - b["written_to_date"] - _active_reserved(b)
 
 
 # reserve: reserve amount, idempotent on (submission_ref, binder).

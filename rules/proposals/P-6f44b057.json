@@ -1,0 +1,144 @@
+{
+  "proposal_id": "P-6f44b057",
+  "binder_id": "binder_A",
+  "status": "approved",
+  "author": "dk",
+  "approver": "uw",
+  "effective_from": "2026-10-27",
+  "summary": "",
+  "created_at": "2026-10-27T00:58:49",
+  "ruleset": {
+    "binder_id": "binder_A",
+    "rules": [
+      {
+        "rule_id": "A-001-SECTION-LIMIT",
+        "category": "Coverage Section Limit",
+        "scope": "submission",
+        "field_reference": "coverage_sections.limit",
+        "operator": "lte",
+        "threshold_value": 5000000,
+        "threshold_unit": "currency",
+        "severity": "refer",
+        "business_description": "If any coverage section is greater than $5,000,000"
+      },
+      {
+        "rule_id": "A-002-TIV",
+        "category": "Total Insured Value",
+        "scope": "submission",
+        "field_reference": "total_insured_value",
+        "operator": "lte",
+        "threshold_value": 10000000,
+        "threshold_unit": "currency",
+        "severity": "refer",
+        "business_description": "If the total insured value (TIV) is greater than $10,000,000"
+      },
+      {
+        "rule_id": "A-003a-SINGLE-CLAIM",
+        "category": "Loss History",
+        "scope": "submission",
+        "field_reference": "largest_single_claim_amount",
+        "operator": "lt",
+        "threshold_value": 5000,
+        "threshold_unit": "currency",
+        "severity": "refer",
+        "business_description": "If any single claim is $5,000 or more (part 1 of 2)"
+      },
+      {
+        "rule_id": "A-003b-TOTAL-CLAIMS",
+        "category": "Loss History",
+        "scope": "submission",
+        "field_reference": "total_claims_amount",
+        "operator": "lte",
+        "threshold_value": 10000,
+        "threshold_unit": "currency",
+        "severity": "refer",
+        "business_description": "If total claims exceed $10,000 (part 2 of 2)"
+      },
+      {
+        "rule_id": "A-004-CONTINENTAL-US",
+        "category": "Insured Address",
+        "scope": "submission",
+        "field_reference": "insured_in_continental_us",
+        "operator": "is_true",
+        "threshold_value": true,
+        "threshold_unit": "boolean",
+        "severity": "refer",
+        "business_description": "If the insured's address is outside the continental United States"
+      },
+      {
+        "rule_id": "A-005-SPRINKLER",
+        "category": "Construction / COPE",
+        "scope": "location",
+        "field_reference": "locations.sprinklered",
+        "operator": "is_true",
+        "threshold_value": true,
+        "threshold_unit": "boolean",
+        "severity": "refer",
+        "business_description": "If any insured warehouse is not sprinklered"
+      },
+      {
+        "rule_id": "A-006-VALUATION",
+        "category": "Valuation Method",
+        "scope": "submission",
+        "field_reference": "valuation_basis",
+        "operator": "eq",
+        "threshold_value": "CIF+10%",
+        "threshold_unit": "code",
+        "severity": "refer",
+        "business_description": "If the valuation method is not CIF + 10%"
+      },
+      {
+        "rule_id": "A-007a-COVERAGE-TYPE",
+        "category": "Coverage Type / Term",
+        "scope": "submission",
+        "field_reference": "coverage_type",
+        "operator": "eq",
+        "threshold_value": "ALL_RISK",
+        "threshold_unit": "code",
+        "severity": "refer",
+        "business_description": "If the coverage type is not All Risk (part 1 of 2)"
+      },
+      {
+        "rule_id": "A-007b-INCEPTION",
+        "category": "Coverage Type / Term",
+        "scope": "submission",
+        "field_reference": "requested_inception_date",
+        "operator": "after",
+        "threshold_value": "TODAY",
+        "threshold_unit": "date",
+        "severity": "refer",
+        "business_description": "If the policy start date is in the past (part 2 of 2)"
+      },
+      {
+        "rule_id": "A-008-EXPIRING-PREMIUM",
+        "category": "Submission Quality",
+        "scope": "submission",
+        "field_reference": "expiring_premium_disclosed",
+        "operator": "is_false",
+        "threshold_value": false,
+        "threshold_unit": "boolean",
+        "severity": "refer",
+        "business_description": "If the expiring premium is disclosed"
+      },
+      {
+        "rule_id": "A-009-COMMODITY",
+        "category": "Commodity Rule",
+        "scope": "submission",
+        "field_reference": "commodities.commodity_type",
+        "operator": "not_in",
+        "threshold_value": [
+          "CANNABIS",
+          "MARIJUANA",
+          "CBD",
+          "THC"
+        ],
+        "threshold_unit": "code",
+        "severity": "refer",
+        "business_description": "If the commodity includes Cannabis, Marijuana, CBD, or THC"
+      }
+    ]
+  },
+  "approved_version": 5,
+  "_file": "P-6f44b057.json",
+  "approved_at": "2026-10-27T00:59:18"
+}

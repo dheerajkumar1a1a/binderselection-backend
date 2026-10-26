@@ -19,16 +19,18 @@
 <section class="card">
   <h2 style="margin-top:0">Proposals {% if pending %}<span class="chip warn" data-tip="Needs approval">{{ pending }} pending</span>{% endif %}</h2>
   {% if not proposals %}<p class="mut">No proposals yet.</p>{% else %}
-  <div x-data="{search:''}" style="margin-bottom:8px">
-    <input type="text" x-model="search" placeholder="Filter proposals by ID, binder, author..." style="max-width:320px">
+  <div x-data="{search:''}">
+    <div style="margin-bottom:8px">
+      <input type="text" x-model="search" placeholder="Filter proposals by ID, binder, author..." style="max-width:320px">
+    </div>
+    <table><tr><th>Proposal</th><th>Binder</th><th>Status</th><th>Author</th><th>Approver</th><th>Effective from</th><th></th></tr>
+    {% for p in proposals %}<tr x-show="!search || ('{{ p.proposal_id }} {{ p.binder_id }} {{ p.author }} {{ p.status }}').toLowerCase().includes(search.toLowerCase())">
+      <td>{{ p.proposal_id }}</td><td>{{ p.binder_id }}</td>
+      <td><span class="chip {{ 'warn' if p.status=='draft' else 'ok' }}">{{ p.status }}</span></td>
+      <td>{{ p.author }}</td><td>{{ p.approver or '—' }}</td><td>{{ p.effective_from }}</td>
+      <td><a href="/admin/rules/proposal/{{ p.proposal_id }}">open →</a></td>
+    </tr>{% endfor %}</table>
   </div>
-  <table><tr><th>Proposal</th><th>Binder</th><th>Status</th><th>Author</th><th>Approver</th><th>Effective from</th><th></th></tr>
-  {% for p in proposals %}<tr x-show="search==='' || ('{{ p.proposal_id }} {{ p.binder_id }} {{ p.author }} {{ p.status }}').toLowerCase().includes(search.toLowerCase())">
-    <td>{{ p.proposal_id }}</td><td>{{ p.binder_id }}</td>
-    <td><span class="chip {{ 'warn' if p.status=='draft' else 'ok' }}">{{ p.status }}</span></td>
-    <td>{{ p.author }}</td><td>{{ p.approver or '—' }}</td><td>{{ p.effective_from }}</td>
-    <td><a href="/admin/rules/proposal/{{ p.proposal_id }}">open →</a></td>
-  </tr>{% endfor %}</table>
   {% endif %}
 </section>
 {% endblock %}

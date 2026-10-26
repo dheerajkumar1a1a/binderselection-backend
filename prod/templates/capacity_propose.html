@@ -1,0 +1,54 @@
+{% extends "base.html" %}
+{% block title %}Propose — {{ binder_id }}{% endblock %}
+{% block header_title %}Propose a change — {{ binder_id }}{% endblock %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="/">Workboard</a> <span class="sep">›</span> <a href="/admin/capacity">Capacity</a> <span class="sep">›</span> <a href="{{ '/admin/capacity/binder/' + binder_id }}">{{ binder_id }}</a> <span class="sep">›</span> <span>Propose</span></div>{% endblock %}
+{% block content %}
+<section class="card">
+<form method="post" action="/admin/capacity/propose/{{ binder_id }}"
+      x-data="{line: {{ line if line is not none else 0 }}, committed: {{ committed or 0 }}}">
+  <h2 style="margin-top:0">Propose a change</h2>
+  <p class="mut">Maker-checker: you author; a different underwriter/admin approves. Effective date controls when the engine starts using it. Only the authorised line is authored — written business and reservations come from the ledger.</p>
+  {% if rollback %}<p class="chip warn">Reverting to v{{ rollback }} — the line below is prefilled from that version.</p>{% endif %}
+
+  <div style="display:flex;gap:16px;flex-wrap:wrap;margin:12px 0">
+    <label style="display:block">
+      <span class="mut">Authorised line</span><br>
+      <input type="number" name="authorised_line" min="0" step="1000" required
+             x-model.number="line" value="{{ line if line is not none else '' }}" style="width:200px">
+    </label>
+    <label style="display:block">
+      <span class="mut">Effective from</span><br>
+      <input type="date" name="effective_from" value="{{ today }}" required>
+    </label>
+    <label style="display:block;flex:1;min-width:240px">
+      <span class="mut">Summary</span><br>
+      <input type="text" name="summary" placeholder="e.g. Q4 capacity uplift" style="width:100%">
+    </label>
+  </div>
+
+  <p class="mut">
+    Currently effective:
+    {% if detail.current %}<b>{{ '{:,.0f}'.format(detail.current.authorised_line) }}</b> (v{{ detail.current.version }} from {{ detail.current.effective_from | rd }})
+    {% else %}—{% endif %}
+    · written + reserved now: <b>{{ '{:,.0f}'.format(committed or 0) }}</b>
+  </p>
+
+  <p x-show="line < committed" style="color:var(--bad);font-size:13px" x-cloak>
+    Warning: this line is below what is already committed ({{ '{:,.0f}'.format(committed or 0) }}).
+    Available capacity becomes negative — the binder stops accepting new business until the line rises.
+  </p>
+
+  <details style="margin:12px 0">
+    <summary class="mut">Optional: dry-run case list (comma-separated; blank = all sample cases)</summary>
+    <input type="text" name="case_ids" placeholder="01-accept-standard,04-capacity-shortfall" style="width:100%;margin-top:6px">
+  </details>
+
+  <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:12px">
+    <button type="submit" class="btn">Propose →</button>
+    <button type="submit" class="btn secondary"
+            formaction="/admin/capacity/dryrun/{{ binder_id }}" formmethod="post">Dry-run</button>
+    <a href="/admin/capacity/binder/{{ binder_id }}" class="btn ghost">Cancel</a>
+  </div>
+</form>
+</section>
+{% endblock %}

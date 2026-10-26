@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}{{ proposal.proposal_id }} — capacity proposal{% endblock %}
+{% block header_title %}{{ proposal.proposal_id }} — {{ proposal.binder_id }}{% endblock %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="/">Workboard</a> <span class="sep">›</span> <a href="/admin/capacity">Capacity</a> <span class="sep">›</span> <span>{{ proposal.proposal_id }}</span></div>{% endblock %}
+{% block content %}
+<section class="card">
+  <p class="mut">
+    status <span class="chip {{ 'warn' if proposal.status == 'draft' else 'ok' }}">{{ proposal.status }}</span>
+    · author {{ proposal.author }} · approver {{ proposal.approver or '—' }}
+    · effective from {{ proposal.effective_from }}
+  </p>
+  <p class="mut">Summary: {{ proposal.summary or '—' }} · created {{ proposal.created_at | rd }}{% if proposal.approved_at %} · approved {{ proposal.approved_at | rd }} (version v{{ proposal.approved_version }}){% endif %}</p>
+
+  {% if proposal.status == 'draft' and (user.username if user else '') != proposal.author %}
+  <form method="post" action="/admin/capacity/proposal/{{ proposal.proposal_id }}/approve">
+    <button class="btn">Approve (four-eyes)</button>
+    <p class="mut">Approving writes capacity/versions/binder_{{ proposal.binder_id }}_v?.json with effective_from {{ proposal.effective_from }}. You cannot approve your own proposal.</p>
+  </form>
+  {% elif proposal.status == 'draft' %}
+  <p class="mut">You authored this proposal — a different underwriter or admin must approve it (four-eyes).</p>
+  {% else %}
+  <p class="mut">Approved by {{ proposal.approver }} as version v{{ proposal.approved_version }}. The engine will use it from {{ proposal.effective_from }}.</p>
+  {% endif %}
+</section>
+
+<section class="card">
+  <h2 style="margin-top:0">Proposed change</h2>
+  <table>
+    <tr><th>Field</th><th>Proposed value</th></tr>
+    <tr><td>Binder</td><td>{{ proposal.binder_id }}</td></tr>
+    <tr><td>Authorised line</td><td><b>{{ '{:,.0f}'.format(proposal.capacity.authorised_line) }}</b></td></tr>
+    <tr><td>Effective from</td><td>{{ proposal.effective_from }}</td></tr>
+  </table>
+  {% if proposal.approved_version %}
+  <p class="mut" style="margin-top:10px"><a href="/admin/capacity/binder/{{ proposal.binder_id }}">View version history →</a></p>
+  {% endif %}
+</section>
+{% endblock %}

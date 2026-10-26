@@ -1,0 +1,122 @@
+{
+  "binder_id": "binder_D",
+  "rules": [
+    {
+      "binder_id": "binder_D",
+      "business_description": "If any single location has coverage greater than $3,000,000",
+      "category": "Coverage Section Limit",
+      "field_reference": "locations.location_limit",
+      "operator": "lte",
+      "rule_id": "D-001-LOCATION-LIMIT",
+      "scope": "location",
+      "severity": "refer",
+      "threshold_unit": "currency",
+      "threshold_value": 3000000
+    },
+    {
+      "binder_id": "binder_D",
+      "business_description": "If the total insured value exceeds $15,000,000 across all locations",
+      "category": "Total Insured Value",
+      "field_reference": "total_insured_value",
+      "operator": "lte",
+      "rule_id": "D-002-TIV",
+      "scope": "submission",
+      "severity": "refer",
+      "threshold_unit": "currency",
+      "threshold_value": 15000000
+    },
+    {
+      "binder_id": "binder_D",
+      "business_description": "If prior cargo coverage was cancelled",
+      "category": "Loss History",
+      "field_reference": "prior_cargo_coverage_cancelled",
+      "operator": "is_false",
+      "rule_id": "D-003-CANCELLED",
+      "scope": "submission",
+      "severity": "refer",
+      "threshold_unit": "boolean",
+      "threshold_value": false
+    },
+    {
+      "binder_id": "binder_D",
+      "business_description": "If the coverage is Port-to-Port (part 1 of 2)",
+      "category": "Coverage Type / Term",
+      "field_reference": "coverage_type",
+      "operator": "neq",
+      "rule_id": "D-004a-COVERAGE-TYPE",
+      "scope": "submission",
+      "severity": "refer",
+      "threshold_unit": "code",
+      "threshold_value": "PORT_TO_PORT"
+    },
+    {
+      "binder_id": "binder_D",
+      "business_description": "If the policy term is not exactly 12 months (part 2 of 2)",
+      "category": "Coverage Type / Term",
+      "field_reference": "policy_term_months",
+      "operator": "eq",
+      "rule_id": "D-004b-TERM-12M",
+      "scope": "submission",
+      "severity": "refer",
+      "threshold_unit": "months",
+      "threshold_value": 12
+    },
+    {
+      "binder_id": "binder_D",
+      "business_description": "If the SOV is incomplete (part 1 of 2)",
+      "category": "Submission Quality",
+      "field_reference": "sov_complete",
+      "operator": "is_true",
+      "rule_id": "D-005a-SOV-COMPLETE",
+      "scope": "submission",
+      "severity": "refer",
+      "threshold_unit": "boolean",
+      "threshold_value": true
+    },
+    {
+      "binder_id": "binder_D",
+      "business_description": "If multiple deductible options are requested (part 2 of 2)",
+      "category": "Submission Quality",
+      "field_reference": "deductible_options_count",
+      "operator": "lte",
+      "rule_id": "D-005b-DEDUCTIBLES",
+      "scope": "submission",
+      "severity": "refer",
+      "threshold_unit": "count",
+      "threshold_value": 1
+    },
+    {
+      "binder_id": "binder_D",
+      "business_description": "If the submission lists multiple brokers",
+      "category": "Location Count / Setup",
+      "field_reference": "broker_count",
+      "operator": "lte",
+      "rule_id": "D-006-BROKER-COUNT",
+      "scope": "submission",
+      "severity": "refer",
+      "threshold_unit": "count",
+      "threshold_value": 1
+    },
+    {
+      "binder_id": "binder_D",
+      "business_description": "If the commodity includes Jewelry or Watches",
+      "category": "Commodity Rule",
+      "field_reference": "commodities.commodity_type",
+      "operator": "not_in",
+      "rule_id": "D-007-JEWELRY",
+      "scope": "submission",
+      "severity": "refer",
+      "threshold_unit": "code",
+      "threshold_value": [
+        "JEWELRY",
+        "WATCHES"
+      ]
+    }
+  ],
+  "version": 2,
+  "effective_from": "2026-10-26",
+  "effective_to": null,
+  "supersedes": 1,
+  "author": "uw",
+  "approver": "admin"
+}

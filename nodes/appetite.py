@@ -39,6 +39,12 @@ def _threshold(raw):
 def _single_ok(val, op: str, threshold) -> bool:
     # Resolve special thresholds.
     t = _threshold(threshold)
+    # Coerce threshold to match value type for numeric comparisons.
+    if isinstance(val, (int, float)) and isinstance(t, str):
+        try:
+            t = type(val)(t)
+        except (ValueError, TypeError):
+            pass
     # Less-than-or-equal.
     if op == "lte":
         return val <= t

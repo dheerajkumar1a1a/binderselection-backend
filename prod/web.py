@@ -408,8 +408,12 @@ async def portal_round_submit(request: Request, case_id: str, round_id: int,
 def capacity_page(request: Request):
     _staff(request)
     from prod import capacity_desk as cd
+    from prod import capacity_console as cc
     return tpl.TemplateResponse(request, "capacity.html",
-                                {"desk": cd.desk()})
+                                {"desk": cd.desk(),
+                                 "binders": cc.list_binders(),
+                                 "proposals": cc.list_proposals(),
+                                 "user": auth.session_user(request)})
 
 
 @app.post("/admin/capacity/release")
@@ -419,6 +423,139 @@ def capacity_release(request: Request, submission_ref: str = Form(...),
     from capacity import ledger as L
     L.release(submission_ref, binder_id)
     return RedirectResponse("/admin/capacity", 303)
+
+
+# --- capacity console: maker-checker over authorised lines (ADR-0002) -------
+
+def _cc():
+    import prod.capacity_console as c
+    return c
+
+
+def _capacity_detail(binder_id: str) -> dict:
+    detail = next((b for b in _cc().list_binders()
+                   if b["binder"]["binder_id"] == binder_id), None)
+    if detail is None:
+        raise HTTPException(404, f"unknown binder {binder_id}")
+    return detail
+
+
+@app.get("/admin/capacity/binder/{binder_id}", response_class=HTMLResponse)
+def capacity_binder(request: Request, binder_id: str):
+    _staff(request)
+    return tpl.TemplateResponse(request, "capacity_binder.html",
+                                {"binder_id": binder_id,
+                                 "detail": _capacity_detail(binder_id)})
+
+
+@app.get("/admin/capacity/propose/{binder_id}", response_class=HTMLResponse)
+def capacity_propose_page(request: Request, binder_id: str,
+                          rollback: int | None = None):
+    _staff(request)
+    detail = _capacity_detail(binder_id)
+    line = (detail["current"] or {}).get("authorised_line")
+    # Revert support: prefill the target version's line, and say so on the page.
+    if rollback:
+        for v in detail["versions"]:
+            if v["version"] == rollback:
+                line = v["authorised_line"]
+    return tpl.TemplateResponse(request, "capacity_propose.html",
+                                {"binder_id": binder_id, "detail": detail,
+                                 "line": line, "rollback": rollback,
+                                 "committed": _committed(binder_id),
+                                 "today": __import__("datetime").date.today().isoformat()})
+
+
+# _committed: written + active reservations, the floor a line must exceed to stay usable.
+def _committed(binder_id: str) -> float:
+    from prod import capacity_desk as cd
+    row = next((d for d in cd.desk() if d["binder_id"] == binder_id), None)
+    if not row:
+        return 0.0
+    return float(row["written_to_date"]) + float(row["reserved"])
+
+
+@app.post("/admin/capacity/propose/{binder_id}")
+def capacity_propose_post(request: Request, binder_id: str,
+                          authorised_line: str = Form(...),
+                          effective_from: str = Form(...),
+                          summary: str = Form("")):
+    _staff(request)
+    u = auth.session_user(request)
+    try:
+        prop = _cc().create_proposal(binder_id, authorised_line,
+                                     u.username if u else "unknown",
+                                     effective_from, summary)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return RedirectResponse(f"/admin/capacity/proposal/{prop['proposal_id']}", 303)
+
+
+@app.post("/admin/capacity/dryrun/{binder_id}", response_class=HTMLResponse)
+def capacity_dryrun(request: Request, binder_id: str,
+                    authorised_line: str = Form(...),
+                    case_ids: str = Form("")):
+    _staff(request)
+    ids = [c.strip() for c in case_ids.split(",") if c.strip()]
+    try:
+        res = _cc().dry_run_proposal(binder_id, authorised_line, ids)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return HTMLResponse("<pre>" + json.dumps(res, indent=2) + "</pre>")
+
+
+@app.get("/admin/capacity/proposal/{proposal_id}", response_class=HTMLResponse)
+def capacity_proposal_page(request: Request, proposal_id: str):
+    _staff(request)
+    prop = _cc().get_proposal(proposal_id)
+    if prop is None:
+        raise HTTPException(404, "proposal not found")
+    return tpl.TemplateResponse(request, "capacity_proposal.html",
+                                {"proposal": prop,
+                                 "user": auth.session_user(request)})
+
+
+@app.post("/admin/capacity/proposal/{proposal_id}/approve")
+def capacity_proposal_approve(request: Request, proposal_id: str):
+    _staff(request)
+    u = auth.session_user(request)
+    try:
+        _cc().approve_proposal(proposal_id, u.username if u else "unknown")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return RedirectResponse(f"/admin/capacity/proposal/{proposal_id}", 303)
+
+
+@app.get("/admin/capacity/binder/{binder_id}/diff", response_class=HTMLResponse)
+def capacity_diff(request: Request, binder_id: str, v1: int = 0, v2: int = 0):
+    _staff(request)
+    versions = [v["version"] for v in _capacity_detail(binder_id)["versions"]]
+    if not v1 or not v2:
+        if len(versions) < 2:
+            raise HTTPException(400, "need two versions to diff")
+        v1, v2 = versions[-2], versions[-1]
+    try:
+        d = _cc().diff_versions(binder_id, v1, v2)
+    except ValueError as e:
+        raise HTTPException(404, str(e))
+    return tpl.TemplateResponse(request, "capacity_diff.html",
+                                {"binder_id": binder_id, "diff": d})
+
+
+@app.post("/admin/capacity/binder/{binder_id}/rollback")
+def capacity_rollback(request: Request, binder_id: str,
+                      target_version: int = Form(...),
+                      effective_from: str = Form(...)):
+    """Kept for parity with the rules console; the UI prefers the prefill link."""
+    _staff(request)
+    u = auth.session_user(request)
+    try:
+        prop = _cc().rollback_proposal(binder_id, target_version,
+                                       u.username if u else "unknown",
+                                       effective_from)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return RedirectResponse(f"/admin/capacity/proposal/{prop['proposal_id']}", 303)
 
 
 @app.post("/case/{case_id}/correct")
