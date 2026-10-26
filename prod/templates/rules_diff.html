@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ binder_id }} — version diff{% endblock %}
+{% block header_title %}{{ binder_id }} — diff v{{ diff.v1 }} → v{{ diff.v2 }}{% endblock %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="/">Workboard</a> <span class="sep">›</span> <a href="/admin/rules">Rules</a> <span class="sep">›</span> <a href="/admin/rules/binder/{{ binder_id }}">{{ binder_id }}</a> <span class="sep">›</span> <span>Diff</span></div>{% endblock %}
+{% block content %}
+<section class="card">
+  <h2 style="margin-top:0">Summary</h2>
+  <div class="card-row">
+    <div class="stat-card"><div class="num" style="color:var(--ok)">{{ diff.added|length }}</div><div class="lbl">Added</div></div>
+    <div class="stat-card"><div class="num" style="color:var(--bad)">{{ diff.removed|length }}</div><div class="lbl">Removed</div></div>
+    <div class="stat-card"><div class="num" style="color:var(--warn)">{{ diff.changed|length }}</div><div class="lbl">Changed</div></div>
+    <div class="stat-card"><div class="num">{{ diff.unchanged }}</div><div class="lbl">Unchanged</div></div>
+  </div>
+</section>
+{% if diff.added %}
+<section class="card">
+  <h2 style="margin-top:0;color:var(--ok)">Added rules</h2>
+  {% for r in diff.added %}<div class="card-box" style="border-left:3px solid var(--ok)"><b>{{ r.rule_id }}</b> — {{ r.business_description }}<br><span class="mut">{{ r.field_reference }} {{ r.operator }} {{ r.threshold_value }} ({{ r.severity }})</span></div>{% endfor %}
+</section>
+{% endif %}
+{% if diff.removed %}
+<section class="card">
+  <h2 style="margin-top:0;color:var(--bad)">Removed rules</h2>
+  {% for r in diff.removed %}<div class="card-box" style="border-left:3px solid var(--bad)"><b>{{ r.rule_id }}</b> — {{ r.business_description }}<br><span class="mut">{{ r.field_reference }} {{ r.operator }} {{ r.threshold_value }} ({{ r.severity }})</span></div>{% endfor %}
+</section>
+{% endif %}
+{% if diff.changed %}
+<section class="card">
+  <h2 style="margin-top:0;color:var(--warn)">Changed rules</h2>
+  {% for c in diff.changed %}
+  <div class="card-box" style="border-left:3px solid var(--warn)">
+    <b>{{ c.rule_id }}</b>
+    <table><tr><th>Field</th><th>Before (v{{ diff.v1 }})</th><th>After (v{{ diff.v2 }})</th></tr>
+    {% for key in ['field_reference','operator','threshold_value','severity','business_description'] %}
+    {% if c.before.get(key) != c.after.get(key) %}
+    <tr><td>{{ key }}</td><td style="color:var(--bad)">{{ c.before.get(key) }}</td><td style="color:var(--ok)">{{ c.after.get(key) }}</td></tr>
+    {% endif %}
+    {% endfor %}</table>
+  </div>
+  {% endfor %}
+</section>
+{% endif %}
+{% if not diff.added and not diff.removed and not diff.changed %}
+<section class="card"><p class="mut">No differences between v{{ diff.v1 }} and v{{ diff.v2 }}.</p></section>
+{% endif %}
+{% endblock %}

@@ -69,7 +69,25 @@ def _current_ruleset(binder_id: str) -> dict:
     return out
 
 
-def list_proposals() -> list[dict]:
+RULE_TEMPLATES = {
+    "tiv_ceiling": {"rule_id": "NEW-TIV-CEILING", "category": "Total Insured Value",
+                    "scope": "submission", "field_reference": "total_insured_value",
+                    "operator": "lte", "threshold_value": 10000000, "threshold_unit": "currency",
+                    "severity": "refer", "business_description": "If TIV exceeds the ceiling"},
+    "territory_restriction": {"rule_id": "NEW-TERRITORY", "category": "Territory",
+                             "scope": "location", "field_reference": "locations.territory",
+                             "operator": "not_in", "threshold_value": ["CA", "TX"],
+                             "threshold_unit": "list", "severity": "decline",
+                             "business_description": "Decline risks in restricted territories"},
+    "loss_history": {"rule_id": "NEW-LOSS-HISTORY", "category": "Loss History",
+                     "scope": "submission", "field_reference": "largest_single_claim_amount",
+                     "operator": "lt", "threshold_value": 5000, "threshold_unit": "currency",
+                     "severity": "refer", "business_description": "If largest single claim exceeds threshold"},
+    "capacity_check": {"rule_id": "NEW-CAPACITY", "category": "Capacity",
+                       "scope": "submission", "field_reference": "total_insured_value",
+                       "operator": "lte", "threshold_value": 5000000, "threshold_unit": "currency",
+                       "severity": "refer", "business_description": "Capacity-based TIV limit"},
+}
     _ensure_dir()
     out = []
     for fn in sorted(os.listdir(PROPOSALS_DIR)):
@@ -169,3 +187,57 @@ def approve_proposal(proposal_id: str, approver: str) -> dict:
               encoding="utf-8") as f:
         json.dump(proposal, f, indent=2)
     return proposal
+
+def list_proposals() -> list[dict]:
+    _ensure_dir()
+    out = []
+    for fn in sorted(os.listdir(PROPOSALS_DIR)):
+        if not fn.endswith(".json"):
+            continue
+        d = json.load(open(os.path.join(PROPOSALS_DIR, fn), encoding="utf-8"))
+        d["_file"] = fn
+        out.append(d)
+    return out
+
+
+def get_proposal(proposal_id: str) -> dict | None:
+    _ensure_dir()
+    path = os.path.join(PROPOSALS_DIR, proposal_id + ".json")
+    if not os.path.exists(path):
+        return None
+    d = json.load(open(path, encoding="utf-8"))
+    d["_file"] = proposal_id + ".json"
+    return d
+
+
+def rollback_proposal(binder_id: str, target_version: int, author: str,
+                      effective_from: str, summary: str = "") -> dict:
+    """Create a proposal that reverts to a previous version's ruleset."""
+    target_path = os.path.join(ROOT, "rules", f"{binder_id}_v{target_version}.json")
+    if not os.path.exists(target_path):
+        raise ValueError(f"version {target_version} not found for {binder_id}")
+    old_ruleset = json.load(open(target_path, encoding="utf-8"))
+    ruleset = {"binder_id": binder_id, "rules": old_ruleset.get("rules", [])}
+    return create_proposal(binder_id, ruleset, author, effective_from,
+                           summary or f"Rollback to v{target_version}")
+
+
+def diff_versions(binder_id: str, v1: int, v2: int) -> dict:
+    """Diff two versions of a binder's ruleset."""
+    p1 = os.path.join(ROOT, "rules", f"{binder_id}_v{v1}.json")
+    p2 = os.path.join(ROOT, "rules", f"{binder_id}_v{v2}.json")
+    if not os.path.exists(p1) or not os.path.exists(p2):
+        raise ValueError("one or both versions not found")
+    d1 = json.load(open(p1, encoding="utf-8"))
+    d2 = json.load(open(p2, encoding="utf-8"))
+    r1 = {r["rule_id"]: r for r in d1.get("rules", [])}
+    r2 = {r["rule_id"]: r for r in d2.get("rules", [])}
+    added = [r2[rid] for rid in r2 if rid not in r1]
+    removed = [r1[rid] for rid in r1 if rid not in r2]
+    changed = []
+    for rid in r1:
+        if rid in r2 and r1[rid] != r2[rid]:
+            changed.append({"rule_id": rid, "before": r1[rid], "after": r2[rid]})
+    return {"v1": v1, "v2": v2, "added": added, "removed": removed,
+            "changed": changed,
+            "unchanged": len([r for r in r1 if r in r2 and r1[r] == r2[r]])}

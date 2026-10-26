@@ -490,6 +490,23 @@ def rules_binder(request: Request, binder_id: str):
 def rules_propose_page(request: Request, binder_id: str):
     _staff(request)
     rc = _rc()
+    rollback_ver = request.query_params.get("rollback")
+    if rollback_ver:
+        try:
+            cur = rc._current_ruleset(binder_id)
+            # Pre-fill with the rollback target version's ruleset
+            target = int(rollback_ver)
+            import os as _os
+            target_path = _os.path.join(rc.ROOT, "rules", f"{binder_id}_v{target}.json")
+            if _os.path.exists(target_path):
+                cur = json.load(open(target_path, encoding="utf-8"))
+        except (ValueError, FileNotFoundError):
+            pass
+        cur_json = json.dumps(cur, indent=2)
+        today = __import__("datetime").date.today().isoformat()
+        return tpl.TemplateResponse(request, "rules_propose.html",
+                                    {"binder_id": binder_id, "current_json": cur_json,
+                                     "today": today})
     try:
         cur = rc._current_ruleset(binder_id)
         cur_json = json.dumps(cur, indent=2)
@@ -712,3 +729,45 @@ def workboard_export(request: Request):
     from fastapi.responses import Response as _R
     return _R(content=buf.getvalue(), media_type="text/csv",
               headers={"Content-Disposition": "attachment; filename=workboard.csv"})
+
+@app.get("/admin/rules/binder/{binder_id}/diff", response_class=HTMLResponse)
+def rules_diff(request: Request, binder_id: str, v1: int = 0, v2: int = 0):
+    _staff(request)
+    rc = _rc()
+    if v1 == 0 or v2 == 0:
+        detail = next((b for b in rc.list_binders() if b["binder"]["binder_id"] == binder_id), None)
+        versions = [v["version"] for v in (detail["versions"] if detail else [])]
+        v1 = versions[-2] if len(versions) >= 2 else versions[0] if versions else 0
+        v2 = versions[-1] if versions else 0
+    try:
+        diff = rc.diff_versions(binder_id, v1, v2)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return tpl.TemplateResponse(request, "rules_diff.html",
+                                {"binder_id": binder_id, "diff": diff,
+                                 "v1": v1, "v2": v2})
+
+
+@app.post("/admin/rules/binder/{binder_id}/rollback")
+def rules_rollback(request: Request, binder_id: str):
+    _staff(request)
+    u = auth.session_user(request)
+    form_data = None
+    import asyncio
+    # sync form read
+    async def _read():
+        return await request.form()
+    # We need sync access; use starlette's sync form parser
+    from starlette.datastructures import FormData
+    # Fall back to query params for simplicity
+    target = request.query_params.get("target_version")
+    eff = request.query_params.get("effective_from")
+    if not target or not eff:
+        raise HTTPException(400, "target_version and effective_from required")
+    rc = _rc()
+    try:
+        prop = rc.rollback_proposal(binder_id, int(target), u.username if u else "unknown",
+                                    eff, "Rollback")
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+    return RedirectResponse(f"/admin/rules/proposal/{prop['proposal_id']}", 303)
