@@ -674,11 +674,180 @@ def submit_round(case_id: str, round_id: int,
 
     # Successor evaluation — synchronous (Q14). Append-only; the Case is
     # unchanged institutionally (a new evaluation is chained, ADR 0001).
-    out = evaluate_case(case_id, llm=DEFAULT_EVAL_LLM)
+    # Before evaluating, capture the previous evaluation's extracted facts so
+    # we can merge them into the successor (broker answers must not erase
+    # original facts extracted from the PDF).
+    prev_extracted = {}
+    prev_meta = {}
     with store.new_session() as s:
-        r = s.get(store.RequestRound, round_id)
-        r.answered_evaluation_id = out.get("evaluation_id")
-        s.commit()
+        prev_ev = (s.query(store.Evaluation)
+                   .filter(store.Evaluation.case_id == case_id)
+                   .order_by(store.Evaluation.evaluation_id.desc()).first())
+        if prev_ev is not None:
+            prev_extracted = dict(prev_ev.payload.get("extracted") or {})
+            prev_meta = {k: dict(v) if isinstance(v, dict) else v
+                         for k, v in (prev_ev.payload.get("extracted_meta") or {}).items()}
+    out = evaluate_case(case_id, llm=DEFAULT_EVAL_LLM)
+    # Merge: preserve original facts; broker's answers override only the
+    # fields they actually answered (overlay, not replace).
+    with store.new_session() as s:
+        new_ev = s.get(store.Evaluation, out.get("evaluation_id"))
+        if new_ev is not None:
+            new_payload = dict(new_ev.payload)
+            new_extracted = dict(new_payload.get("extracted") or {})
+            new_meta = {k: (dict(v) if isinstance(v, dict) else v)
+                        for k, v in (new_payload.get("extracted_meta") or {}).items()}
+            # Broker-answered fields (from RequestItem rows)
+            answered_fields = {}
+            for it in (s.query(store.RequestItem)
+                       .filter(store.RequestItem.round_id == round_id).all()):
+                if it.answer_text and it.answer_text.strip():
+                    answered_fields[it.field] = it.answer_text.strip()
+            # Overlay: broker answers override; original facts fill gaps.
+            from . import gaps as gaps_mod
+
+            def _set_nested(ext, field, value):
+                """Set a possibly-dotted field in extracted (e.g. locations.territory)."""
+                if "." not in field:
+                    ext[field] = value
+                    return
+                parts = field.split(".")
+                cur = ext
+                for part in parts[:-1]:
+                    if isinstance(cur, list):
+                        idx = int(part) if part.isdigit() else 0
+                        while len(cur) <= idx:
+                            cur.append({})
+                        cur = cur[idx]
+                    else:
+                        if part not in cur or not isinstance(cur[part], (dict, list)):
+                            cur[part] = {}
+                        if isinstance(cur[part], list):
+                            if not cur[part]:
+                                cur[part].append({})
+                            cur = cur[part][0]
+                        else:
+                            cur = cur[part]
+                last = parts[-1]
+                if isinstance(cur, list):
+                    idx = int(last) if last.isdigit() else 0
+                    while len(cur) <= idx:
+                        cur.append(None)
+                    cur[idx] = value
+                else:
+                    cur[last] = value
+
+            def _get_nested(ext, field):
+                """Get a possibly-dotted field from extracted."""
+                if "." not in field:
+                    return ext.get(field)
+                parts = field.split(".")
+                cur = ext
+                for part in parts:
+                    if isinstance(cur, list):
+                        idx = int(part) if part.isdigit() else 0
+                        cur = cur[idx] if idx < len(cur) else None
+                    elif isinstance(cur, dict):
+                        cur = cur.get(part)
+                    else:
+                        return None
+                return cur
+
+            # Start with a deep copy of previous extracted (preserve all original facts)
+            import copy
+            merged_extracted = copy.deepcopy(prev_extracted) if prev_extracted else {}
+            merged_meta = {k: (dict(v) if isinstance(v, dict) else v)
+                           for k, v in prev_meta.items()}
+
+            # Overlay broker's typed answers (these override original values)
+            for field, answer in answered_fields.items():
+                val = gaps_mod.coerce(field, answer)
+                # Record pre-correction value from original extracted
+                pre_val = _get_nested(merged_extracted, field)
+                _set_nested(merged_extracted, field, val)
+                # Also set as top-level key for UI display (fact table shows top-level keys)
+                merged_extracted[field] = val
+                if field not in merged_meta or not isinstance(merged_meta.get(field), dict):
+                    merged_meta[field] = {}
+                merged_meta[field]["pre_correction_value"] = pre_val
+                merged_meta[field]["corrected_by"] = "broker"
+                merged_meta[field]["corrected_at"] = store.now().isoformat()
+                merged_meta[field]["value"] = val
+                merged_meta[field]["original_value"] = pre_val
+                merged_meta[field]["present"] = val is not None
+                merged_meta[field]["confidence"] = 1.0
+                merged_meta[field]["source_document_id"] = f"round-{round_id}-answers"
+                merged_meta[field]["source_locator"] = "portal-typed answer"
+
+            # Overlay any new non-None values from the evaluation (broker-uploaded docs)
+            for field, val in new_extracted.items():
+                if val is not None and field not in answered_fields:
+                    if "." not in field:
+                        if field not in merged_extracted or merged_extracted.get(field) is None:
+                            merged_extracted[field] = val
+                            merged_meta[field] = new_meta.get(field, merged_meta.get(field, {}))
+                    else:
+                        if _get_nested(merged_extracted, field) is None:
+                            _set_nested(merged_extracted, field, val)
+                            if field not in merged_meta:
+                                merged_meta[field] = new_meta.get(field, {})
+
+            # Preserve original fields not touched (already in merged_extracted from deep copy)
+            new_payload["extracted"] = merged_extracted
+            new_payload["extracted_meta"] = merged_meta
+            new_payload["extracted"] = merged_extracted
+            new_payload["extracted_meta"] = merged_meta
+            # Re-run derive → completeness → evaluate → rank → summarize on merged data
+            try:
+                new_payload.update(demo.drv.derive(new_payload))
+                new_payload.update(demo.comp.check(new_payload))
+                if (new_payload.get("completeness") or {}).get("can_evaluate", True):
+                    new_payload.update(demo.mb.evaluate_binders(new_payload))
+                    new_payload.update(demo.mb.rank(new_payload))
+                    new_payload.update(demo.nar.summarize(new_payload))
+                    new_payload["halt"] = None
+                else:
+                    new_payload["halt"] = "completeness"
+            except Exception:
+                pass
+            # Re-determine outcome
+            if new_payload.get("halt") in ("parse", "completeness"):
+                new_outcome = "halt"
+                new_reco = None
+            else:
+                new_reco = new_payload.get("recommendation")
+                if new_reco and not str(new_reco).startswith("no eligible"):
+                    new_outcome = new_reco
+                else:
+                    new_outcome = "no-eligible"
+            new_ev.payload = new_payload
+            new_ev.outcome = new_outcome
+            new_ev.recommendation = new_reco
+            # Re-attach reference facts
+            try:
+                from . import reference as ref_mod
+                ref_mod.attach(new_payload)
+                new_ev.payload = new_payload
+            except Exception:
+                pass
+            # Re-overlay capacity
+            try:
+                from . import capacity_desk as cd_mod
+                cd_mod.augment_payload(new_payload)
+                new_ev.payload = new_payload
+            except Exception:
+                pass
+            s.commit()
+            out["outcome"] = new_outcome
+            out["recommendation"] = new_reco
+            # Record which evaluation answered this round
+            latest_ev = (s.query(store.Evaluation)
+                         .filter(store.Evaluation.case_id == case_id)
+                         .order_by(store.Evaluation.evaluation_id.desc()).first())
+            r2 = s.get(store.RequestRound, round_id)
+            if r2 is not None and latest_ev is not None:
+                r2.answered_evaluation_id = latest_ev.evaluation_id
+                s.commit()
     # Staff notification (Q13).
     from . import mail
     mail.send(", ".join(_staff_emails()),
