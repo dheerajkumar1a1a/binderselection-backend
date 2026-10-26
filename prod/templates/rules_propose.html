@@ -6,50 +6,185 @@
 <section class="card">
   <h2 style="margin-top:0">Propose a change</h2>
   <p class="mut">Maker-checker: you author; a different underwriter/admin approves. Effective date controls when the engine starts using it.</p>
-  <form method="post" action="/admin/rules/propose/{{ binder_id }}" x-data="{showJson:false}">
-    <div class="grid2">
-      <div>
-        <label class="label">Effective from (YYYY-MM-DD)</label>
-        <input type="date" name="effective_from" value="{{ today }}" required>
+
+  <div x-data="ruleBuilder()" x-init="init()">
+    <!-- Visual rule builder -->
+    <div style="margin-bottom:16px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <h3 style="margin:0">Rules ({{ '{' }}{{ '{' }} rules.length {{ '}' }}{{ '}' }})</h3>
+        <div style="display:flex;gap:6px">
+          <select x-model="templatePick" style="width:auto;padding:4px 8px;font-size:12px">
+            <option value="">Insert from template...</option>
+            <option value="tiv_ceiling">TIV ceiling</option>
+            <option value="territory_restriction">Territory restriction</option>
+            <option value="loss_history">Loss history check</option>
+            <option value="capacity_check">Capacity check</option>
+          </select>
+          <button type="button" class="secondary" style="padding:4px 10px;font-size:12px" @click="insertTemplate()">+ Insert</button>
+          <button type="button" class="secondary" style="padding:4px 10px;font-size:12px" @click="addRule()">+ Blank rule</button>
+        </div>
       </div>
-      <div>
-        <label class="label">Summary (one line, audit)</label>
-        <input name="summary" placeholder="e.g. raise TIV ceiling to 15m">
+
+      <template x-for="(rule, idx) in rules" :key="idx">
+        <div class="card-box" style="margin:8px 0;padding:12px;border-left:3px solid var(--accent)">
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+            <span class="mut" style="font-size:11px">Rule #<span x-text="idx+1"></span></span>
+            <button type="button" class="ghost" style="padding:2px 6px;font-size:11px;color:var(--bad)" @click="removeRule(idx)">✕ Remove</button>
+          </div>
+          <div class="grid3">
+            <div>
+              <label class="label">Rule ID</label>
+              <input type="text" x-model="rule.rule_id" placeholder="e.g. A-001-TIV" style="font-size:12px">
+            </div>
+            <div>
+              <label class="label">Category</label>
+              <input type="text" x-model="rule.category" placeholder="e.g. Total Insured Value" style="font-size:12px">
+            </div>
+            <div>
+              <label class="label">Scope</label>
+              <select x-model="rule.scope" style="font-size:12px">
+                <option value="submission">submission</option>
+                <option value="location">location</option>
+                <option value="commodity">commodity</option>
+              </select>
+            </div>
+          </div>
+          <div class="grid3">
+            <div>
+              <label class="label">Field reference</label>
+              <select x-model="rule.field_reference" style="font-size:12px">
+                <template x-for="f in fields" :key="f">
+                  <option :value="f" x-text="f"></option>
+                </template>
+              </select>
+            </div>
+            <div>
+              <label class="label">Operator</label>
+              <select x-model="rule.operator" style="font-size:12px">
+                <template x-for="o in ops" :key="o">
+                  <option :value="o" x-text="o"></option>
+                </template>
+              </select>
+            </div>
+            <div>
+              <label class="label">Threshold value</label>
+              <input type="text" x-model="rule.threshold_value" placeholder="e.g. 10000000" style="font-size:12px">
+            </div>
+          </div>
+          <div class="grid2">
+            <div>
+              <label class="label">Threshold unit</label>
+              <select x-model="rule.threshold_unit" style="font-size:12px">
+                <option value="currency">currency</option>
+                <option value="count">count</option>
+                <option value="boolean">boolean</option>
+                <option value="list">list</option>
+                <option value="date">date</option>
+                <option value="text">text</option>
+              </select>
+            </div>
+            <div>
+              <label class="label">Severity</label>
+              <select x-model="rule.severity" style="font-size:12px">
+                <option value="refer">refer (Needs information)</option>
+                <option value="decline">decline (candidate-excluding)</option>
+              </select>
+            </div>
+          </div>
+          <div>
+            <label class="label">Business description</label>
+            <input type="text" x-model="rule.business_description" placeholder="e.g. If TIV exceeds the ceiling" style="font-size:12px">
+          </div>
+          <!-- validation message -->
+          <div x-show="!validRule(rule)" style="color:var(--bad);font-size:11px;margin-top:4px" x-text="validationMsg(rule)"></div>
+        </div>
+      </template>
+
+      <div x-show="rules.length === 0" class="empty-state">
+        <h3>No rules yet</h3>
+        <p>Insert a template or add a blank rule to get started.</p>
       </div>
     </div>
-    <label class="label">Insert from template</label>
-    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-      <button type="button" class="secondary" style="padding:4px 10px;font-size:11px" onclick="insertTemplate('tiv_ceiling')">TIV ceiling</button>
-      <button type="button" class="secondary" style="padding:4px 10px;font-size:11px" onclick="insertTemplate('territory_restriction')">Territory restriction</button>
-      <button type="button" class="secondary" style="padding:4px 10px;font-size:11px" onclick="insertTemplate('loss_history')">Loss history check</button>
-      <button type="button" class="secondary" style="padding:4px 10px;font-size:11px" onclick="insertTemplate('capacity_check')">Capacity check</button>
-    </div>
-    <label class="label">Ruleset JSON</label>
-    <textarea name="ruleset_json" rows="18" id="ruleset-json">{{ current_json }}</textarea>
-    <label class="label">Sample case ids for dry-run (comma-separated stems, optional)</label>
-    <input name="case_ids" placeholder="20-demo-accept-full,10-missing-commodities-refer">
-    <div style="display:flex;gap:8px;margin-top:10px">
-      <button type="submit">Propose</button>
-      <button type="submit" formaction="/admin/rules/dryrun/{{ binder_id }}" formmethod="post" class="secondary">Dry-run first</button>
-    </div>
-    <p class="mut">Dry-run compares the proposed ruleset against the current one on the named sample cases and reports which flip. Proposing validates every rule against KNOWN_FIELDS and VALID_OPS before saving.</p>
-  </form>
+
+    <!-- Form fields (hidden, synced from Alpine) -->
+    <form method="post" action="/admin/rules/propose/{{ binder_id }}">
+      <input type="hidden" name="ruleset_json" :value="jsonOutput()">
+      <div class="grid2">
+        <div>
+          <label class="label">Effective from (YYYY-MM-DD)</label>
+          <input type="date" name="effective_from" value="{{ today }}" required>
+        </div>
+        <div>
+          <label class="label">Summary (one line, audit)</label>
+          <input name="summary" placeholder="e.g. raise TIV ceiling to 15m">
+        </div>
+      </div>
+      <label class="label">Sample case ids for dry-run (comma-separated stems, optional)</label>
+      <input name="case_ids" placeholder="20-demo-accept-full,10-missing-commodities-refer">
+      <div style="display:flex;gap:8px;margin-top:10px">
+        <button type="submit" :disabled="rules.length === 0">Propose</button>
+        <button type="submit" formaction="/admin/rules/dryrun/{{ binder_id }}" formmethod="post" class="secondary" :disabled="rules.length === 0">Dry-run first</button>
+      </div>
+    </form>
+
+    <!-- JSON preview toggle -->
+    <details style="margin-top:12px">
+      <summary>Preview JSON ({{ '{' }}{{ '{' }} rules.length {{ '}' }}{{ '}' }} rules)</summary>
+      <pre style="background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:12px;font-size:11px;overflow:auto;max-height:300px" x-text="jsonOutput()"></pre>
+    </details>
+  </div>
 </section>
+
 <script>
+const FIELDS = {{ fields | tojson }};
+const OPS = {{ ops | tojson }};
 const TEMPLATES = {
-  tiv_ceiling: {"rule_id":"NEW-TIV-CEILING","category":"Total Insured Value","scope":"submission","field_reference":"total_insured_value","operator":"lte","threshold_value":10000000,"threshold_unit":"currency","severity":"refer","business_description":"If TIV exceeds the ceiling"},
-  territory_restriction: {"rule_id":"NEW-TERRITORY","category":"Territory","scope":"location","field_reference":"locations.territory","operator":"not_in","threshold_value":["CA","TX"],"threshold_unit":"list","severity":"decline","business_description":"Decline risks in restricted territories"},
-  loss_history: {"rule_id":"NEW-LOSS-HISTORY","category":"Loss History","scope":"submission","field_reference":"largest_single_claim_amount","operator":"lt","threshold_value":5000,"threshold_unit":"currency","severity":"refer","business_description":"If largest single claim exceeds threshold"},
-  capacity_check: {"rule_id":"NEW-CAPACITY","category":"Capacity","scope":"submission","field_reference":"total_insured_value","operator":"lte","threshold_value":5000000,"threshold_unit":"currency","severity":"refer","business_description":"Capacity-based TIV limit"}
+  tiv_ceiling: {rule_id:"NEW-TIV-CEILING",category:"Total Insured Value",scope:"submission",field_reference:"total_insured_value",operator:"lte",threshold_value:10000000,threshold_unit:"currency",severity:"refer",business_description:"If TIV exceeds the ceiling"},
+  territory_restriction: {rule_id:"NEW-TERRITORY",category:"Territory",scope:"location",field_reference:"locations.territory",operator:"not_in",threshold_value:["CA","TX"],threshold_unit:"list",severity:"decline",business_description:"Decline risks in restricted territories"},
+  loss_history: {rule_id:"NEW-LOSS-HISTORY",category:"Loss History",scope:"submission",field_reference:"largest_single_claim_amount",operator:"lt",threshold_value:5000,threshold_unit:"currency",severity:"refer",business_description:"If largest single claim exceeds threshold"},
+  capacity_check: {rule_id:"NEW-CAPACITY",category:"Capacity",scope:"submission",field_reference:"total_insured_value",operator:"lte",threshold_value:5000000,threshold_unit:"currency",severity:"refer",business_description:"Capacity-based TIV limit"}
 };
-function insertTemplate(name) {
-  const ta = document.getElementById('ruleset-json');
-  try {
-    const data = JSON.parse(ta.value);
-    if (!data.rules) data.rules = [];
-    data.rules.push(TEMPLATES[name]);
-    ta.value = JSON.stringify(data, null, 2);
-  } catch(e) { alert('Invalid JSON in textarea: ' + e.message); }
+function ruleBuilder() {
+  return {
+    rules: [],
+    fields: FIELDS,
+    ops: OPS,
+    templatePick: '',
+    init() {
+      try {
+        const cur = JSON.parse(document.getElementById('current-json')?.textContent || '{}');
+        if (cur.rules && Array.isArray(cur.rules)) {
+          this.rules = cur.rules.map(r => ({...r}));
+        }
+      } catch(e) {}
+    },
+    addRule() {
+      this.rules.push({rule_id:'NEW-RULE',category:'',scope:'submission',field_reference:FIELDS[0],operator:'lte',threshold_value:0,threshold_unit:'currency',severity:'refer',business_description:''});
+    },
+    removeRule(idx) { this.rules.splice(idx, 1); },
+    insertTemplate() {
+      if (!this.templatePick) return;
+      const t = JSON.parse(JSON.stringify(TEMPLATES[this.templatePick]));
+      t.rule_id = t.rule_id + '-' + (this.rules.length + 1);
+      this.rules.push(t);
+      this.templatePick = '';
+    },
+    validRule(r) {
+      return r.rule_id && r.field_reference && r.operator && r.threshold_unit;
+    },
+    validationMsg(r) {
+      if (!r.rule_id) return 'Rule ID required';
+      if (!r.field_reference) return 'Field required';
+      if (!r.operator) return 'Operator required';
+      if (!r.threshold_unit) return 'Threshold unit required';
+      return '';
+    },
+    jsonOutput() {
+      return JSON.stringify({binder_id: '{{ binder_id }}', rules: this.rules}, null, 2);
+    }
+  };
 }
 </script>
+<!-- hidden current ruleset for init -->
+<script type="application/json" id="current-json">{{ current_json | safe }}</script>
 {% endblock %}
