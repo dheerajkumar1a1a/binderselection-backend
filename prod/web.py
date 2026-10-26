@@ -504,27 +504,20 @@ def rules_propose_page(request: Request, binder_id: str):
         except (ValueError, FileNotFoundError):
             pass
         cur_json = json.dumps(cur, indent=2)
-        today = __import__("datetime").date.today().isoformat()
-        from rules import store as rs
-        fields = sorted(rs.KNOWN_FIELDS)
-        ops = sorted(rs.VALID_OPS)
-        return tpl.TemplateResponse(request, "rules_propose.html",
-                                    {"binder_id": binder_id, "current_json": cur_json,
-                                     "today": today, "fields": fields, "ops": ops})
     try:
         cur = rc._current_ruleset(binder_id)
         cur_json = json.dumps(cur, indent=2)
+        rules = cur.get("rules", [])
     except Exception:
         cur_json = "{}"
+        rules = []
     from rules import store as rs
     fields = sorted(rs.KNOWN_FIELDS)
     ops = sorted(rs.VALID_OPS)
     today = __import__("datetime").date.today().isoformat()
     return tpl.TemplateResponse(request, "rules_propose.html",
                                 {"binder_id": binder_id, "current_json": cur_json,
-                                 "today": today, "fields": fields, "ops": ops})
-
-
+                                 "today": today, "fields": fields, "ops": ops, "rules": rules})
 @app.post("/admin/rules/propose/{binder_id}")
 async def rules_propose_post(request: Request, binder_id: str):
     _staff(request)
