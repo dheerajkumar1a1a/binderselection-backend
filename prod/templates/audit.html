@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}Audit Trail{% endblock %}
+{% block header_title %}Audit Trail — Cross-Case{% endblock %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="/">Workboard</a> <span class="sep">›</span> <span>Audit trail</span></div>{% endblock %}
+{% block content %}
+<section class="card">
+  <h2 style="margin-top:0">Decisions ({{ decisions|length }})</h2>
+  {% if not decisions %}<p class="mut">No decisions recorded yet.</p>{% else %}
+  <table><tr><th>When</th><th>Case</th><th>By</th><th>Action</th><th>Binder</th><th>Outcome</th><th>Audit ID</th></tr>
+  {% for d in decisions %}<tr>
+    <td class="mut">{{ d.created_at | rd }}</td><td><a href="/case/{{ d.case_id }}">{{ d.case_id }}</a></td>
+    <td>{{ d.underwriter }}</td><td>{{ d.action }}</td><td>{{ d.selected_binder or '—' }}</td>
+    <td>{{ d.outcome }}</td><td class="mut">{{ (d.detail or {}).get('audit_id') or '—' }}</td>
+  </tr>{% endfor %}</table>
+  {% endif %}
+</section>
+<section class="card">
+  <h2 style="margin-top:0">Evaluations ({{ evaluations|length }})</h2>
+  {% if not evaluations %}<p class="mut">No evaluations run yet.</p>{% else %}
+  <table><tr><th>When</th><th>Case</th><th>Extractor</th><th>Model</th><th>Outcome</th><th>Recommendation</th></tr>
+  {% for e in evaluations %}<tr>
+    <td class="mut">{{ e.created_at | rd }}</td><td><a href="/case/{{ e.case_id }}">{{ e.case_id }}</a></td>
+    <td>{{ e.llm or 'stub' }}</td><td class="mut">{{ e.model or '—' }}</td>
+    <td>{{ e.outcome }}</td><td>{{ e.recommendation or '—' }}</td>
+  </tr>{% endfor %}</table>
+  {% endif %}
+</section>
+{% endblock %}

@@ -595,3 +595,120 @@ async def case_note(request: Request, case_id: str):
     except LookupError:
         raise HTTPException(404, "case not found")
     return RedirectResponse(f"/case/{case_id}", status_code=303)
+
+# --- error pages + health check + polish routes (final pass) -----------------
+
+@app.exception_handler(404)
+async def not_found(request: Request, exc):
+    return tpl.TemplateResponse(request, "error.html",
+                                {"code": 404, "msg": "Page not found"}, status_code=404)
+
+@app.exception_handler(403)
+async def forbidden(request: Request, exc):
+    return tpl.TemplateResponse(request, "error.html",
+                                {"code": 403, "msg": "Not allowed for your role"}, status_code=403)
+
+@app.exception_handler(500)
+async def server_error(request: Request, exc):
+    return tpl.TemplateResponse(request, "error.html",
+                                {"code": 500, "msg": "Something went wrong"}, status_code=500)
+
+@app.get("/health")
+def health():
+    try:
+        with store.new_session() as s:
+            s.execute(__import__("sqlalchemy").text("SELECT 1"))
+        db = "connected"
+    except Exception:
+        db = "error"
+    return {"status": "ok", "version": "v1.20.0", "db": db}
+
+@app.get("/help", response_class=HTMLResponse)
+def help_page(request: Request):
+    _staff(request)
+    return tpl.TemplateResponse(request, "help.html", {})
+
+@app.get("/admin/audit", response_class=HTMLResponse)
+def audit_page(request: Request):
+    _staff(request)
+    from prod import service as svc
+    # Cross-case audit trail: all decisions + evaluations
+    with store.new_session() as s:
+        decisions = (s.query(store.Decision)
+                     .order_by(store.Decision.created_at.desc()).limit(200).all())
+        evaluations = (s.query(store.Evaluation)
+                       .order_by(store.Evaluation.created_at.desc()).limit(200).all())
+    return tpl.TemplateResponse(request, "audit.html",
+                                {"decisions": decisions, "evaluations": evaluations})
+
+@app.get("/case/{case_id}/clone")
+def case_clone(request: Request, case_id: str):
+    _staff(request)
+    detail = service.case_detail(case_id)
+    if detail is None:
+        raise HTTPException(404, "case not found")
+    payload = detail["evaluations"][0].payload if detail["evaluations"] else {}
+    docs = payload.get("documents") or []
+    # Re-create as an upload case with the same documents
+    import base64 as _b64
+    documents = []
+    for d in docs:
+        entry = {"filename": d.get("filename", "doc")}
+        if d.get("structured_hint") is not None:
+            entry["structured_hint"] = d.get("structured_hint")
+        if d.get("text"):
+            entry["text"] = d.get("text")
+        # For byte docs, re-encode from disk
+        from prod import docstore
+        man = docstore.manifest_text(case_id)
+        m = man.get(d.get("doc_id"), {})
+        if m.get("stored_file"):
+            import os as _os
+            path = _os.path.join(docstore.case_dir(case_id), "docs", m["stored_file"])
+            if _os.path.exists(path):
+                raw = open(path, "rb").read()
+                entry["content_b64"] = _b64.b64encode(raw).decode("ascii")
+        documents.append(entry)
+    out = service.create_case(detail["case"].broker_firm, detail["case"].underwriter,
+                             None, documents if documents else None)
+    return RedirectResponse(f"/case/{out['case_id']}", status_code=303)
+
+@app.get("/case/{case_id}/export.csv")
+def case_export(request: Request, case_id: str):
+    _staff(request)
+    detail = service.case_detail(case_id)
+    if detail is None:
+        raise HTTPException(404, "case not found")
+    import csv as _csv, io as _io
+    buf = _io.StringIO()
+    w = _csv.writer(buf)
+    w.writerow(["Case", "Broker", "Status", "Outcome", "SLA", "Created"])
+    c = detail["case"]
+    ev = detail["evaluations"][0] if detail["evaluations"] else None
+    w.writerow([c.case_id, c.broker_firm, c.status,
+                ev.outcome if ev else "", store.sla_state(c),
+                c.created_at.isoformat()])
+    w.writerow([])
+    w.writerow(["Field", "Value", "Confidence", "Source", "Locator"])
+    payload = ev.payload if ev else {}
+    for f, v in (payload.get("extracted") or {}).items():
+        m = (payload.get("extracted_meta") or {}).get(f, {})
+        w.writerow([f, v, m.get("confidence", ""), m.get("source_document_id", ""), m.get("source_locator", "")])
+    from fastapi.responses import Response as _R
+    return _R(content=buf.getvalue(), media_type="text/csv",
+              headers={"Content-Disposition": f"attachment; filename={case_id}.csv"})
+
+@app.get("/workboard/export.csv")
+def workboard_export(request: Request):
+    _staff(request)
+    import csv as _csv, io as _io
+    buf = _io.StringIO()
+    w = _csv.writer(buf)
+    w.writerow(["Case", "Broker", "Status", "Outcome", "Assessor", "Created", "SLA"])
+    for c in service.list_cases():
+        w.writerow([c["case_id"], c["broker_firm"], c["status"],
+                    (c["latest"] or {}).get("outcome", ""), c["underwriter"],
+                    c["created_at"], c["sla"]])
+    from fastapi.responses import Response as _R
+    return _R(content=buf.getvalue(), media_type="text/csv",
+              headers={"Content-Disposition": "attachment; filename=workboard.csv"})

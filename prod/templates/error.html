@@ -1,0 +1,10 @@
+{% extends "base.html" %}
+{% block title %}{{ code }} — Error{% endblock %}
+{% block header_title %}Error {{ code }}{% endblock %}
+{% block content %}
+<section class="card" style="text-align:center;padding:60px 20px">
+  <h1 style="font-size:64px;font-weight:700;color:var(--accent);margin:0">{{ code }}</h1>
+  <p style="font-size:18px;color:var(--mut);margin:12px 0 24px">{{ msg }}</p>
+  <a href="/" class="btn">← Back to workboard</a>
+</section>
+{% endblock %}

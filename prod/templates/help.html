@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}Help{% endblock %}
+{% block header_title %}Help &amp; Reference{% endblock %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="/">Workboard</a> <span class="sep">›</span> <span>Help</span></div>{% endblock %}
+{% block content %}
+<section class="card">
+  <h2 style="margin-top:0">Quick reference</h2>
+  <h3>Workflows</h3>
+  <ul style="margin:0 0 12px 20px;line-height:1.8">
+    <li><b>Create a case</b> → pick a sample or upload documents → click "Open case"</li>
+    <li><b>Run evaluation</b> → pick extractor (stub/gemini/nvidia/openrouter) → click "Run evaluation ▶"</li>
+    <li><b>Record decision</b> → accept (reserve capacity), override (different binder + reason), or refer back (opens a round)</li>
+    <li><b>Issue a round</b> → tick gaps, add notes, click "Issue round to broker" → confirm dialog</li>
+    <li><b>Broker answers</b> → broker logs in → portal → answer round → save draft → submit</li>
+  </ul>
+  <h3>Roles</h3>
+  <ul style="margin:0 0 12px 20px;line-height:1.8">
+    <li><b>Admin</b> — full access, provision accounts, manage rules/capacity/reference</li>
+    <li><b>Underwriter</b> — create/evaluate/decide cases, issue rounds, propose rulesets</li>
+    <li><b>Broker</b> — portal only: own cases, ask-lists, documents, letters</li>
+  </ul>
+  <h3>Status vocabulary</h3>
+  <table><tr><th>Status</th><th>Meaning</th></tr>
+  <tr><td><span class="chip neutral">new</span></td><td>Opened, no evaluation yet. Assessment SLA ticking (3 business days).</td></tr>
+  <tr><td><span class="chip ok">assessed</span></td><td>Latest evaluation ran; awaiting human decision.</td></tr>
+  <tr><td><span class="chip warn">awaiting-broker</span></td><td>A Request round is open; broker owes answers (10 business days).</td></tr>
+  <tr><td><span class="chip neutral">decided</span></td><td>Decision recorded. Bound = terminal for this release.</td></tr>
+  </table>
+  <h3>Engine vocabulary</h3>
+  <p class="mut">Pass (satisfied) · Decline (outside appetite, candidate-excluding) · Cannot assess (held, shown as "Needs information") · Refer (binder can't say yes/no) · Excluded (screened out before rules).</p>
+  <h3>Shortcuts</h3>
+  <p class="mut">Dark mode toggle in the topbar. Search box on the workboard filters by case ID, broker, or reference. Filter presets: All / Awaiting broker / Breached SLA.</p>
+  <h3>Links</h3>
+  <ul style="margin:0 0 0 20px;line-height:1.8">
+    <li><a href="/admin/rules">Rules console</a> — maker-checker proposals</li>
+    <li><a href="/admin/capacity">Capacity desk</a> — live ledger</li>
+    <li><a href="/admin/reference">Reference data</a> — third-party feeds</li>
+    <li><a href="/admin/users">Accounts</a> — provision logins</li>
+    <li><a href="/admin/audit">Audit trail</a> — cross-case decisions &amp; evaluations</li>
+  </ul>
+</section>
+{% endblock %}
