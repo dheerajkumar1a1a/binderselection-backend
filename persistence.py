@@ -6,7 +6,7 @@ import os
 # uuid: generate evaluation ids.
 import uuid
 # datetime: timestamps.
-from datetime import datetime, timezone
+from datetime import timedelta, datetime, timezone
 # Path: filesystem paths.
 from pathlib import Path
 
@@ -31,7 +31,7 @@ def write_audit(state: dict) -> dict:
     audit_dir.mkdir(exist_ok=True)
     record = {
         "evaluation_id": f"eval-{uuid.uuid4().hex[:8]}",
-        "evaluated_at": datetime.now(timezone.utc).isoformat(),
+        "evaluated_at": datetime.now(timezone(timedelta(hours=5, minutes=30))).isoformat(),
         "submission_reference": state.get("submission_reference"),
         "documents": [{k: v for k, v in (d or {}).items()
                        if k not in ("content_bytes", "content_b64")}

@@ -29,7 +29,7 @@ RESERVATION_TTL_HOURS = int(os.environ.get("BINDER_RES_TTL_HOURS", "24"))
 
 # _now: current UTC time.
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(timezone(timedelta(hours=5, minutes=30)))
 
 
 # _empty_binder: default binder ledger entry.

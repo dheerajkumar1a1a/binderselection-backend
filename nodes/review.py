@@ -7,7 +7,7 @@ Actions: accept | override | refer_back | correct.
 - identity + timestamp recorded (BFR-UWR-006).
 """
 # datetime: timestamp for decision.
-from datetime import datetime, timezone
+from datetime import timedelta, datetime, timezone
 # interrupt: LangGraph human-in-the-loop pause.
 from langgraph.types import interrupt
 
@@ -37,7 +37,7 @@ def validate(state: dict, human: dict, rules: list[dict] | None = None) -> dict:
     underwriter = human.get("underwriter_id", "unknown")
     # Base record with identity + timestamp.
     base = {"underwriter_id": underwriter,
-            "decided_at": datetime.now(timezone.utc).isoformat()}
+            "decided_at": datetime.now(timezone(timedelta(hours=5, minutes=30))).isoformat()}
     # Accept: recommendation must exist.
     if action == "accept":
         if state.get("recommendation", "").startswith("no eligible"):

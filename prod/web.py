@@ -21,8 +21,7 @@ app = FastAPI(title="Binder Selection Agent — Production (phase 3)")
 TPL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
 tpl = Jinja2Templates(directory=TPL_DIR)
 
-from datetime import datetime as _dt, timedelta as _td, timezone as _tz
-_IST = _tz(_td(hours=5, minutes=30))
+from datetime import datetime as _dt
 def _readable_date(value):
     if value is None:
         return "—"
@@ -31,12 +30,8 @@ def _readable_date(value):
             value = _dt.fromisoformat(value.replace(" ", "T"))
         except ValueError:
             return value
-    # Stored values are UTC (naive); convert to IST for display.
+    # Stored values are already IST (naive); just format.
     try:
-        if value.tzinfo is None:
-            value = value.replace(tzinfo=_tz.utc).astimezone(_IST)
-        else:
-            value = value.astimezone(_IST)
         return value.strftime("%d %b %Y, %I:%M %p IST")
     except (AttributeError, ValueError):
         return str(value)

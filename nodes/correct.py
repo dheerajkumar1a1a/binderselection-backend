@@ -5,7 +5,7 @@ in field metadata and flow into the audit record. Nothing is overwritten
 silently.
 """
 # datetime: used to timestamp the correction.
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 # Any: type hint for corrections dict values.
 from typing import Any
 
@@ -18,7 +18,7 @@ def apply(state: dict, corrections: dict[str, Any], underwriter_id: str) -> dict
     meta = {k: dict(v) if isinstance(v, dict) else v
             for k, v in (state.get("extracted_meta") or {}).items()}
     # Current UTC timestamp.
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(timezone(timedelta(hours=5, minutes=30))).isoformat()
     # Apply each correction.
     for field, value in corrections.items():
         # Normalise money string to number.

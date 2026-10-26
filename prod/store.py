@@ -11,7 +11,7 @@ Doctrine honoured here:
   recommended and what the human chose.
 """
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import (JSON, Boolean, Column, DateTime, Float, Integer, String,
                         Text, create_engine)
@@ -80,8 +80,12 @@ class Decision(Base):
     detail = Column(JSON, default=dict)
 
 
+_IST_TZ = timezone(timedelta(hours=5, minutes=30))
+
+
 def now() -> datetime:
-    return datetime.now(timezone.utc).replace(tzinfo=None)  # naive UTC
+    # Naive IST (UTC+5:30) — all stored timestamps are IST.
+    return datetime.now(_IST_TZ).replace(tzinfo=None)
 
 
 def _sqlite_migrate() -> None:
