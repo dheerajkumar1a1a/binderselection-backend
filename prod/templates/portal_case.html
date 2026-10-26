@@ -45,7 +45,7 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:16px}
 <section><h2 style="margin-top:0">Outcome letters</h2>
 {% if not v.letters %}<p class="mut">No letters yet.</p>{% else %}
 <table><tr><th>When</th><th>Letter</th><th></th></tr>
-{% for L in v.letters %}<tr><td>{{ L.created }}</td><td>{{ L.title }}</td><td><a href="/portal/case/{{ v.case.case_id }}/letter/{{ L.decision_id }}">read →</a></td></tr>{% endfor %}</table>
+{% for L in v.letters %}<tr><td>{{ L.created | rd }}</td><td>{{ L.title }}</td><td><a href="/portal/case/{{ v.case.case_id }}/letter/{{ L.decision_id }}">read →</a></td></tr>{% endfor %}</table>
 {% endif %}
 </section>
 
