@@ -57,9 +57,9 @@
   </form>
 </section>
 
-<section class="card">
+<section class="card" x-data="{search:'', filter:'all'}">
   <h2>Workboard — {{ cases|length }} case{{ 's' if cases|length != 1 }}</h2>
-  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px" x-data="{search:'', filter:'all'}">
+  <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
     <input type="text" x-model="search" placeholder="Search cases by ID, broker, reference..." style="flex:1;min-width:200px">
     <div style="display:flex;gap:6px">
       <button type="button" :class="filter==='all' ? '' : 'secondary'" @click="filter='all'" style="padding:6px 12px;font-size:12px">All</button>
@@ -70,6 +70,7 @@
   {% if not cases %}
     <div class="empty-state"><h3>No cases yet</h3><p>Open one above to get started.</p></div>
   {% else %}
+  <div x-data="{search:'', filter:'all'}">
   <table class="responsive-card">
     <tr><th>Case</th><th>Broker</th><th>Status</th><th>Latest outcome</th><th>Open round</th><th>Assessor</th><th>Created</th><th>SLA</th><th></th></tr>
     {% for c in cases %}
