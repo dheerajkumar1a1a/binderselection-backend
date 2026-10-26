@@ -521,9 +521,13 @@ def rules_propose_page(request: Request, binder_id: str):
         cur_json = json.dumps(cur, indent=2)
     except Exception:
         cur_json = "{}"
+    from rules import store as rs
+    fields = sorted(rs.KNOWN_FIELDS)
+    ops = sorted(rs.VALID_OPS)
+    today = __import__("datetime").date.today().isoformat()
     return tpl.TemplateResponse(request, "rules_propose.html",
                                 {"binder_id": binder_id, "current_json": cur_json,
-                                 "today": __import__("datetime").date.today().isoformat()})
+                                 "today": today, "fields": fields, "ops": ops})
 
 
 @app.post("/admin/rules/propose/{binder_id}")
