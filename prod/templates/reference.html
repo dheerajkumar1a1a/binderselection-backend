@@ -1,30 +1,50 @@
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><title>Reference data</title>
-<style>:root{--ink:#1a2332;--mut:#5b6b7f;--line:#dfe6ee;--bg:#f5f8fb;--card:#fff}
-*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
-header{background:#0f2a44;color:#fff;padding:22px 24px}
-header h1{margin:0;font-size:20px}header p{margin:4px 0 0;color:#c9d6e4;font-size:13px}
-main{max-width:1000px;margin:0 auto;padding:20px}
-section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin:14px 0}
-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
-th,td{border:1px solid var(--line);padding:6px 8px;text-align:left}
-th{background:#eef3f8}.mut{color:var(--mut);font-size:13px}
-button{background:#0f2a44;color:#fff;border:0;border-radius:6px;padding:9px 15px;font-size:14px;cursor:pointer;margin-top:10px}
-a{color:#0f2a44}
-</style></head>
-<body>
-<header><h1>Reference data — third-party facts</h1>
-<p>Feeds under data/reference/*.json are attached to every evaluation (source, licence, timestamp on each fact). Data, never a decision. <a style="color:#c9d6e4" href="/admin/rules">← rules</a> · <a style="color:#c9d6e4" href="/">workboard</a></p></header>
-<main>
-{% if msg %}<p class="mut">{{ msg }}</p>{% endif %}
-<section><h2 style="margin-top:0">Feeds on disk</h2>
-{% if not feeds %}<p class="mut">No feeds yet. Drop a JSON file into data/reference/ (see the format in prod/reference.py) then refresh.</p>
-{% else %}
-<table><tr><th>Feed</th><th>File</th><th>Licence</th><th>Fetched at</th><th>Records</th><th>Key field</th></tr>
-{% for f in feeds %}<tr><td>{{ f.feed }}</td><td>{{ f.file }}</td><td>{{ f.licence }}</td><td>{{ f.fetched_at }}</td><td>{{ f.records }}</td><td>{{ f.key_field }}</td></tr>{% endfor %}</table>
+{% extends "base.html" %}
+{% import "components.html" as ui %}
+{% block title %}Reference data{% endblock %}
+{% block header_title %}Reference data{% endblock %}
+{% block header_sub %}<div class="page-sub">Third-party facts attached to every evaluation — source, licence and timestamp on each fact. Data, never a decision.</div>{% endblock %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="/">Workboard</a> <span class="sep">›</span> <span>Reference</span></div>{% endblock %}
+{% block content %}
+
+{% if msg %}
+<section class="card"><p class="mut">{{ msg }}</p></section>
 {% endif %}
-<form method="post" action="/admin/reference/refresh"><button>Refresh from disk</button></form>
+
+<section class="card">
+  <div class="card-h">
+    <h2>Feeds on disk</h2>
+    <form method="post" action="/admin/reference/refresh">
+      <button class="secondary btn-sm">Refresh from disk</button>
+    </form>
+  </div>
+
+  {% if not feeds %}
+  {{ ui.empty_state(
+       'No feeds yet',
+       'Drop a JSON file into data/reference/, then refresh. Each fact carries its source, licence and fetch time.',
+       None, None, 'file') }}
+  {% else %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Feed</th><th>File</th><th>Licence</th><th>Fetched at</th>
+        <th class="num">Records</th><th>Key field</th>
+      </tr></thead>
+      <tbody>
+      {% for f in feeds %}
+        <tr>
+          <td><b>{{ f.feed }}</b></td>
+          <td class="mono">{{ f.file }}</td>
+          <td>{{ f.licence }}</td>
+          <td class="mut">{{ f.fetched_at | ist }}</td>
+          <td class="num">{{ f.records | money }}</td>
+          <td class="mono">{{ f.key_field }}</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
 </section>
-</main>
-</body></html>
+
+{% endblock %}

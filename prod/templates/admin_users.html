@@ -1,48 +1,67 @@
-<!DOCTYPE html>
-<html lang="en">
-<head><meta charset="utf-8"><title>Users — admin</title>
-<style>:root{--ink:#1a2332;--mut:#5b6b7f;--line:#dfe6ee;--bg:#f5f8fb;--card:#fff}
-*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
-header{background:#0f2a44;color:#fff;padding:22px 24px}header h1{margin:0;font-size:20px}
-header p{margin:4px 0 0;color:#c9d6e4;font-size:13px}
-main{max-width:900px;margin:0 auto;padding:20px}
-section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin:14px 0}
-h2{margin:0 0 10px;font-size:16px}.mut{color:var(--mut);font-size:13px}
-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
-th,td{border:1px solid var(--line);padding:6px 8px;text-align:left}
-th{background:#eef3f8}
-label{font-size:12px;color:var(--mut);display:block;margin:8px 0 4px}
-input,select{padding:7px;border:1px solid var(--line);border-radius:6px;font-size:14px}
-button{background:#0f2a44;color:#fff;border:0;border-radius:6px;padding:9px 15px;font-size:14px;cursor:pointer;margin-top:10px}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-.msg{color:#157347;font-size:13px}
-</style></head>
-<body>
-<header><h1>Accounts</h1><p>provision logins — one identity table, roles admin / underwriter / broker (phase 4's maker-checker reuses these) · <a style="color:#c9d6e4" href="/">← workboard</a></p></header>
-<main>
-{% if msg %}<p class="msg">{{ msg }}</p>{% endif %}
-<section><h2 style="margin-top:0">Provision account</h2>
-<form method="post" action="/admin/users">
-<div class="grid2">
-<div><label>Username</label><input name="username" required></div>
-<div><label>Role</label><select name="role"><option>admin</option><option>underwriter</option><option selected>broker</option></select></div>
-<div><label>Password</label><input name="password" required></div>
-<div><label>Display name</label><input name="display_name"></div>
-<div><label>Email (notifications)</label><input name="email"></div>
-<div><label>Broker firm (broker accounts only — must equal the case's broker firm)</label><input name="broker_firm"></div>
-</div>
-<button>Create</button>
-</form>
+{% extends "base.html" %}
+{% import "components.html" as ui %}
+{% block title %}Accounts{% endblock %}
+{% block header_title %}Accounts{% endblock %}
+{% block header_sub %}<div class="page-sub">One identity table, three roles. Maker-checker reads the same accounts.</div>{% endblock %}
+{% block breadcrumbs %}<div class="breadcrumbs"><a href="/">Workboard</a> <span class="sep">›</span> <span>Accounts</span></div>{% endblock %}
+{% block content %}
+
+{% if msg %}<section class="card"><p class="mut">{{ msg }}</p></section>{% endif %}
+
+<section class="card">
+  <h2>Provision account</h2>
+  <form method="post" action="/admin/users">
+    <div class="grid2">
+      <div>{{ ui.field('username', 'Username', required=True) }}</div>
+      <div>
+        <label class="label" for="f-role">Role</label>
+        <select id="f-role" name="role">
+          <option value="admin">admin</option>
+          <option value="underwriter">underwriter</option>
+          <option value="broker" selected>broker</option>
+        </select>
+      </div>
+      <div>{{ ui.field('password', 'Password', type='password', required=True) }}</div>
+      <div>{{ ui.field('display_name', 'Display name') }}</div>
+      <div>{{ ui.field('email', 'Email', type='email', hint='Used for breach and round notifications.') }}</div>
+      <div>{{ ui.field('broker_firm', 'Broker firm', hint='Broker accounts only — must equal the case’s broker firm.') }}</div>
+    </div>
+    <div class="form-actions"><button>Create account</button></div>
+  </form>
 </section>
-<section><h2 style="margin-top:0">Accounts</h2>
-{% if msg %}{% endif %}
-<table><tr><th>Username</th><th>Role</th><th>Display</th><th>Email</th><th>Firm</th><th>Created</th><th></th></tr>
-{% for u in users %}<tr><td>{{ u.username }}</td><td>{{ u.role }}</td><td>{{ u.display_name or '—' }}</td><td>{{ u.email or '—' }}</td><td>{{ u.broker_firm or '—' }}</td><td>{{ u.created_at | rd }}</td>
-<td><form method="post" action="/admin/users/password" style="display:flex;gap:6px;margin:0">
-<input type="hidden" name="username" value="{{ u.username }}">
-<input style="width:110px" type="password" name="password" placeholder="new password" required>
-<button style="margin:0;padding:5px 9px;font-size:12px">reset</button></form></td></tr>
-{% endfor %}</table>
+
+<section class="card">
+  <div class="card-h"><h2>Accounts</h2><span class="mut">{{ users|length }} total</span></div>
+  {% if not users %}
+    {{ ui.empty_state('No accounts yet', 'Provision the first one above.', None, None, 'users') }}
+  {% else %}
+  <div class="table-wrap">
+    <table>
+      <thead><tr>
+        <th>Account</th><th>Role</th><th>Email</th><th>Firm</th><th>Created</th><th>Reset password</th>
+      </tr></thead>
+      <tbody>
+      {% for u in users %}
+        <tr>
+          <td><b>{{ u.username }}</b>{% if u.display_name %}<div class="mut">{{ u.display_name }}</div>{% endif %}</td>
+          <td>{{ ui.chip('neutral' if u.role == 'broker' else 'info', u.role) }}</td>
+          <td class="mut">{{ u.email or '—' }}</td>
+          <td>{{ u.broker_firm or '—' }}</td>
+          <td class="mut nowrap" title="{{ u.created_at | ist }}">{{ u.created_at | dateonly }}</td>
+          <td>
+            <form method="post" action="/admin/users/password" class="inline-form">
+              <input type="hidden" name="username" value="{{ u.username }}">
+              <input type="password" name="password" placeholder="new password"
+                     aria-label="New password for {{ u.username }}" required>
+              <button class="secondary btn-sm">Reset</button>
+            </form>
+          </td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
 </section>
-</main>
-</body></html>
+
+{% endblock %}

@@ -25,6 +25,18 @@ tpl = Jinja2Templates(directory=TPL_DIR)
 # Vendored assets, no CDN: the demo must render on a network-less machine.
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
+
+def _shell_context(request: Request) -> dict:
+    """The shell needs the signed-in user on every page, not only the pages
+    whose route remembered to pass it. Twelve routes had dropped the rail by
+    forgetting this; resolving it once per request removes the class of bug."""
+    if not hasattr(request.state, "shell_user"):
+        request.state.shell_user = auth.session_user(request)
+    return {"user": request.state.shell_user}
+
+
+tpl.context_processors.append(_shell_context)
+
 from datetime import datetime as _dt
 def _readable_date(value):
     if value is None:
@@ -654,7 +666,8 @@ def reference_page(request: Request):
     from prod import reference as ref_mod
     return tpl.TemplateResponse(request, "reference.html",
                                 {"feeds": ref_mod.list_feeds(),
-                                 "msg": request.query_params.get("msg", "")})
+                                 "msg": request.query_params.get("msg", ""),
+                                 "user": auth.session_user(request)})
 
 
 @app.post("/admin/reference/refresh")
@@ -853,7 +866,8 @@ def health():
 @app.get("/help", response_class=HTMLResponse)
 def help_page(request: Request):
     _staff(request)
-    return tpl.TemplateResponse(request, "help.html", {})
+    return tpl.TemplateResponse(request, "help.html",
+                                {"user": auth.session_user(request)})
 
 @app.get("/admin/audit", response_class=HTMLResponse)
 def audit_page(request: Request):
@@ -866,7 +880,8 @@ def audit_page(request: Request):
         evaluations = (s.query(store.Evaluation)
                        .order_by(store.Evaluation.created_at.desc()).limit(200).all())
     return tpl.TemplateResponse(request, "audit.html",
-                                {"decisions": decisions, "evaluations": evaluations})
+                                {"decisions": decisions, "evaluations": evaluations,
+                                 "user": auth.session_user(request)})
 
 @app.get("/case/{case_id}/clone")
 def case_clone(request: Request, case_id: str):

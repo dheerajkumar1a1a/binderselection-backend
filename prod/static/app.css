@@ -147,6 +147,7 @@ p{color:var(--ink-soft)}
 .mut{color:var(--mut);font-size:12.5px}
 .mono{font-family:var(--mono);font-size:12px;letter-spacing:-.01em}
 .num{font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.nowrap{white-space:nowrap}
 .label{display:block;font-size:12px;font-weight:550;color:var(--ink-soft);margin:12px 0 5px}
 .label .opt{color:var(--mut);font-weight:400}
 code,kbd,samp{font-family:var(--mono);font-size:12px;background:var(--card-2);border:1px solid var(--line);border-radius:4px;padding:1px 5px}
@@ -211,6 +212,10 @@ input[type="file"]{padding:6px 8px;height:auto;font-size:12.5px}
 .field-hint{color:var(--mut);font-size:12px;margin-top:4px}
 input[aria-invalid="true"],textarea[aria-invalid="true"]{border-color:var(--bad);box-shadow:0 0 0 3px var(--bad-soft)}
 .form-actions{display:flex;align-items:center;gap:8px;margin-top:18px;padding-top:14px;border-top:1px solid var(--line-soft)}
+/* Inline row form: field + action stay on one line inside a table cell. */
+.inline-form{display:flex;align-items:center;gap:6px;flex-wrap:nowrap}
+.inline-form input{width:132px;height:28px;padding:0 8px;font-size:12.5px}
+.inline-form .btn,.inline-form button{height:28px;padding:0 10px;font-size:12px}
 
 /* ---------- chips ----------------------------------------------------- */
 .chip{

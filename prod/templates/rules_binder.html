@@ -42,7 +42,11 @@
   <h2 style="margin-top:0">Actions</h2>
   <div style="display:flex;gap:10px;flex-wrap:wrap">
     <a href="/admin/rules/propose/{{ binder_id }}" class="btn">Propose new change →</a>
+    {% if detail.versions | length > 1 %}
     <a href="/admin/rules/binder/{{ binder_id }}/diff" class="btn secondary">Diff versions →</a>
+    {% else %}
+    <span class="mut">Diff needs two versions; this binder has one.</span>
+    {% endif %}
   </div>
 </section>
 {% endblock %}

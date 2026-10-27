@@ -46,7 +46,7 @@
     <td><b>{{ b.binder.binder_id }}</b> — {{ b.binder.binder_name }}</td>
     <td>{% if b.current %}{{ '{:,.0f}'.format(b.current.authorised_line) }} <span class="mut">v{{ b.current.version }} from {{ b.current.effective_from | rd }}</span>{% else %}—{% endif %}</td>
     <td>{{ b.versions|length }}</td>
-    <td><a href="/admin/capacity/binder/{{ b.binder.binder_id }}">history →</a> · <a href="/admin/capacity/propose/{{ b.binder.binder_id }}">propose →</a> · <a href="/admin/capacity/binder/{{ b.binder.binder_id }}/diff">diff →</a></td>
+    <td><a href="/admin/capacity/binder/{{ b.binder.binder_id }}">history →</a> · <a href="/admin/capacity/propose/{{ b.binder.binder_id }}">propose →</a>{% if b.versions|length > 1 %} · <a href="/admin/capacity/binder/{{ b.binder.binder_id }}/diff">diff →</a>{% endif %}</td>
   </tr>{% endfor %}</table>
 </section>
 
