@@ -1,13 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Workboard{% endblock %}
-{% block header_title %}Binder Selection Agent — Workboard{% endblock %}
-{% block header_meta %}
-  <span>signed in as <b>{{ user.display_name or user.username }}</b> ({{ user.role }})</span>
-  {% if user.role == 'admin' %}<a href="/admin/users">accounts</a>{% endif %}
-  <a href="/admin/rules">rules</a>
-  <a href="/admin/capacity">capacity</a>
-  <a href="/admin/reference">reference</a>
-{% endblock %}
+{% block header_title %}Workboard{% endblock %}
 {% block content %}
 <!-- Pipeline visual -->
 {% set n_new = cases|selectattr('status','equalto','new')|list|length %}
@@ -70,7 +63,6 @@
   {% if not cases %}
     <div class="empty-state"><h3>No cases yet</h3><p>Open one above to get started.</p></div>
   {% else %}
-  <div x-data="{search:'', filter:'all'}">
   <table class="responsive-card">
     <tr><th>Case</th><th>Broker</th><th>Status</th><th>Latest outcome</th><th>Open round</th><th>Assessor</th><th>Created</th><th>SLA</th><th></th></tr>
     {% for c in cases %}

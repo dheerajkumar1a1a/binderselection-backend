@@ -1,0 +1,122 @@
+{# Shared UI components. Templates compose these; they do not restate markup.
+   Rule of the system: no template picks a colour, writes a style= attribute,
+   or hand-rolls a table/chip/button. If something is missing, it belongs here. #}
+
+{% set ICONS = {
+  'dashboard': '<rect x="3" y="3" width="7" height="9" rx="1.5"/><rect x="14" y="3" width="7" height="5" rx="1.5"/><rect x="14" y="12" width="7" height="9" rx="1.5"/><rect x="3" y="16" width="7" height="5" rx="1.5"/>',
+  'scale': '<path d="M12 3v18"/><path d="M6 7h12"/><path d="M6 7l-3 6a3 3 0 0 0 6 0z"/><path d="M18 7l-3 6a3 3 0 0 0 6 0z"/><path d="M8 21h8"/>',
+  'gauge': '<path d="m12 14 4-4"/><path d="M3.34 19a10 10 0 1 1 17.32 0"/>',
+  'book': '<path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>',
+  'users': '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+  'history': '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/>',
+  'help': '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/>',
+  'sun': '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+  'moon': '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+  'search': '<circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/>',
+  'chevron': '<path d="m9 18 6-6-6-6"/>',
+  'check': '<path d="M20 6 9 17l-5-5"/>',
+  'x': '<path d="M18 6 6 18M6 6l12 12"/>',
+  'alert': '<path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3z"/><path d="M12 9v4"/><path d="M12 17h.01"/>',
+  'plus': '<path d="M12 5v14M5 12h14"/>',
+  'arrow': '<path d="M5 12h14M12 5l7 7-7 7"/>',
+  'arrow-left': '<path d="M19 12H5M12 19l-7-7 7-7"/>',
+  'clock': '<circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>',
+  'shield': '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+  'file': '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
+  'layers': '<path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3 13l9 5 9-5"/><path d="M3 17.5l9 5 9-5"/>',
+  'logout': '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
+  'inbox': '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>'
+} %}
+
+{% macro icon(name, size=16, cls='') -%}
+<svg class="{{ cls }}" width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none"
+     stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round"
+     aria-hidden="true" focusable="false">{{ ICONS.get(name, '') | safe }}</svg>
+{%- endmacro %}
+
+{% macro brand(size=24) -%}
+<svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+     stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">
+  <path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3 13l9 5 9-5"/><path d="M3 17.5l9 5 9-5"/>
+</svg>
+{%- endmacro %}
+
+{# tone: neutral | ok | warn | bad | info #}
+{% macro chip(tone, label, dot=True) -%}
+<span class="chip {{ tone }}{{ '' if dot else ' no-dot' }}">{{ label }}</span>
+{%- endmacro %}
+
+{% macro nav_item(href, label, icon_name, active=False, badge=None) -%}
+<a class="nav-item{{ ' active' if active }}" href="{{ href }}"{% if active %} aria-current="page"{% endif %}>
+  {{ icon(icon_name, 16) }}<span>{{ label }}</span>
+  {% if badge %}<span class="nav-badge">{{ badge }}</span>{% endif %}
+</a>
+{%- endmacro %}
+
+{% macro page_head(title, sub=None, actions=None) -%}
+<div class="page-head">
+  <div>
+    <h1 class="page-title">{{ title }}</h1>
+    {% if sub %}<div class="page-sub">{{ sub }}</div>{% endif %}
+  </div>
+  {% if actions %}<div class="page-actions">{{ actions }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro stat(label, value, hint=None, tone=None) -%}
+<div class="stat-card">
+  <div class="lbl">{{ label }}</div>
+  <div class="num{{ ' tone-' + tone if tone }}">{{ value }}</div>
+  {% if hint %}<div class="hint">{{ hint }}</div>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro util(value, limit, warn=0.8, crit=0.9) -%}
+{% set pct = (value / limit * 100) if limit else 0 %}
+{% set frac = (value / limit) if limit else 0 %}
+{# thresholds are a policy constant of the desk, not a template choice #}
+<div class="util-wrap">
+  <div class="util {{ 't-bad' if frac >= crit else ('t-warn' if frac >= warn else 't-ok') }}"
+       role="img" aria-label="{{ '%.0f'|format(pct) }} percent of the authorised line used">
+    <i style="width:{{ [pct, 100] | min }}%"></i>
+  </div>
+  <span class="pct">{{ '%.1f'|format(pct) }}%</span>
+</div>
+{%- endmacro %}
+
+{% macro empty_state(title, body=None, action_href=None, action_label=None, icon_name='inbox') -%}
+<div class="empty-state">
+  <div class="es-icon">{{ icon(icon_name, 16) }}</div>
+  <h3>{{ title }}</h3>
+  {% if body %}<p>{{ body }}</p>{% endif %}
+  {% if action_href and action_label %}<a class="btn btn-sm" href="{{ action_href }}">{{ action_label }}</a>{% endif %}
+</div>
+{%- endmacro %}
+
+{% macro field(name, label, value='', type='text', hint=None, error=None, required=False, placeholder=None) -%}
+<label class="label" for="f-{{ name }}">{{ label }}{% if required %} <span class="req" aria-hidden="true">*</span>{% endif %}</label>
+<input id="f-{{ name }}" name="{{ name }}" type="{{ type }}" value="{{ value }}"
+       {% if required %}required{% endif %} {% if placeholder %}placeholder="{{ placeholder }}"{% endif %}
+       {% if error %}aria-invalid="true" aria-describedby="e-{{ name }}"{% elif hint %}aria-describedby="h-{{ name }}"{% endif %}>
+{% if error %}<div class="field-err" id="e-{{ name }}">{{ error }}</div>
+{% elif hint %}<div class="field-hint" id="h-{{ name }}">{{ hint }}</div>{% endif %}
+{%- endmacro %}
+
+{# Irreversible actions state it, in the dialog, every time. #}
+{% macro confirm_dialog(id, title, body, confirm_label='Confirm', cancel_label='Cancel', irreversible=False) -%}
+<dialog id="{{ id }}" aria-labelledby="{{ id }}-t">
+  <div class="dialog-body">
+    <div class="dialog-title" id="{{ id }}-t">{{ title }}</div>
+    <div class="dialog-text">{{ body }}</div>
+    {% if irreversible %}
+    <p class="mut dialog-note">
+      {{ icon('shield', 14) }}<span>This action is append-only and cannot be undone.</span>
+    </p>
+    {% endif %}
+  </div>
+  <div class="dialog-actions">
+    <button type="button" class="secondary" onclick="this.closest('dialog').close()">{{ cancel_label }}</button>
+    <button type="submit" form="{{ id }}-form">{{ confirm_label }}</button>
+  </div>
+</dialog>
+{%- endmacro %}

@@ -13,13 +13,17 @@ import os
 from fastapi import (FastAPI, File, Form, HTTPException, Request,
                      UploadFile)
 from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
 from . import auth, service, store
 
 app = FastAPI(title="Binder Selection Agent — Production (phase 3)")
 TPL_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "templates")
+STATIC_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "static")
 tpl = Jinja2Templates(directory=TPL_DIR)
+# Vendored assets, no CDN: the demo must render on a network-less machine.
+app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 from datetime import datetime as _dt
 def _readable_date(value):
@@ -35,7 +39,72 @@ def _readable_date(value):
         return value.strftime("%d %b %Y, %I:%M %p IST")
     except (AttributeError, ValueError):
         return str(value)
+
+
+def _parse_instant(value):
+    """Best-effort parse of a stored instant (ISO string or datetime)."""
+    if isinstance(value, str):
+        try:
+            return _dt.fromisoformat(value.replace(" ", "T"))
+        except ValueError:
+            return None
+    return value
+
+
+def _money(value, dash=False):
+    """Plain grouped digits. Currency, when known, belongs in the column
+    header — never guessed into a cell (the domain has not recorded one)."""
+    if value is None or value == "":
+        return "—"
+    try:
+        n = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    if n == 0 and dash:
+        return "—"
+    return f"{n:,.0f}"
+
+
+def _date_only(value):
+    d = _parse_instant(value)
+    if d is None:
+        return value if value else "—"
+    try:
+        return d.strftime("%d %b %Y")
+    except (AttributeError, ValueError):
+        return str(value)
+
+
+def _human_delta(seconds):
+    m = int(seconds // 60)
+    if m < 1:
+        return "moments"
+    if m < 60:
+        return f"{m}m"
+    h = m // 60
+    if h < 24:
+        return f"{h}h"
+    d = h // 24
+    if d < 30:
+        return f"{d}d"
+    return f"{d // 30}mo"
+
+
+def _rel(value):
+    """Relative time for deadlines and expiry. Records keep absolute IST."""
+    d = _parse_instant(value)
+    if d is None:
+        return "—"
+    delta = (_dt.now() - d).total_seconds()
+    span = _human_delta(abs(delta))
+    return f"in {span}" if delta < 0 else f"{span} ago"
+
+
 tpl.env.filters["rd"] = _readable_date
+tpl.env.filters["ist"] = _readable_date
+tpl.env.filters["dateonly"] = _date_only
+tpl.env.filters["money"] = _money
+tpl.env.filters["rel"] = _rel
 store.init_db()
 _seeded = auth.ensure_seeded()
 for _u in _seeded:  # first-run provisioning notice (local dev comfort)
@@ -756,17 +825,20 @@ async def case_note(request: Request, case_id: str):
 @app.exception_handler(404)
 async def not_found(request: Request, exc):
     return tpl.TemplateResponse(request, "error.html",
-                                {"code": 404, "msg": "Page not found"}, status_code=404)
+                                {"code": 404, "msg": "Page not found",
+                                 "user": auth.session_user(request)}, status_code=404)
 
 @app.exception_handler(403)
 async def forbidden(request: Request, exc):
     return tpl.TemplateResponse(request, "error.html",
-                                {"code": 403, "msg": "Not allowed for your role"}, status_code=403)
+                                {"code": 403, "msg": "Not allowed for your role",
+                                 "user": auth.session_user(request)}, status_code=403)
 
 @app.exception_handler(500)
 async def server_error(request: Request, exc):
     return tpl.TemplateResponse(request, "error.html",
-                                {"code": 500, "msg": "Something went wrong"}, status_code=500)
+                                {"code": 500, "msg": "Something went wrong",
+                                 "user": auth.session_user(request)}, status_code=500)
 
 @app.get("/health")
 def health():

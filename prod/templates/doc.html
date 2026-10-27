@@ -12,7 +12,7 @@
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:12px">
       {% for view in views %}
       <button type="button" @click="tab='{{ view.doc_id }}'"
-              :style="tab==='{{ view.doc_id }}' ? 'background:var(--accent);color:#fff' : 'background:#e2e8f0;color:var(--ink)'"
+              :style="tab==='{{ view.doc_id }}' ? 'background:var(--accent);color:#fff' : 'background:var(--line);color:var(--ink)'"
               style="padding:6px 12px;font-size:12px;border:0;border-radius:8px;cursor:pointer">
         {{ view.doc_id }}
       </button>
@@ -25,11 +25,11 @@
       <p class="mut">Facts taken from this document:
       {% for m in view.found %}<span class="chip ok" title="{{ m.quote }}">{{ m.field }}</span> {% endfor %}
       {% for m in view.missing %}<span class="chip bad" title="quote not located: {{ m.quote }}">{{ m.field }}</span> {% endfor %}</p>
-      <div style="background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:14px;font-family:Consolas,monospace;font-size:12px;white-space:pre-wrap;max-height:420px;overflow:auto">{{ view.text_html | safe }}</div>
+      <div class="mono" style="background:var(--card-2);border:1px solid var(--line);border-radius:8px;padding:14px;font-size:12px;white-space:pre-wrap;max-height:420px;overflow:auto">{{ view.text_html | safe }}</div>
       {% endif %}
       {% if view.has_structured %}
       <h3 style="margin:14px 0 6px;font-size:13px">Machine-readable submission record</h3>
-      <pre style="background:#f8fafc;border:1px solid var(--line);border-radius:8px;padding:14px;font-size:12px;overflow:auto;max-height:420px">{{ view.structured_html | safe }}</pre>
+      <pre class="mono" style="background:var(--card-2);border:1px solid var(--line);border-radius:8px;padding:14px;font-size:12px;overflow:auto;max-height:420px">{{ view.structured_html | safe }}</pre>
       <p class="mut">Marked: {% for r in view.structured_facts %}<span class="chip ok">{{ r.field }}</span> {% endfor %}</p>
       {% endif %}
       {% if not view.has_text and not view.has_structured %}

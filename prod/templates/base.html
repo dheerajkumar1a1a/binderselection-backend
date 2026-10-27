@@ -1,142 +1,122 @@
 <!DOCTYPE html>
-<html lang="en" x-data="{dark: localStorage.getItem('theme')==='dark', tour: !localStorage.getItem('tourSeen')}" x-init="if(dark) document.documentElement.setAttribute('data-theme','dark')" :class="dark ? 'dark' : ''">
+<html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>{% block title %}Binder Selection Agent{% endblock %}</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
-<script src="https://unpkg.com/htmx.org@1.9.12" defer></script>
-<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
-<style>
-:root{
-  --ink:#0f172a;--ink-soft:#334155;--mut:#64748b;--line:#e2e8f0;--bg:#f1f5f9;--card:#ffffff;
-  --accent:#2563eb;--accent-soft:#dbeafe;--accent-hover:#1d4ed8;
-  --ok:#16a34a;--ok-soft:#dcfce7;--ok-icon:#22c55e;
-  --warn:#d97706;--warn-soft:#fef3c7;--warn-icon:#f59e0b;
-  --bad:#dc2626;--bad-soft:#fee2e2;--bad-icon:#ef4444;
-  --neutral:#64748b;--neutral-soft:#f1f5f9;
-  --radius:12px;--radius-sm:8px;--shadow:0 1px 3px rgba(15,23,42,.06),0 4px 12px rgba(15,23,42,.04);
-  --shadow-lg:0 8px 24px rgba(15,23,42,.08);--shadow-hover:0 4px 16px rgba(15,23,42,.1);
-  --space:16px;--space-lg:24px;--space-xl:32px;
-  --font:'Inter',-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
-}
-[data-theme="dark"]{
-  --ink:#e2e8f0;--ink-soft:#cbd5e1;--mut:#94a3b8;--line:#334155;--bg:#0f172a;--card:#1e293b;
-  --accent:#3b82f6;--accent-soft:#1e3a5f;--accent-hover:#2563eb;
-  --ok:#22c55e;--ok-soft:#14532d;--ok-icon:#4ade80;
-  --warn:#fbbf24;--warn-soft:#451a03;--warn-icon:#fcd34d;
-  --bad:#f87171;--bad-soft:#450a0a;--bad-icon:#fca5a5;
-  --neutral:#94a3b8;--neutral-soft:#1e293b;
-  --shadow:0 1px 3px rgba(0,0,0,.3),0 4px 12px rgba(0,0,0,.2);
-  --shadow-lg:0 8px 24px rgba(0,0,0,.4);--shadow-hover:0 4px 16px rgba(0,0,0,.3);
-}
-*{box-sizing:border-box;margin:0;padding:0}
-body{font-family:var(--font);background:var(--bg);color:var(--ink);line-height:1.55;-webkit-font-smoothing:antialiased;transition:background .2s,color .2s;animation:fadeIn .25s ease}
-@keyframes fadeIn{from{opacity:0}to{opacity:1}}
-a{color:var(--accent);text-decoration:none;transition:color .15s}a:hover{color:var(--accent-hover);text-decoration:underline}
-header.topbar{background:linear-gradient(135deg,#0f172a 0%,#1e293b 100%);color:#fff;padding:16px 28px;display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;box-shadow:0 2px 8px rgba(0,0,0,.15);position:sticky;top:0;z-index:100}
-header.topbar h1{margin:0;font-size:18px;font-weight:600;letter-spacing:-.02em}
-header.topbar .meta{color:#94a3b8;font-size:13px;display:flex;align-items:center;gap:12px;flex-wrap:wrap}
-header.topbar .meta a{color:#cbd5e1;transition:color .15s}header.topbar .meta a:hover{color:#fff;text-decoration:none}
-header.topbar .toggle{background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.15);color:#cbd5e1;border-radius:6px;padding:4px 10px;font-size:12px;cursor:pointer;transition:all .15s;font-family:var(--font)}header.topbar .toggle:hover{background:rgba(255,255,255,.15);color:#fff}
-main{max-width:1280px;margin:0 auto;padding:24px 20px}
-section.card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:22px;margin:16px 0;box-shadow:var(--shadow);transition:box-shadow .2s,transform .15s}
-section.card:hover{box-shadow:var(--shadow-hover)}
-h2{margin:0 0 12px;font-size:17px;font-weight:600;letter-spacing:-.01em;color:var(--ink)}
-h3{margin:14px 0 8px;font-size:14px;font-weight:600;color:var(--ink-soft)}
-.mut{color:var(--mut);font-size:13px}
-.label{font-size:12px;color:var(--mut);display:block;margin:10px 0 4px;font-weight:500}
-input,select,textarea{padding:9px 12px;border:1px solid var(--line);border-radius:var(--radius-sm);font-size:14px;background:var(--card);width:100%;transition:border-color .15s,box-shadow .15s;font-family:var(--font);color:var(--ink)}
-input:focus,select:focus,textarea:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
-button,.btn{background:var(--accent);color:#fff;border:0;border-radius:var(--radius-sm);padding:9px 16px;font-size:14px;font-weight:500;cursor:pointer;transition:background .15s,transform .08s,box-shadow .15s;display:inline-flex;align-items:center;gap:6px;font-family:var(--font)}
-button:hover,.btn:hover{background:var(--accent-hover)}
-button:active,.btn:active{transform:scale(.97)}
-button.secondary{background:var(--line);color:var(--ink)}button.secondary:hover{background:#cbd5e1}
-button.ghost{background:transparent;color:var(--accent)}button.ghost:hover{background:var(--accent-soft)}
-button.danger{background:var(--bad)}button.danger:hover{background:#b91c1c}
-.chip{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:600;border:1px solid;white-space:nowrap;transition:transform .1s}
-.chip:hover{transform:scale(1.05)}
-.chip.pass,.chip.ok{color:var(--ok);border-color:var(--ok);background:var(--ok-soft)}
-.chip.dec,.chip.bad{color:var(--bad);border-color:var(--bad);background:var(--bad-soft)}
-.chip.ref,.chip.warn{color:var(--warn);border-color:var(--warn);background:var(--warn-soft)}
-.chip.neutral{color:var(--mut);border-color:var(--line);background:var(--neutral-soft)}
-table{width:100%;border-collapse:separate;border-spacing:0;font-size:13px;margin-top:8px;border:1px solid var(--line);border-radius:var(--radius);overflow:hidden}
-th,td{padding:10px 12px;text-align:left;vertical-align:top;border-bottom:1px solid var(--line)}
-th{background:#f8fafc;font-weight:600;color:var(--ink-soft);font-size:12px;text-transform:uppercase;letter-spacing:.04em}
-tr:last-child td{border-bottom:0}
-tr:hover td{background:#f8fafc}
-.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px}
-@media(max-width:860px){.grid2,.grid3{grid-template-columns:1fr}}
-@media(max-width:720px){table{display:block;overflow-x:auto}}
-.card-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px;margin:14px 0}
-.stat-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:16px;box-shadow:var(--shadow);transition:box-shadow .2s,transform .15s}
-.stat-card:hover{box-shadow:var(--shadow-hover);transform:translateY(-2px)}
-.stat-card .num{font-size:22px;font-weight:700;letter-spacing:-.02em}
-.stat-card .lbl{font-size:12px;color:var(--mut);margin-top:2px}
-.spinner{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.3);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite}
-@keyframes spin{to{transform:rotate(360deg)}}
-.toast{position:fixed;bottom:24px;right:24px;background:var(--ink);color:var(--card);padding:12px 18px;border-radius:10px;box-shadow:var(--shadow-lg);font-size:14px;z-index:9999;transform:translateY(20px);opacity:0;transition:all .25s}
-.toast.show{transform:translateY(0);opacity:1}
-details{margin:8px 0}summary{cursor:pointer;font-size:13px;color:var(--mut);padding:6px 0;transition:color .15s}summary:hover{color:var(--ink)}
-footer{color:var(--mut);font-size:12px;text-align:center;padding:24px;margin-top:24px}
-.empty-state{padding:40px 20px;text-align:center;color:var(--mut);border:2px dashed var(--line);border-radius:var(--radius)}
-.empty-state h3{color:var(--ink);margin:0 0 8px;font-size:16px}
-.empty-state .btn{margin-top:12px}
-.breadcrumbs{font-size:12px;color:var(--mut);margin-bottom:12px;display:flex;align-items:center;gap:6px;flex-wrap:wrap}
-.breadcrumbs a{color:var(--mut)} .breadcrumbs .sep{color:var(--line)}
-[data-tip]{position:relative;cursor:help}
-[data-tip]::after{content:attr(data-tip);position:absolute;bottom:125%;left:50%;transform:translateX(-50%);background:var(--ink);color:var(--card);padding:5px 10px;border-radius:6px;font-size:11px;white-space:nowrap;opacity:0;pointer-events:none;transition:opacity .15s;z-index:100;box-shadow:var(--shadow)}
-[data-tip]:hover::after{opacity:1}
-.tour-overlay{position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:9998;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(2px)}
-.tour-card{background:var(--card);border-radius:var(--radius);padding:28px;max-width:420px;box-shadow:var(--shadow-lg)}
-.tour-card h3{margin:0 0 8px;font-size:17px;font-weight:600}
-.tour-card p{font-size:13px;color:var(--mut);margin:0 0 16px;line-height:1.6}
-.tour-card .btns{display:flex;gap:8px;justify-content:flex-end}
-.pipeline{display:flex;align-items:center;gap:4px;margin:16px 0;flex-wrap:wrap}
-.pipeline-stage{flex:1;min-width:120px;padding:12px 16px;border-radius:var(--radius-sm);text-align:center;font-size:13px;font-weight:600;transition:transform .15s,box-shadow .15s;cursor:default}
-.pipeline-stage:hover{transform:translateY(-2px);box-shadow:var(--shadow)}
-.pipeline-stage .count{font-size:22px;font-weight:700;display:block;margin-bottom:2px}
-.pipeline-arrow{color:var(--mut);font-size:18px;flex-shrink:0}
-@media print{header.topbar,footer,.toast,.tour-overlay{display:none!important}section.card{box-shadow:none;border:1px solid #ccc;break-inside:avoid}body{background:#fff;color:#000}a{color:#000;text-decoration:underline}button{display:none}}
-@media(max-width:640px){table.responsive-card{display:block}table.responsive-card thead{display:none}table.responsive-card tr{display:block;margin-bottom:12px;border:1px solid var(--line);border-radius:var(--radius);padding:8px}table.responsive-card td{display:flex;justify-content:space-between;padding:4px 8px;border:0;font-size:13px}table.responsive-card td::before{content:attr(data-label);font-weight:600;color:var(--mut);margin-right:8px;font-size:11px;text-transform:uppercase}}
-.mark{background:#fef08a;padding:0 2px;border-radius:3px}
-@keyframes pulse{0%,100%{opacity:1}50%{opacity:.6}}
-.pulse{animation:pulse 2s ease-in-out infinite}
-</style>
+<title>{% block title %}Binder Selection Agent{% endblock %} · Binder Selection Agent</title>
+<meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#0b0d10" media="(prefers-color-scheme: dark)">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%234338ca' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3 3 8l9 5 9-5-9-5z'/%3E%3Cpath d='M3 13l9 5 9-5'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="/static/app.css?v=2">
+<script>
+/* Theme resolves before first paint: stored choice, else the OS. */
+(function(){try{var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();
+</script>
+<script defer src="/static/vendor/alpine.min.js"></script>
+<script defer src="/static/vendor/htmx.min.js"></script>
+<script>
+document.addEventListener('alpine:init',function(){
+  Alpine.store('toasts',{
+    items:[],
+    push:function(msg,tone){tone=tone||'ok';var id=Date.now()+Math.random();
+      this.items.push({id:id,msg:msg,tone:tone});
+      var ms=tone==='bad'?9000:5000;var self=this;setTimeout(function(){self.dismiss(id);},ms);},
+    dismiss:function(id){this.items=this.items.filter(function(t){return t.id!==id;});}
+  });
+});
+document.addEventListener('htmx:beforeRequest',function(){
+  var p=document.getElementById('progress');if(p)p.classList.add('on');
+});
+document.addEventListener('htmx:afterRequest',function(){
+  var p=document.getElementById('progress');if(p){p.classList.remove('on');p.style.width='';}
+});
+</script>
 {% block head %}{% endblock %}
 </head>
-<body>
+<body x-data>
+{% import "components.html" as ui %}
+{# Legacy alias: templates still on the old markup call chip(cls, text).
+   Removed once every page composes ui.chip(tone, label). #}
 {% macro chip(cls, text) %}<span class="chip {{ cls }}">{{ text }}</span>{% endmacro %}
-<header class="topbar" x-data="{dark: localStorage.getItem('theme')==='dark'}" x-init="if(dark) document.documentElement.setAttribute('data-theme','dark')">
-  <h1>{% block header_title %}Binder Selection Agent{% endblock %}</h1>
-  <div class="meta">
-    {% block header_meta %}{% endblock %}
-    <button class="toggle" @click="dark=!dark; document.documentElement.setAttribute('data-theme', dark?'dark':''); localStorage.setItem('theme', dark?'dark':'light')" x-text="dark ? '☀ Light' : '🌙 Dark'"></button>
-    <a href="/logout">sign out</a>
+{% set path = request.url.path if request else '/' %}
+{% set role = user.role if user else '' %}
+{% set show_rail = role in ('admin','underwriter') %}
+<div class="progress" id="progress" aria-hidden="true"></div>
+<a class="skip" href="#content">Skip to content</a>
+
+<div class="shell{{ ' has-rail' if show_rail }}">
+{% if show_rail %}
+<aside class="rail">
+  <a class="brand" href="/" aria-label="Binder Selection Agent — home">
+    {{ ui.brand(24) }}
+    <span class="brand-t"><b>Binder Selection</b><span>Agent · production</span></span>
+  </a>
+
+  <div class="nav-group">
+    <div class="nav-label">Work</div>
+    {{ ui.nav_item('/', 'Workboard', 'dashboard', path == '/' or path.startswith('/case')) }}
   </div>
-</header>
-<main>
-  {% block breadcrumbs %}{% endblock %}
-  {% block content %}{% endblock %}
-</main>
-<footer>Binder Selection Agent · production · append-only evaluations &amp; decisions · SQLite (swap to Postgres via DATABASE_URL)</footer>
 
-<!-- toast -->
-<div class="toast" :class="{show: toast}" x-text="toastMsg" x-show="toast" x-transition></div>
+  <div class="nav-group">
+    <div class="nav-label">Govern</div>
+    {{ ui.nav_item('/admin/rules', 'Rules', 'scale', path.startswith('/admin/rules')) }}
+    {{ ui.nav_item('/admin/capacity', 'Capacity', 'gauge', path.startswith('/admin/capacity')) }}
+    {{ ui.nav_item('/admin/reference', 'Reference', 'book', path.startswith('/admin/reference')) }}
+  </div>
 
-<!-- onboarding tour -->
-<div class="tour-overlay" x-data="{show: !localStorage.getItem('tourSeen')}" x-show="show" x-cloak>
-  <div class="tour-card">
-    <h3>Welcome to Binder Selection Agent</h3>
-    <p>This is the underwriter's workboard. Create a case, run an evaluation, and record a decision. The system never decides — you do. Every fact carries provenance.</p>
-    <div class="btns">
-      <button type="button" class="secondary" @click="localStorage.setItem('tourSeen','1'); show=false">Skip</button>
-      <button type="button" @click="localStorage.setItem('tourSeen','1'); show=false">Got it</button>
+  {% if role == 'admin' %}
+  <div class="nav-group">
+    <div class="nav-label">Admin</div>
+    {{ ui.nav_item('/admin/users', 'Accounts', 'users', path.startswith('/admin/users')) }}
+    {{ ui.nav_item('/audit', 'Audit', 'history', path.startswith('/audit')) }}
+  </div>
+  {% endif %}
+
+  <div class="rail-foot">
+    {{ ui.nav_item('/help', 'Help', 'help', path.startswith('/help'), None) }}
+    <div class="rail-actions">
+      <button type="button" class="icon-btn wide" title="Toggle colour theme"
+              aria-label="Toggle colour theme"
+              x-data="{ dark: document.documentElement.getAttribute('data-theme')==='dark' }"
+              @click="dark=!dark; document.documentElement.setAttribute('data-theme', dark?'dark':'light'); localStorage.setItem('theme', dark?'dark':'light')"
+              :aria-pressed="dark">
+        <span x-show="!dark" class="ic">{{ ui.icon('moon', 15) }}</span>
+        <span x-show="dark" class="ic">{{ ui.icon('sun', 15) }}</span>
+        <span class="lbl" x-text="dark ? 'Light mode' : 'Dark mode'"></span>
+      </button>
+      <a class="icon-btn" href="/logout" title="Sign out" aria-label="Sign out">{{ ui.icon('logout', 15) }}</a>
+    </div>
+    <div class="who">
+      <span class="avatar" aria-hidden="true">{{ (user.display_name or user.username)[:1] }}</span>
+      <span class="who-t">
+        <span class="who-n">{{ user.display_name or user.username }}</span>
+        <span class="who-r">{{ role }}</span>
+      </span>
     </div>
   </div>
+</aside>
+{% endif %}
+
+<main id="content">
+  {% block breadcrumbs %}{% endblock %}
+  <div class="page-head">
+    <h1 class="page-title">{% block header_title %}Binder Selection Agent{% endblock %}</h1>
+    {% block header_sub %}{% endblock %}
+    <div class="page-meta">{% block header_meta %}{% endblock %}</div>
+  </div>
+
+  {% block content %}{% endblock %}
+
+  <footer>Binder Selection Agent · append-only evaluations &amp; decisions · SQLite</footer>
+</main>
+</div>
+
+<div class="toast-stack" aria-live="polite" aria-atomic="false">
+  <template x-for="t in $store.toasts.items" :key="t.id">
+    <div class="toast show" :class="'t-' + t.tone" @click="$store.toasts.dismiss(t.id)" role="status">
+      <span x-text="t.msg"></span>
+    </div>
+  </template>
 </div>
 
 {% block scripts %}{% endblock %}
