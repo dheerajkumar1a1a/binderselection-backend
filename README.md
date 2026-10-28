@@ -9,10 +9,13 @@ Spec of record: `BUSINESS_FUNCTIONAL_REQUIREMENTS 1.md` (v0.1 Draft for review,
 2026-09-17) in the sibling `BSA/` folder, plus `Policy_Referral.json`.
 This repo is the executable vertical slice of that spec, built on LangGraph.
 
-- Status: v1.4.0 — all five binders as versioned data (A 11, B 13, C 10, D 9, E 17 rule entries), real document intake (pdf/eml/xlsx/csv/docx + nesting + limits + explicit failures), multi-binder ranking, correction loop, MI, 113 tests green.
+- Status: v1.4.0 — all five binders as versioned data (A 11, B 13, C 10, D 9, E 17 rule entries), real document intake (pdf/eml/xlsx/csv/docx + nesting + limits + explicit failures), multi-binder ranking, correction loop, MI, 215 tests green.
 - Visibility: **public** (owner-approved 2026-10-13 for the demo). Live demo: https://dheerajkumar1a1a.github.io/binderselection-backend/ (static snapshot in `docs/`, JS engine verified identical to Python on all 27 cases).
-- Stack: Python 3.11, langgraph 1.2.x, langchain-core, pydantic, pytest,
+- Stack: Python 3.12, langgraph 1.2.x, langchain-core, pydantic, pytest,
   langgraph-checkpoint-sqlite / postgres.
+
+> Rebuilding this on another Windows machine: [`docs/RECREATE.md`](docs/RECREATE.md) —
+> prerequisites, bootstrap script, reset/restore, acceptance checklist, troubleshooting.
 
 ---
 
@@ -116,14 +119,21 @@ binderselection-backend/
     test_review.py       accept / reason-required / hard-decline block / refer_back
     test_admin.py        validation / effective load / four-eyes / dry-run / lifecycle
   requirements.txt
+  requirements.lock.txt    exact versions behind the green 215-test run
   .gitignore             (.venv, *.sqlite, .checkpoints.sqlite, audit/, .env)
+  scripts/
+    bootstrap.ps1        one-command Windows setup (Python 3.12, .venv, lockfile, tests)
+    run.ps1              canonical launcher (127.0.0.1:8123; -Dev, -Lan, -Port)
+    reset-demo.ps1       wipe local demo state (default: data/ + checkpoints)
+  docs/RECREATE.md       rebuild-this-on-another-Windows-machine runbook
 ```
 
 ---
 
 ## 3. Prerequisites
 
-- Windows 10/11, PowerShell 5.1, Python 3.11 (`python --version`).
+- Windows 10/11, PowerShell 5.1, Python 3.12 (`python --version`).
+  Full setup, run and reset steps: [`docs/RECREATE.md`](docs/RECREATE.md).
 - This checkout lives under OneDrive (user decision 2026-09-29):
   `…/OneDrive - ADROSONIC IT Consultancy Services Pvt. Ltd/Documents/binderselection-backend`.
   Set the folder to **Always keep on this device** and **pause OneDrive sync
@@ -145,8 +155,9 @@ python -m pip install -r requirements.txt
 python -m pytest tests -q
 ```
 
-Expected: `79 passed`. Installed versions at v0.8.0: `langgraph 1.2.x`,
-`langchain-core 1.6.3`, `langgraph-checkpoint-sqlite/postgres 2.x`.
+Expected: `215 passed`, using the pinned set in `requirements.lock.txt`
+(`langgraph 1.2.15`, `langchain-core 1.6.10`,
+`langgraph-checkpoint-sqlite 3.1.2` / `-postgres 3.2.0`).
 
 ---
 
@@ -345,7 +356,7 @@ option for those). Result files are pruned after a day.
 ## 7. Testing
 
 ```powershell
-python -m pytest tests -q        # 113 passed at v1.4.0
+python -m pytest tests -q        # 215 passed (Python 3.12, lockfile set)
 python -m pytest tests/test_admin.py -q
 ```
 
@@ -369,8 +380,9 @@ must not change others' scores) and tie-break cases when OPEN-5 lands.
 | `BINDER_PG_CONN` | Postgres checkpointer conn string | unset → local `.checkpoints.sqlite` |
 | (none yet) | model id/version pin | stub; must be recorded per evaluation when live (BFR-NFR-025, BFR-AUD-005) |
 
-Single declared dependency set: `requirements.txt`. Single runtime: Python
-3.11. No absolute machine paths in config (BFR-NFR-032); no secrets in repo
+Single declared dependency set: `requirements.txt` (ranges) with
+`requirements.lock.txt` pinning the verified install. Single runtime: Python
+3.12. No absolute machine paths in config (BFR-NFR-032); no secrets in repo
 (BFR-NFR-005) — connection strings and keys come from the environment only.
 
 ---
