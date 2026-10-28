@@ -67,7 +67,7 @@ details{margin:8px 0}summary{cursor:pointer;font-size:13px;color:var(--mut)}
   <form method="post" action="/case/{{ case.case_id }}/correct">
   <table><tr><th>Fact</th><th>Value</th><th>Confidence</th><th>Source documents</th><th>Locator</th><th>Correct</th></tr>
   {% for f, v in extracted.items() %}{% set m = (payload.get('extracted_meta') or {}).get(f) or {} %}
-  <tr><td>{{ f }}{% if m.get('corrected_by') %} <span class="chip warn" title="corrected by {{ m.corrected_by }} at {{ m.corrected_at | rd }} (was: {{ m.get('pre_correction_value') }})">corrected</span>{% endif %}{% if m.get('contested') %} <span class="chip warn">contested</span>{% endif %}</td><td>{{ v }}</td><td>{{ m.get('confidence', '—') }}</td>
+  <tr><td>{{ f }}{% if m.get('corrected_by') %} <span class="chip warn" title="corrected by {{ m.corrected_by }} at {{ m.corrected_at | rd }} (was: {{ m.get('pre_correction_value') }})">corrected</span>{% endif %}{% if m.get('contested') %} <span class="chip warn">contested</span>{% endif %}</td><td>{{ ui.fact_value(v, f) }}</td><td>{{ m.get('confidence', '—') }}</td>
   <td>{% for s in (m.get('sources') or []) %}{% if s.get('source_document_id') %}<a href="/case/{{ case.case_id }}/doc/{{ s.get('source_document_id') }}">{{ s.get('source_document_id') }}</a>{% if not loop.last %}, {% endif %}{% endif %}{% else %}<span class="mut">—</span>{% endfor %}{% if m.get('contested') %} <span class="chip warn">contested</span>{% endif %}</td>
   <td>{% if m.get('source_locator') and m.get('source_locator') != 'structured_hint' %}“{{ m.get('source_locator') }}”{% else %}{{ m.get('source_locator', '—') }}{% endif %}</td>
   <td><input type="text" name="correct_{{ f }}" placeholder="new value" style="padding:4px 8px;font-size:12px;width:120px"></td></tr>
@@ -93,7 +93,7 @@ details{margin:8px 0}summary{cursor:pointer;font-size:13px;color:var(--mut)}
   {% if not b.get('rule_outcomes') %}<p class="mut">No appetite rules ran ({{ b.get('reason', 'screened out before rules') }}).</p>{% endif %}
   </details>
   {% endfor %}
-  {% if payload.get('narrative') %}<p style="margin-top:10px"><b>Engine summary:</b> {{ payload['narrative'] }}</p>{% endif %}
+  {% if payload.get('narrative') %}{{ ui.engine_summary(payload['narrative'], reco, scores, binders) }}{% endif %}
 </section>
 
 <section class="card">
@@ -136,24 +136,69 @@ details{margin:8px 0}summary{cursor:pointer;font-size:13px;color:var(--mut)}
   <table><tr><th>#</th><th>Run (UTC)</th><th>Extractor</th><th>Model</th><th>Outcome</th></tr>
   {% for ev in evals %}<tr><td>{{ ev.evaluation_id }}</td><td>{{ ev.created_at | rd }}</td><td>{{ ev.llm or 'stub' }}</td><td>{{ ev.model or '—' }}</td><td>{{ ev.outcome }}</td></tr>{% endfor %}</table>
   {% if delta %}
-  <h3>Delta — evaluation #{{ evals[1].evaluation_id }} → #{{ evals[0].evaluation_id }} (what the new information changed)</h3>
-  <p class="mut">Only changes are listed. What did not move stays off the page.</p>
-  <h3 style="font-size:13px;color:var(--mut);margin-top:12px">Facts</h3>
-  {% if delta.facts %}
-  <table><tr><th>Fact</th><th>Before</th><th>After</th><th>Confidence</th></tr>
-  {% for f in delta.facts %}<tr><td>{{ f.field }}</td><td>{{ f.prev }}</td><td>{{ f.curr }}</td><td>{{ f.conf if f.conf is not none else '—' }}</td></tr>{% endfor %}</table>
-  {% else %}<p class="mut">No extracted facts changed.</p>{% endif %}
-  <h3 style="font-size:13px;color:var(--mut);margin-top:12px">Per-binder outcomes</h3>
-  {% if delta.binders %}
-  {% for b in delta.binders %}
-  <div class="card-box"><b>{{ b.binder_id }}</b>: {{ b.prev or '—' }} → {{ b.curr or '—' }}
-  {% if b.flips %}<table><tr><th>Rule</th><th>Before</th><th>After</th></tr>
-  {% for f in b.flips %}<tr><td>{{ f.rule_id }}</td><td>{{ f.prev or '—' }}</td><td>{{ f.curr or '—' }}</td></tr>{% endfor %}</table>{% endif %}
+  <div class="delta-section">
+    <h3>{{ ui.icon('arrow', 14) }} Delta — evaluation #{{ evals[1].evaluation_id }} → #{{ evals[0].evaluation_id }}</h3>
+    <p class="mut">Only changes are listed. What did not move stays off the page.</p>
   </div>
-  {% endfor %}
-  {% else %}<p class="mut">No binder outcome changed.</p>{% endif %}
-  <h3 style="font-size:13px;color:var(--mut);margin-top:12px">Recommendation</h3>
-  <p>{{ delta.reco.prev or '—' }}{% if delta.reco.prev_score is not none %} (score {{ delta.reco.prev_score }}){% endif %} → <b>{{ delta.reco.curr or '—' }}</b>{% if delta.reco.curr_score is not none %} (score {{ delta.reco.curr_score }}){% endif %}</p>
+
+  <div class="delta-section">
+    <h3>Facts</h3>
+    {% if delta.facts %}
+    <table class="delta-table">
+      <tr><th>Fact</th><th>Change</th><th>Confidence</th></tr>
+      {% for f in delta.facts %}
+      <tr>
+        <td>{{ f.field }}</td>
+        <td>{{ ui.diff_value(f.field, f.prev, f.curr) }}</td>
+        <td style="vertical-align:middle;text-align:center">{{ f.conf if f.conf is not none else '—' }}</td>
+      </tr>
+      {% endfor %}
+    </table>
+    {% else %}<p class="mut">No extracted facts changed.</p>{% endif %}
+  </div>
+
+  <div class="delta-section">
+    <h3>Per-binder outcomes</h3>
+    {% if delta.binders %}
+    {% for b in delta.binders %}
+    <div class="card-box">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:8px">
+        <b>{{ b.binder_id }}</b>
+        {% set po = b.prev or '—' %}
+        {% set co = b.curr or '—' %}
+        {% if po != co %}
+        <span class="delta-badge {% if co == 'Accept' %}ok{% elif co == 'Decline' %}bad{% else %}warn{% endif %}">
+          {{ po }} → {{ co }}
+        </span>
+        {% else %}
+        <span class="delta-badge neutral">{{ co }}</span>
+        {% endif %}
+      </div>
+      {% if b.flips %}
+      <table class="delta-table" style="font-size:12px;margin-top:8px">
+        <tr><th>Rule</th><th>Before</th><th>After</th></tr>
+        {% for f in b.flips %}
+        <tr>
+          <td>{{ f.rule_id }}</td>
+          <td>{{ f.prev or '—' }}</td>
+          <td>{{ f.curr or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </table>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% else %}<p class="mut">No binder outcome changed.</p>{% endif %}
+  </div>
+
+  <div class="delta-section">
+    <h3>Recommendation</h3>
+    <div class="delta-reco">
+      <span style="color:var(--ink-soft)">{{ delta.reco.prev or '—' }}{% if delta.reco.prev_score is not none %} (score {{ delta.reco.prev_score }}){% endif %}</span>
+      <span class="arrow">→</span>
+      <b style="font-size:15px">{{ delta.reco.curr or '—' }}{% if delta.reco.curr_score is not none %} (score {{ delta.reco.curr_score }}){% endif %}</b>
+    </div>
+  </div>
   {% endif %}
   {% endif %}
 </section>
@@ -162,38 +207,82 @@ details{margin:8px 0}summary{cursor:pointer;font-size:13px;color:var(--mut)}
   <h2 style="margin-top:0">Request rounds (one active round per case — the broker answers and the 10-business-day clock runs)</h2>
   {% if not rounds %}<p class="mut">No rounds issued yet.</p>{% endif %}
   {% for r in rounds %}
-  <div class="card-box"><b>Round {{ r['round'].number }}</b> · status {{ r['round'].status }} · issued {{ r['round'].issued_at | rd }} by {{ r['round'].issued_by or '—' }}
-  {% if r['round'].status == 'open' %}{% if r['sla'] == 'breached' %}<span class="chip bad">SLA breached</span>{% else %}<span class="chip warn">due {{ r['round'].due_at | rd }}</span>{% endif %}{% else %}<span class="chip ok">submitted {{ r['round'].submitted_at | rd }}</span>{% endif %}
-  <table><tr><th>Field</th><th>Asked as</th><th>From (engine gap)</th><th>Answer draft</th><th>Doc marked</th></tr>
-  {% for it in r['items'] %}
-  <tr><td>{{ it.field }}{% if it.suppressed %} <span class="chip neutral">suppressed</span>{% endif %}</td>
-  <td><b>{{ it.question }}</b>{% if it.note %}<br><span class="mut">Note (human): {{ it.note }}</span>{% endif %}</td>
-  <td>{% for rb in it.raised_by %}{{ rb[0] }} · {{ rb[1] }}<br>{% endfor %}</td>
-  <td>{{ it.answer_text or '—' }}</td>
-  <td>{{ it.answer_doc_id or '—' }}</td></tr>
-  {% endfor %}</table></div>
-  {% endfor %}
-  {% if gaps %}
-  <h2>Issue the next Request round (from the engine's named gaps — items you untick stay on record as suppressed, never asked)</h2>
-  <form method="post" action="/case/{{ case.case_id }}/round/issue" x-data="{confirming:false}">
-  {% for g in gaps %}
-  <div style="margin:6px 0"><label style="display:inline"><input type="checkbox" name="field_{{ loop.index0 }}" value="{{ g.field }}" checked> <b>{{ g.field }}</b></label>
-  <input type="text" class="note-in" name="note_{{ loop.index0 }}" placeholder="optional human note (shown to the broker as underwriter text)">
-  <p class="mut" style="margin:2px 0 6px">{{ g.question }}</p></div>
-  {% endfor %}
-  <button type="button" @click="confirming=true">Issue round to broker</button>
-  <div x-show="confirming" class="tour-overlay" style="display:none" :style="confirming && 'display:flex'">
-    <div class="tour-card">
-      <h3>Issue Request Round?</h3>
-      <p>This will notify the broker by email and start the 10-business-day SLA clock. One round stays active at a time.</p>
-      <div class="btns">
-        <button type="button" class="secondary" @click="confirming=false">Cancel</button>
-        <button type="submit" @click="confirming=false">Confirm &amp; Issue</button>
-      </div>
+  <div class="card-box">
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px">
+      <b>Round {{ r['round'].number }}</b>
+      <span class="chip neutral">status {{ r['round'].status }}</span>
+      <span class="chip neutral">issued {{ r['round'].issued_at | rd }}</span>
+      <span class="chip neutral">by {{ r['round'].issued_by or '—' }}</span>
+      {% if r['round'].status == 'open' %}{% if r['sla'] == 'breached' %}<span class="chip bad">SLA breached</span>{% else %}<span class="chip warn">due {{ r['round'].due_at | rd }}</span>{% endif %}{% else %}<span class="chip ok">submitted {{ r['round'].submitted_at | rd }}</span>{% endif %}
+    </div>
+    <div style="overflow-x:auto">
+    <table class="rounds-table"><tr><th>Field</th><th>Requested</th><th>Impacted by</th><th>Answer draft</th><th>Doc marked</th></tr>
+    {% for it in r['items'] %}
+    <tr>
+      <td><code>{{ it.field }}</code>{% if it.suppressed %} <span class="chip neutral">suppressed</span>{% endif %}</td>
+      <td>
+        <b>{{ it.field | field_label }}</b>
+        {% if it.note %}<br><span class="mut">Note: {{ it.note }}</span>{% endif %}
+      </td>
+      <td>
+        {% for rb in it.raised_by %}
+        <span class="chip impact-tag">{{ rb[0] }} · {{ rb[1] }}</span>
+        {% endfor %}
+      </td>
+      <td>{{ it.answer_text or '—' }}</td>
+      <td>{{ it.answer_doc_id or '—' }}</td>
+    </tr>
+    {% endfor %}</table>
     </div>
   </div>
-  </form>
-  <p class="mut">Issuing notifies the broker by email (SMTP if configured, otherwise the outbox in data/outbox/). One round stays active at a time; a new one may issue after the current is answered and gaps remain.</p>
+  {% endfor %}
+  {% if gaps %}
+  <section class="card request-round-card">
+    <header class="request-round-header">
+      <h2>{{ ui.icon('inbox', 18) }} Issue Next Request Round</h2>
+      <p class="mut">Select gaps to include. Unchecked items stay on record as suppressed — never asked.</p>
+    </header>
+
+    <form method="post" action="/case/{{ case.case_id }}/round/issue" x-data="{confirming:false}">
+      <div class="request-round-items">
+        {% for g in gaps %}
+        <div class="request-round-item">
+          <label class="request-round-label">
+            <input type="checkbox" name="field_{{ loop.index0 }}" value="{{ g.field }}" checked>
+            <span class="request-round-field">{{ g.field | field_label }}</span>
+            <span class="request-round-field-code">{{ g.field }}</span>
+          </label>
+          <div class="request-round-meta">
+            {% for rb in g.raised_by %}
+            <span class="chip impact-tag">{{ rb[0] }} · {{ rb[1] }}</span>
+            {% endfor %}
+          </div>
+          <input type="text" class="request-round-note" name="note_{{ loop.index0 }}" placeholder="Optional note for broker">
+        </div>
+        {% endfor %}
+      </div>
+
+      <div class="request-round-actions">
+        <button type="button" class="btn" @click="confirming=true">{{ ui.icon('send', 14) }} Issue round to broker</button>
+
+        <div x-show="confirming" class="tour-overlay" style="display:none" :style="confirming && 'display:flex'">
+          <div class="tour-card">
+            <h3>Issue Request Round?</h3>
+            <p>This will notify the broker by email and start the 10-business-day SLA clock. One round stays active at a time.</p>
+            <div class="btns">
+              <button type="button" class="btn secondary" @click="confirming=false">Cancel</button>
+              <button type="submit" class="btn" @click="confirming=false">Confirm & Issue</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </form>
+
+    <footer class="request-round-footer">
+      {{ ui.icon('help', 14) }}
+      <span>Issuing notifies the broker by email (SMTP if configured, otherwise the outbox in <code>data/outbox/</code>). One round stays active at a time; a new one may issue after the current is answered and gaps remain.</span>
+    </footer>
+  </section>
   {% elif not has_open %}
   <p class="mut">No unassessable gaps in the latest evaluation{%- if latest %} (evaluation #{{ latest.evaluation_id }}){% endif %} — nothing to ask.</p>
   {% endif %}

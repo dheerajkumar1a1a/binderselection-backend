@@ -12,7 +12,7 @@
    Ordering is the point — put this after the CSS and dark mode flashes white. */
 (function(){try{var t=localStorage.getItem('theme')||(window.matchMedia('(prefers-color-scheme: dark)').matches?'dark':'light');if(t==='dark')document.documentElement.setAttribute('data-theme','dark');}catch(e){}})();
 </script>
-<link rel="stylesheet" href="/static/app.css?v=3">
+<link rel="stylesheet" href="/static/app.css?v=19">
 <script defer src="/static/vendor/alpine.min.js"></script>
 <script defer src="/static/vendor/htmx.min.js"></script>
 <script>
@@ -45,13 +45,15 @@ document.addEventListener('htmx:afterRequest',function(){
 <div class="progress" id="progress" aria-hidden="true"></div>
 <a class="skip" href="#content">Skip to content</a>
 
-<div class="shell{{ ' has-rail' if show_rail }}">
+<div class="shell{{ ' has-rail' if show_rail }}" x-data="{ railCollapsed: localStorage.getItem('railCollapsed') === 'true', showRail: {{ 'true' if show_rail else 'false' }} }" :class="{ 'rail-collapsed': railCollapsed && showRail }">
 {% if show_rail %}
-<aside class="rail">
-  <a class="brand" href="/" aria-label="Binder Selection Agent — home">
-    {{ ui.brand(24) }}
-    <span class="brand-t"><b>Binder Selection</b><span>Agent · production</span></span>
-  </a>
+<aside class="rail" :class="{ 'rail-collapsed': railCollapsed }" x-transition>
+  <div class="rail-header">
+    <button type="button" class="brand-toggle" @click="railCollapsed = !railCollapsed; localStorage.setItem('railCollapsed', railCollapsed)" :aria-label="railCollapsed ? 'Expand sidebar' : 'Collapse sidebar'" :aria-expanded="!railCollapsed" title="Toggle sidebar">
+      {{ ui.brand(24) }}
+      <span class="brand-t"><b>Binder Selection</b><span>Agent · production</span></span>
+    </button>
+  </div>
 
   <div class="nav-group">
     <div class="nav-label">Work</div>

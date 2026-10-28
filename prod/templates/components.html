@@ -25,7 +25,9 @@
   'file': '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6"/>',
   'layers': '<path d="M12 3 3 8l9 5 9-5-9-5z"/><path d="M3 13l9 5 9-5"/><path d="M3 17.5l9 5 9-5"/>',
   'logout': '<path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/>',
-  'inbox': '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>'
+  'inbox': '<path d="M22 12h-6l-2 3h-4l-2-3H2"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+  'panel-left-close': '<path d="M18 19V5a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2Z"/><path d="M11 19H7"/><path d="M11 5H7"/>',
+  'panel-left-open': '<path d="M14 19V5a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2Z"/><path d="M5 19h14"/><path d="M5 5h14"/>'
 } %}
 
 {% macro icon(name, size=16, cls='') -%}
@@ -119,4 +121,414 @@
     <button type="submit" form="{{ id }}-form">{{ confirm_label }}</button>
   </div>
 </dialog>
+{%- endmacro %}
+
+{# Render a fact value from extracted data, handling complex types (arrays/objects) nicely #}
+{% macro fact_value(value, field_name='') -%}
+{% if value is none or value == '' %}
+  <span class="simple mut">—</span>
+{% elif value is mapping %}
+  {# Single object (not array) - render as key-value pairs #}
+  <div class="fact-value json-object">
+    {% for k, v in value.items() %}
+    <div class="kv"><span class="kv-key">{{ k }}</span><span class="kv-value">{{ v }}</span></div>
+    {% endfor %}
+  </div>
+{% elif value is iterable and not value is string %}
+  {# Array - detect type by field name FIRST, then structure #}
+  {% set first = value[0] if value else none %}
+  {# Exact field name matches take priority #}
+  {% if field_name == 'locations' %}
+    {# Locations - compact horizontal summary bars with expandable details #}
+    <div class="fact-value json-array locations-summary">
+      {% for loc in value %}
+        {% set has_detail = loc|length > 1 or loc.get('sprinklered') is not none or loc.get('territory') is not none or loc.get('construction_type') is not none or loc.get('year_built') is not none or loc.get('location_limit') is not none or loc.get('flood_tier') is not none or loc.get('roofing_type') is not none or loc.get('cctv_present') is not none or loc.get('cope_details_complete') is not none %}
+        <div class="location-summary-bar" tabindex="0" role="button" aria-expanded="false" onclick="this.setAttribute('aria-expanded', this.getAttribute('aria-expanded') === 'true' ? 'false' : 'true')"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+          <span class="loc-index">{{ loop.index }}</span>
+          <span class="loc-address">{{ loc.get('address', '—') }}</span>
+          <div class="loc-chips">
+            {% if loc.get('sprinklered') is not none %}
+              <span class="loc-chip boolean{% if not loc.sprinklered %} false{% endif %}">Sprinklered: {{ 'Yes' if loc.sprinklered else 'No' }}</span>
+            {% endif %}
+            {% if loc.get('construction_type') is not none %}
+              <span class="loc-chip">{{ loc.construction_type }}</span>
+            {% endif %}
+            {% if loc.get('year_built') is not none %}
+              <span class="loc-chip number">Year: {{ loc.year_built }}</span>
+            {% endif %}
+            {% if loc.get('territory') is not none %}
+              <span class="loc-chip">{{ loc.territory }}</span>
+            {% endif %}
+            {% if loc.get('flood_tier') is not none %}
+              <span class="loc-chip">{{ loc.flood_tier }}</span>
+            {% endif %}
+            {% if loc.get('location_limit') is not none %}
+              <span class="loc-chip money">Limit: {{ '{:,.0f}'.format(loc.location_limit) }}</span>
+            {% endif %}
+            {% if loc.get('roofing_type') is not none %}
+              <span class="loc-chip">{{ loc.roofing_type }}</span>
+            {% endif %}
+            {% if loc.get('cctv_present') is not none %}
+              <span class="loc-chip boolean{% if not loc.cctv_present %} false{% endif %}">CCTV: {{ 'Yes' if loc.cctv_present else 'No' }}</span>
+            {% endif %}
+            {% if loc.get('cope_details_complete') is not none %}
+              <span class="loc-chip boolean{% if not loc.cope_details_complete %} false{% endif %}">COPE: {{ 'Yes' if loc.cope_details_complete else 'No' }}</span>
+            {% endif %}
+          </div>
+          <span class="expand-hint">{{ 'Show less' if has_detail else '' }}</span>
+        </div>
+        {# Expandable detail panel #}
+        {% if has_detail %}
+        <div class="location-detail-panel">
+          <div class="location-detail-grid">
+            {% set detail_fields = [
+              ('sprinklered', 'Sprinklered', 'boolean'),
+              ('territory', 'Territory', 'text'),
+              ('wildfire_risk_score', 'Wildfire Risk', 'number'),
+              ('fema_flood_zone', 'FEMA Flood Zone', 'text'),
+              ('construction_type', 'Construction', 'text'),
+              ('alarm_present', 'Alarm', 'boolean'),
+              ('year_built', 'Year Built', 'number'),
+              ('alarm_type', 'Alarm Type', 'text'),
+              ('country', 'Country', 'text'),
+              ('location_limit', 'Location Limit', 'money'),
+              ('flood_tier', 'Flood Tier', 'text'),
+              ('roofing_type', 'Roofing', 'text'),
+              ('cctv_present', 'CCTV', 'boolean'),
+              ('cope_details_complete', 'COPE Complete', 'boolean')
+            ] %}
+            {% for field_key, field_label, field_type in detail_fields %}
+              {% if loc.get(field_key) is not none %}
+              <div class="field">
+                <span class="field-label">{{ field_label }}</span>
+                <span class="field-value {% if field_type == 'boolean' %}boolean{% if not loc[field_key] %} false{% endif %}{% elif field_type == 'number' %}number{% elif field_type == 'money' %}money{% endif %}">{{ loc[field_key] }}</span>
+              </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  {% elif field_name == 'commodities' %}
+    {# Commodities - render as inline tags #}
+    <div class="fact-value json-array commodity-tags">
+      {% for item in value %}
+      <span class="commodity-tag">{{ item.get('commodity_type', '—') }}</span>
+      {% endfor %}
+    </div>
+  {% elif field_name == 'coverage_sections' %}
+    {# Coverage sections - render as tags with limit #}
+    <div class="fact-value json-array coverage-tags">
+      {% for item in value %}
+      <span class="coverage-tag">Limit: {{ '{:,.0f}'.format(item.get('limit', 0)) }}</span>
+      {% endfor %}
+    </div>
+  {# Structure-based fallbacks for unknown field names #}
+  {% elif first is mapping and first.get('address') is defined %}
+    {# Looks like locations - use same compact rendering #}
+    <div class="fact-value json-array locations-summary">
+      {% for loc in value %}
+        {% set has_detail = loc|length > 1 or loc.get('sprinklered') is not none or loc.get('territory') is not none or loc.get('construction_type') is not none or loc.get('year_built') is not none or loc.get('location_limit') is not none or loc.get('flood_tier') is not none or loc.get('roofing_type') is not none or loc.get('cctv_present') is not none or loc.get('cope_details_complete') is not none %}
+        <div class="location-summary-bar" tabindex="0" role="button" aria-expanded="false" onclick="this.setAttribute('aria-expanded', this.getAttribute('aria-expanded') === 'true' ? 'false' : 'true')"
+             onkeydown="if(event.key==='Enter'||event.key===' '){event.preventDefault();this.click()}">
+          <span class="loc-index">{{ loop.index }}</span>
+          <span class="loc-address">{{ loc.get('address', '—') }}</span>
+          <div class="loc-chips">
+            {% if loc.get('sprinklered') is not none %}
+              <span class="loc-chip boolean{% if not loc.sprinklered %} false{% endif %}">Sprinklered: {{ 'Yes' if loc.sprinklered else 'No' }}</span>
+            {% endif %}
+            {% if loc.get('construction_type') is not none %}
+              <span class="loc-chip">{{ loc.construction_type }}</span>
+            {% endif %}
+            {% if loc.get('year_built') is not none %}
+              <span class="loc-chip number">Year: {{ loc.year_built }}</span>
+            {% endif %}
+            {% if loc.get('territory') is not none %}
+              <span class="loc-chip">{{ loc.territory }}</span>
+            {% endif %}
+            {% if loc.get('flood_tier') is not none %}
+              <span class="loc-chip">{{ loc.flood_tier }}</span>
+            {% endif %}
+            {% if loc.get('location_limit') is not none %}
+              <span class="loc-chip money">Limit: {{ '{:,.0f}'.format(loc.location_limit) }}</span>
+            {% endif %}
+            {% if loc.get('roofing_type') is not none %}
+              <span class="loc-chip">{{ loc.roofing_type }}</span>
+            {% endif %}
+            {% if loc.get('cctv_present') is not none %}
+              <span class="loc-chip boolean{% if not loc.cctv_present %} false{% endif %}">CCTV: {{ 'Yes' if loc.cctv_present else 'No' }}</span>
+            {% endif %}
+            {% if loc.get('cope_details_complete') is not none %}
+              <span class="loc-chip boolean{% if not loc.cope_details_complete %} false{% endif %}">COPE: {{ 'Yes' if loc.cope_details_complete else 'No' }}</span>
+            {% endif %}
+          </div>
+          <span class="expand-hint">{{ 'Show less' if has_detail else '' }}</span>
+        </div>
+        {% if has_detail %}
+        <div class="location-detail-panel">
+          <div class="location-detail-grid">
+            {% set detail_fields = [
+              ('sprinklered', 'Sprinklered', 'boolean'),
+              ('territory', 'Territory', 'text'),
+              ('wildfire_risk_score', 'Wildfire Risk', 'number'),
+              ('fema_flood_zone', 'FEMA Flood Zone', 'text'),
+              ('construction_type', 'Construction', 'text'),
+              ('alarm_present', 'Alarm', 'boolean'),
+              ('year_built', 'Year Built', 'number'),
+              ('alarm_type', 'Alarm Type', 'text'),
+              ('country', 'Country', 'text'),
+              ('location_limit', 'Location Limit', 'money'),
+              ('flood_tier', 'Flood Tier', 'text'),
+              ('roofing_type', 'Roofing', 'text'),
+              ('cctv_present', 'CCTV', 'boolean'),
+              ('cope_details_complete', 'COPE Complete', 'boolean')
+            ] %}
+            {% for field_key, field_label, field_type in detail_fields %}
+              {% if loc.get(field_key) is not none %}
+              <div class="field">
+                <span class="field-label">{{ field_label }}</span>
+                <span class="field-value {% if field_type == 'boolean' %}boolean{% if not loc[field_key] %} false{% endif %}{% elif field_type == 'number' %}number{% elif field_type == 'money' %}money{% endif %}">{{ loc[field_key] }}</span>
+              </div>
+              {% endif %}
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
+      {% endfor %}
+    </div>
+  {% elif first is mapping and first.get('commodity_type') is defined %}
+    {# Looks like commodities #}
+    <div class="fact-value json-array commodity-tags">
+      {% for item in value %}
+      <span class="commodity-tag">{{ item.get('commodity_type', '—') }}</span>
+      {% endfor %}
+    </div>
+  {% elif first is mapping and first.get('limit') is defined %}
+    {# Looks like coverage sections #}
+    <div class="fact-value json-array coverage-tags">
+      {% for item in value %}
+      <span class="coverage-tag">Limit: {{ '{:,.0f}'.format(item.get('limit', 0)) }}</span>
+      {% endfor %}
+    </div>
+  {% else %}
+    {# Generic array fallback - check if simple strings/numbers #}
+    {% if first is string or first is number %}
+      <div class="fact-value json-array simple-array">
+        {% for item in value %}
+        <span class="simple-array-item">{{ item }}</span>
+        {% endfor %}
+      </div>
+    {% else %}
+      <div class="fact-value json-array generic-array">
+        {% for item in value %}
+        <span class="generic-array-item">{{ item }}</span>
+        {% endfor %}
+      </div>
+    {% endif %}
+  {% endif %}
+{% else %}
+  {# Simple scalar value #}
+  <span class="simple">{{ value }}</span>
+{% endif %}
+{%- endmacro %}
+
+{# Render the engine narrative as a structured professional card #}
+{% macro engine_summary(narrative, reco=None, scores=None, binders=None) -%}
+{# Parse the narrative text into structured components #}
+{% set lines = narrative.split('. ') if narrative else [] %}
+{% set submission_line = lines[0] if lines else '' %}
+{% set binder_lines = lines[1:-1] if lines|length > 2 else [] %}
+{% set rec_line = lines[-1] if lines|length > 1 else '' %}
+
+<div class="engine-summary" aria-live="polite">
+  <div class="engine-summary__header">
+    <div class="engine-summary__title">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="ic"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+      <span>Engine Summary</span>
+    </div>
+    {% if reco and not reco.startswith('no eligible') %}
+    <div class="engine-summary__rec-badge">
+      Recommended: <strong>{{ reco }}</strong>
+      {% if scores and scores.get(reco) is not none %}
+      <span class="score">(Score: {{ scores[reco] }})</span>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="engine-summary__body">
+    {# Binder outcomes section #}
+    {% if binder_lines %}
+    <div class="engine-summary__section">
+      <div class="engine-summary__section-title">Binder Outcomes</div>
+      <div class="engine-summary__binder-list">
+        {% for line in binder_lines %}
+        {% set parts = line.split(': ') %}
+        {% set binder_id = parts[0].replace('- ', '').strip() %}
+        {% set rest = parts[1] if parts|length > 1 else '' %}
+        {% set status = 'ok' %}
+        {% set rules = [] %}
+        {% if 'eligible for recommendation' in rest %}
+          {% set status = 'ok' %}
+        {% elif 'needs information' in rest %}
+          {% set status = 'needs-info' %}
+          {% set rule_str = rest.split('(')[-1].replace(')', '').replace('; referred, not declined', '') %}
+          {% set rules = rule_str.split(', ') %}
+        {% elif 'not recommended' in rest %}
+          {% set status = 'declined' %}
+          {% set rule_str = rest.split('rules bitten: ')[-1].replace('.', '') %}
+          {% set rules = rule_str.split(', ') %}
+        {% elif 'not considered' in rest %}
+          {% set status = 'excluded' %}
+        {% elif 'evaluation failed' in rest %}
+          {% set status = 'excluded' %}
+        {% endif %}
+        {# Skip the recommendation line if it appears in binder_lines #}
+        {% if binder_id not in ['Recommended binder', 'No binder'] %}
+        <div class="engine-summary__binder-item">
+          <span class="engine-summary__binder-name">{{ binder_id }}</span>
+          <span class="engine-summary__binder-status {{ status }}">
+            {% if status == 'ok' %}Eligible / Recommended
+            {% elif status == 'declined' %}Declined
+            {% elif status == 'needs-info' %}Needs Information
+            {% elif status == 'excluded' %}Not Considered
+            {% else %}{{ rest|truncate(50) }}
+            {% endif %}
+          </span>
+          {% if rules %}
+          <div class="engine-summary__binder-rules">
+            {% for rule in rules %}
+            {% set clean_rule = rule.strip() %}
+            {% if clean_rule and not clean_rule.startswith('not recommended') and not clean_rule.startswith('rules bitten') %}
+            <span class="engine-summary__rule-tag">{{ clean_rule }}</span>
+            {% endif %}
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {# Submission context #}
+    {% if submission_line %}
+    <div class="engine-summary__section">
+      <div class="engine-summary__section-title">Submission Context</div>
+      <div style="font-size:12.5px;color:var(--ink-soft);line-height:1.6">{{ submission_line }}.</div>
+    </div>
+    {% endif %}
+  </div>
+
+  <div class="engine-summary__footer">
+    <div class="engine-summary__disclaimer">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false" class="ic"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><path d="M12 17h.01"/></svg>
+      <span>This is advisory; a named underwriter decides.</span>
+    </div>
+  </div>
+</div>
+{%- endmacro %}
+
+{# Render a structured diff for a field change (used in delta view) #}
+{% macro diff_value(field, prev, curr) -%}
+{%- set is_locations = field == 'locations' -%}
+{%- set is_complex = prev is mapping or prev is iterable or curr is mapping or curr is iterable -%}
+{%- set arrow_left = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>' -%}
+{%- set arrow_check = '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false"><path d="M20 6 9 17l-5-5"/></svg>' -%}
+
+{% if is_locations and (prev is iterable or curr is iterable) -%}
+{# Side-by-side comparison for locations array #}
+<div class="locations-diff">
+  <div class="loc-pair">
+    <div class="loc-card prev">
+      <div class="loc-header">
+        {{ arrow_left | safe }}
+        <span>Before ({{ (prev or []) | length }} location{{ 's' if (prev or []) | length != 1 else '' }})</span>
+      </div>
+      <div class="loc-body">
+        {% if prev %}
+          {% for loc in prev %}
+          <div class="loc-field">
+            <span class="key">Location {{ loop.index }}:</span>
+            <span class="val">{{ loc.get('address', '—') }}</span>
+          </div>
+          {% for k, v in loc.items() if k != 'address' %}
+          <div class="loc-field">
+            <span class="key">{{ k }}:</span>
+            <span class="val">{{ v if v is not none else '—' }}</span>
+          </div>
+          {% endfor %}
+          <hr style="margin:6px 0;border:none;border-top:1px solid var(--line-soft)">
+          {% endfor %}
+        {% else %}
+          <div class="loc-field"><span class="val" style="color:var(--mut)">No locations</span></div>
+        {% endif %}
+      </div>
+    </div>
+    <div class="loc-card curr">
+      <div class="loc-header">
+        {{ arrow_check | safe }}
+        <span>After ({{ (curr or []) | length }} location{{ 's' if (curr or []) | length != 1 else '' }})</span>
+      </div>
+      <div class="loc-body">
+        {% if curr %}
+          {% for loc in curr %}
+          <div class="loc-field">
+            <span class="key">Location {{ loop.index }}:</span>
+            <span class="val">{{ loc.get('address', '—') }}</span>
+          </div>
+          {% for k, v in loc.items() if k != 'address' %}
+          <div class="loc-field">
+            <span class="key">{{ k }}:</span>
+            <span class="val">{{ v if v is not none else '—' }}</span>
+          </div>
+          {% endfor %}
+          <hr style="margin:6px 0;border:none;border-top:1px solid var(--line-soft)">
+          {% endfor %}
+        {% else %}
+          <div class="loc-field"><span class="val" style="color:var(--mut)">No locations</span></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+{%- elif is_complex -%}
+{# Generic complex object diff - render as before/after cards #}
+<div class="delta-cell">
+  <div class="val prev">
+    <div class="val-label prev">
+      {{ arrow_left | safe }} Before
+    </div>
+    <pre style="margin:0;white-space:pre-wrap;word-break:break-word;max-height:250px;overflow:auto">{{ prev | tojson(indent=2) }}</pre>
+  </div>
+  <div class="val curr">
+    <div class="val-label curr">
+      {{ arrow_check | safe }} After
+    </div>
+    <pre style="margin:0;white-space:pre-wrap;word-break:break-word;max-height:250px;overflow:auto">{{ curr | tojson(indent=2) }}</pre>
+  </div>
+</div>
+
+{%- else -%}
+{# Simple value diff - inline with highlighting #}
+<div class="delta-cell simple">
+  {% if prev is not none %}
+  <span class="val prev">
+    <span class="val-label prev">{{ arrow_left | safe }} Before</span>
+    {{ prev }}
+  </span>
+  <span class="delta-arrow">→</span>
+  {% endif %}
+  {% if curr is not none %}
+  <span class="val curr">
+    <span class="val-label curr">{{ arrow_check | safe }} After</span>
+    {{ curr }}
+  </span>
+  {% endif %}
+</div>
+{%- endif -%}
 {%- endmacro %}

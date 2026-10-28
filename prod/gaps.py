@@ -14,7 +14,7 @@ from __future__ import annotations
 def cannot_assess(items_payload: dict) -> list[dict]:
     """Unique missing fields across all binders of one evaluation payload.
 
-    Returns [{field, question, raised_by: [[binder_id, rule_id], ...]}] —
+    Returns [{field, label, question, raised_by: [[binder_id, rule_id], ...]}] —
     one item per field regardless of how many binders raised it (the broker
     answers the fact, not the binder).
     """
@@ -35,8 +35,17 @@ def cannot_assess(items_payload: dict) -> list[dict]:
             else:
                 raised[field].append(entry)
     return [{"field": f,
+             "label": _label(f),
              "question": _question(f, raised[f]),
              "raised_by": raised[f]} for f in order]
+
+
+def _label(field: str) -> str:
+    """Human-friendly label for a field name."""
+    # Split on dots, underscores, and hyphens; title-case each segment
+    import re
+    parts = re.split(r'[._-]+', field)
+    return " ".join(p.capitalize() for p in parts if p)
 
 
 def _question(field: str, raised_by: list[list[str]]) -> str:

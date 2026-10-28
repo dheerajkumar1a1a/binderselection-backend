@@ -1,21 +1,94 @@
 <!DOCTYPE html>
 <html lang="en">
 <head><meta charset="utf-8"><title>{{ v.case.reference }} — Broker portal</title>
-<style>:root{--ink:#1a2332;--mut:#5b6b7f;--line:#dfe6ee;--bg:#f5f8fb;--warn:#9a6a00;--warnbg:#fff6dd;--bad:#b02a37;--ok:#157347;--card:#fff}
-*{box-sizing:border-box}body{margin:0;font-family:Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
+<style>
+:root{
+  --ink:#1a2332;--mut:#5b6b7f;--line:#dfe6ee;--bg:#f5f8fb;
+  --warn:#9a6a00;--warnbg:#fff6dd;--bad:#b02a37;--ok:#157347;
+  --card:#fff;--radius:8px;--radius-sm:6px;--focus:#4338ca;--accent:#4338ca;
+  --accent-hover:#372fa8;--accent-active:#2d278f;
+  --btn-primary:#4338ca;--btn-primary-text:#fff;
+  --btn-secondary:#eef3f8;--btn-secondary-text:#1a2332;--btn-secondary-hover:#e2e8f0;
+  --btn-ghost:transparent;--btn-ghost-hover:#f5f8fb;
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);color:var(--ink)}
 header{background:#0f2a44;color:#fff;padding:22px 24px}
-header h1{margin:0;font-size:20px}header p{margin:4px 0 0;color:#c9d6e4;font-size:13px}
+header h1{margin:0;font-size:20px;font-weight:600}
+header p{margin:4px 0 0;color:#c9d6e4;font-size:13px}
 main{max-width:900px;margin:0 auto;padding:20px}
-section{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:18px;margin:14px 0}
-h2{margin:0 0 10px;font-size:16px}.mut{color:var(--mut);font-size:13px}
+section{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:18px;margin:14px 0}
+h2{margin:0 0 10px;font-size:16px;font-weight:600}
+.mut{color:var(--mut);font-size:13px}
 table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
-th,td{border:1px solid var(--line);padding:6px 8px;text-align:left;vertical-align:top}
-th{background:#eef3f8}
-.chip{display:inline-block;border-radius:12px;padding:1px 9px;font-size:11px;border:1px solid}
+th,td{border:1px solid var(--line);padding:10px 12px;text-align:left;vertical-align:top}
+th{background:#eef3f8;font-size:11px;font-weight:650;letter-spacing:.05em;text-transform:uppercase;color:var(--mut)}
+.chip{display:inline-flex;align-items:center;gap:4px;border-radius:999px;padding:2px 10px;font-size:11px;font-weight:600;border:1px solid}
 .s-open{color:var(--warn);border-color:var(--warn);background:var(--warnbg)}
 .s-breached{color:var(--bad);border-color:var(--bad);background:#fbeaec}
 .s-locked{color:var(--ok);border-color:var(--ok);background:#e9f6ee}
+.impact-tag{color:var(--ink);border-color:var(--line);background:var(--card);font-size:11px}
 footer{color:var(--mut);font-size:12px;text-align:center;padding:16px}
+.field-label{font-weight:600;color:var(--ink)}
+.field-code{font-family:var(--mono);font-size:11px;color:var(--mut);margin-left:6px}
+
+/* ── Button System ────────────────────────────────────────────────────── */
+.btn{
+  display:inline-flex;align-items:center;justify-content:center;gap:8px;
+  padding:10px 16px;font-size:13px;font-weight:600;line-height:1;
+  border-radius:var(--radius);border:1px solid transparent;cursor:pointer;
+  text-decoration:none;transition:all .15s ease;
+  white-space:nowrap;font-family:inherit
+}
+.btn:disabled{opacity:.5;cursor:not-allowed;transform:none!important;box-shadow:none!important}
+.btn:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+
+.btn-primary{
+  background:var(--btn-primary);color:var(--btn-primary-text);border-color:var(--btn-primary);
+  box-shadow:0 1px 2px rgba(67,56,202,.15),0 0 0 1px rgba(67,56,202,.1)
+}
+.btn-primary:hover:not(:disabled){
+  background:var(--accent-hover);border-color:var(--accent-hover);
+  box-shadow:0 4px 12px rgba(67,56,202,.25),0 0 0 1px rgba(67,56,202,.15);
+  transform:translateY(-1px)
+}
+.btn-primary:active:not(:disabled){
+  background:var(--accent-active);transform:translateY(0);box-shadow:0 1px 2px rgba(67,56,202,.15)
+}
+
+.btn-secondary{
+  background:var(--btn-secondary);color:var(--btn-secondary-text);border-color:var(--line)
+}
+.btn-secondary:hover:not(:disabled){
+  background:var(--btn-secondary-hover);border-color:var(--mut);
+  box-shadow:0 1px 2px rgba(0,0,0,.04)
+}
+.btn-secondary:active:not(:disabled){background:#d7dfea;transform:translateY(0)}
+
+.btn-ghost{
+  background:var(--btn-ghost);color:var(--ink);border-color:transparent
+}
+.btn-ghost:hover:not(:disabled){
+  background:var(--btn-ghost-hover);border-color:var(--line)
+}
+.btn-ghost:active:not(:disabled){background:#eef3f8}
+
+.btn-sm{padding:7px 12px;font-size:12px}
+.btn-icon{padding:8px}
+.btn-group{display:inline-flex;gap:0}
+.btn-group .btn{border-radius:0}
+.btn-group .btn:first-child{border-top-left-radius:var(--radius);border-bottom-left-radius:var(--radius)}
+.btn-group .btn:last-child{border-top-right-radius:var(--radius);border-bottom-right-radius:var(--radius)}
+.btn-group .btn:not(:last-child){border-right-color:transparent}
+
+/* ── Round Action Row ─────────────────────────────────────────────────── */
+.round-action-row{
+  display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)
+}
+.round-action-row .btn{min-width:160px}
+.round-disclaimer{
+  flex:1;min-width:200px;margin:0;color:var(--mut);font-size:12px;line-height:1.5
+}
 </style></head>
 <body>
 <header><h1>{{ v.case.reference }}</h1>
@@ -23,20 +96,32 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:16px}
 <main>
 
 {% for r in v.rounds %}
-<section><h2 style="margin-top:0">Request round {{ r['round'].number }}
-{% if r['round'].status == 'open' and r['sla'] == 'due' %}<span class="chip s-open">open · due {{ r['round'].due_at | rd }}</span>
-{% elif r['round'].status == 'open' %}<span class="chip s-breached">open · past due</span>
-{% else %}<span class="chip s-locked">submitted</span>{% endif %}</h2>
-<table><tr><th>#</th><th>Information requested</th><th>Underwriter note (human text)</th><th>Your answer (draft)</th><th>Document answering it</th></tr>
-{% for it in r['items'] %}<tr>
-<td>{{ loop.index }}</td><td>{{ it.question }}</td>
-<td>{% if it.note %}{{ it.note }}{% else %}<span class="mut">—</span>{% endif %}</td>
-<td>{% if it.answer_text %}{{ it.answer_text }}{% else %}<span class="mut">not yet answered</span>{% endif %}</td>
-<td>{% if it.answer_doc_id %}{{ it.answer_doc_id }}{% else %}<span class="mut">—</span>{% endif %}</td>
-</tr>{% endfor %}</table>
-{% if r['round'].status == 'open' %}<p style="margin-top:8px"><a href="/portal/case/{{ v.case.case_id }}/round/{{ r['round'].round_id }}"><button>Answer this round →</button></a></p>
-<p class="mut">Submit when done — submitting locks the round and triggers re-evaluation immediately (10-business-day clock from {{ r['round'].issued_at | rd }}).</p>
-{% else %}<p class="mut">Submitted {{ r['round'].submitted_at | rd }} — re-evaluation #{% if r['round'].answered_evaluation_id %}{{ r['round'].answered_evaluation_id }}{% else %}—{% endif %}. The outcome arrives as a letter below.</p>{% endif %}
+<section>
+  <h2 style="margin-top:0;display:flex;align-items:center;gap:8px;flex-wrap:wrap">Request round {{ r['round'].number }}
+  {% if r['round'].status == 'open' and r['sla'] == 'due' %}<span class="chip s-open">open · due {{ r['round'].due_at | rd }}</span>
+  {% elif r['round'].status == 'open' %}<span class="chip s-breached">open · past due</span>
+  {% else %}<span class="chip s-locked">submitted</span>{% endif %}</h2>
+  <div style="overflow-x:auto">
+  <table><tr><th>#</th><th>Information requested</th><th>Underwriter note</th><th>Your answer (draft)</th><th>Document answering it</th></tr>
+  {% for it in r['items'] %}<tr>
+  <td>{{ loop.index }}</td>
+  <td><span class="field-label">{{ it.field | field_label }}</span> <span class="field-code">{{ it.field }}</span></td>
+  <td>{% if it.note %}{{ it.note }}{% else %}<span class="mut">—</span>{% endif %}</td>
+  <td>{% if it.answer_text %}{{ it.answer_text }}{% else %}<span class="mut">not yet answered</span>{% endif %}</td>
+  <td>{% if it.answer_doc_id %}{{ it.answer_doc_id }}{% else %}<span class="mut">—</span>{% endif %}</td>
+  </tr>{% endfor %}</table>
+  </div>
+  {% if r['round'].status == 'open' %}
+  <div class="round-action-row">
+    <a href="/portal/case/{{ v.case.case_id }}/round/{{ r['round'].round_id }}" class="btn btn-primary">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+      Answer this round
+    </a>
+    <p class="round-disclaimer">Submit when done — submitting locks the round and triggers re-evaluation immediately (10-business-day clock from {{ r['round'].issued_at | rd }}).</p>
+  </div>
+  {% else %}
+  <p class="mut">Submitted {{ r['round'].submitted_at | rd }} — re-evaluation #{% if r['round'].answered_evaluation_id %}{{ r['round'].answered_evaluation_id }}{% else %}—{% endif %}. The outcome arrives as a letter below.</p>
+  {% endif %}
 </section>
 {% endfor %}
 
@@ -45,7 +130,7 @@ footer{color:var(--mut);font-size:12px;text-align:center;padding:16px}
 <section><h2 style="margin-top:0">Outcome letters</h2>
 {% if not v.letters %}<p class="mut">No letters yet.</p>{% else %}
 <table><tr><th>When</th><th>Letter</th><th></th></tr>
-{% for L in v.letters %}<tr><td>{{ L.created | rd }}</td><td>{{ L.title }}</td><td><a href="/portal/case/{{ v.case.case_id }}/letter/{{ L.decision_id }}">read →</a></td></tr>{% endfor %}</table>
+{% for L in v.letters %}<tr><td>{{ L.created | rd }}</td><td>{{ L.title }}</td><td><a href="/portal/case/{{ v.case.case_id }}/letter/{{ L.decision_id }}" class="btn btn-ghost btn-sm">read</a></td></tr>{% endfor %}</table>
 {% endif %}
 </section>
 

@@ -112,11 +112,19 @@ def _rel(value):
     return f"in {span}" if delta < 0 else f"{span} ago"
 
 
+def _field_label(field: str) -> str:
+    """Human-friendly label for a field name."""
+    import re
+    parts = re.split(r'[._-]+', field or "")
+    return " ".join(p.capitalize() for p in parts if p)
+
+
 tpl.env.filters["rd"] = _readable_date
 tpl.env.filters["ist"] = _readable_date
 tpl.env.filters["dateonly"] = _date_only
 tpl.env.filters["money"] = _money
 tpl.env.filters["rel"] = _rel
+tpl.env.filters["field_label"] = _field_label
 store.init_db()
 _seeded = auth.ensure_seeded()
 for _u in _seeded:  # first-run provisioning notice (local dev comfort)
